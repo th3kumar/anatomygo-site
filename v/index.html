@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The shared view is in the URL fragment, which never reaches this server. Nothing here loads from
+     elsewhere or sends it anywhere, and pin text is only ever inserted as text. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>A shared view · AnatomyGo</title>
+<meta property="og:title" content="A shared anatomy view">
+<meta property="og:description" content="Open it in AnatomyGo, the 3D anatomy atlas for Android.">
+<style>
+  :root { --bg: #F2F4F3; --card: #fff; --text: #243A3A; --muted: #596966; --primary: #297D74; --on-primary: #fff;
+          --pin: #B0601C; --on-pin: #fff; --line: #D2DFDA; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121A1D; --card: #1C272B; --text: #E1ECE9; --muted: #AFBFBA; --primary: #83D5C5; --on-primary: #073B33;
+            --pin: #F2B866; --on-pin: #3A2200; --line: #3F504B; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  .brand { font-weight: 600; color: var(--primary); letter-spacing: .01em; }
+  .card { background: var(--card); border-radius: 20px; padding: 20px; margin-top: 14px; }
+  h1 { font-size: 24px; line-height: 1.25; margin: 0 0 4px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  ol { list-style: none; padding: 0; margin: 16px 0 0; }
+  li { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .number { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--pin); color: var(--on-pin);
+            display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .label { font-weight: 600; overflow-wrap: anywhere; }
+  .notes { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  button.reveal { font: inherit; color: var(--primary); background: none; border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; }
+  .actions { display: grid; gap: 10px; margin-top: 18px; }
+  .button { display: block; text-align: center; text-decoration: none; font-weight: 600; border-radius: 14px; padding: 13px 16px; border: 0; font-size: 16px; }
+  .primary { background: var(--primary); color: var(--on-primary); }
+  .secondary { background: none; color: var(--primary); border: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">AnatomyGo</div>
+  <section class="card" id="view" hidden>
+    <h1 id="title"></h1>
+    <div class="muted" id="summary"></div>
+    <ol id="pins"></ol>
+    <button class="reveal" id="reveal-all" hidden>Reveal all</button>
+    <p class="muted" id="disclaimer" hidden>Pins are the sender's personal study notes, not verified anatomical landmarks.</p>
+  </section>
+  <section class="card" id="problem" hidden>
+    <h1 id="problem-title">This link can't be opened</h1>
+    <div class="muted" id="problem-detail"></div>
+  </section>
+  <section class="card">
+    <div id="android">
+      <div>Explore this view in 3D in AnatomyGo.</div>
+      <div class="actions">
+        <a class="button primary" id="open" hidden>Open in AnatomyGo</a>
+        <a class="button secondary" id="play">Get AnatomyGo on Google Play</a>
+      </div>
+      <p class="muted">After installing, tap the link in your chat again to open this view.</p>
+    </div>
+    <div id="other" hidden>AnatomyGo is a 3D anatomy atlas for Android phones. Open this link on an Android phone to explore the view.</div>
+  </section>
+</main>
+<script>
+"use strict";
+const PACKAGE = "com.anatomygo";
+const PLAY = "https://play.google.com/store/apps/details?id=" + PACKAGE + "&referrer=" + encodeURIComponent("utm_source=share_view&utm_medium=web");
+const MAX_INFLATED = 65536;
+const $ = id => document.getElementById(id);
+
+class LinkError extends Error {}
+function payload() { return location.hash.slice(1) || new URLSearchParams(location.search).get("d") || ""; }
+function text(value, max, optional) {
+  if (value === undefined || value === null) { if (optional) return ""; throw new LinkError("invalid"); }
+  if (typeof value !== "string" || value.length > max) throw new LinkError("invalid");
+  return value;
+}
+
+// Mirrors ShareCodec.decode in the app: `<version>.<base64url(zlib(json))>`.
+async function decode(p) {
+  const dot = p.indexOf(".");
+  const version = dot > 0 ? Number(p.slice(0, dot)) : NaN;
+  if (!Number.isInteger(version)) throw new LinkError("invalid");
+  if (version > 1) throw new LinkError("newer");
+  if (version !== 1) throw new LinkError("invalid");
+  let b64 = p.slice(dot + 1).replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  let bytes;
+  try { bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); } catch (e) { throw new LinkError("invalid"); }
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
+  const chunks = []; let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > MAX_INFLATED) throw new LinkError("invalid");
+      chunks.push(value);
+    }
+  } catch (e) { throw new LinkError("invalid"); }
+  const all = new Uint8Array(size); let at = 0;
+  for (const c of chunks) { all.set(c, at); at += c.length; }
+  let json;
+  try { json = JSON.parse(new TextDecoder().decode(all)); } catch (e) { throw new LinkError("invalid"); }
+  if (!json || typeof json !== "object" || Array.isArray(json)) throw new LinkError("invalid");
+  const pins = json.p === undefined ? [] : json.p;
+  if (!Array.isArray(pins) || pins.length > 100) throw new LinkError("invalid");
+  return {
+    title: text(json.t, 200, true),
+    quiz: json.q === 1 && pins.length > 0,
+    pins: pins.map(pin => {
+      if (!pin || typeof pin !== "object") throw new LinkError("invalid");
+      const label = text(pin.l, 256);
+      if (!label.trim()) throw new LinkError("invalid");
+      return { label, notes: text(pin.n, 4000, true) };
+    }),
+  };
+}
+
+function show(view) {
+  const title = view.title ? view.title.charAt(0).toUpperCase() + view.title.slice(1) : "A shared view";
+  $("title").textContent = title;
+  document.title = title + " · AnatomyGo";
+  const n = view.pins.length;
+  $("summary").textContent = n === 0 ? "Shared with you from AnatomyGo."
+    : view.quiz ? "Quiz: name the " + n + " numbered " + (n === 1 ? "structure" : "structures") + " in the picture, then reveal the answers."
+    : n + " study " + (n === 1 ? "pin" : "pins") + " shared with you. The numbers match the picture in your chat.";
+  const reveals = [];
+  view.pins.forEach((pin, i) => {
+    const li = document.createElement("li");
+    const number = document.createElement("div");
+    number.className = "number"; number.textContent = String(i + 1);
+    const body = document.createElement("div");
+    const label = document.createElement("div");
+    label.className = "label"; label.textContent = pin.label;
+    body.append(label);
+    if (pin.notes) {
+      const notes = document.createElement("div");
+      notes.className = "notes"; notes.textContent = pin.notes;
+      body.append(notes);
+    }
+    if (view.quiz) {
+      body.hidden = true;
+      const button = document.createElement("button");
+      button.className = "reveal"; button.textContent = "Tap to reveal";
+      const reveal = () => { button.remove(); body.hidden = false; };
+      button.addEventListener("click", reveal);
+      reveals.push(reveal);
+      li.append(number, button, body);
+    } else li.append(number, body);
+    $("pins").append(li);
+  });
+  if (view.quiz) {
+    $("reveal-all").hidden = false;
+    $("reveal-all").addEventListener("click", () => { reveals.forEach(r => r()); $("reveal-all").hidden = true; });
+  }
+  $("disclaimer").hidden = n === 0;
+  $("view").hidden = false;
+}
+
+function problem(kind) {
+  $("open").hidden = true; // The app could only report the same problem.
+  $("problem-detail").textContent = kind === "newer"
+    ? "It was made with a newer version of AnatomyGo. Update the app, then open the link again."
+    : kind === "missing" ? "There's no shared view in this link. Ask for it to be sent again."
+    : "The link is damaged or incomplete. Some chat apps cut long links; ask for it to be sent again.";
+  $("problem").hidden = false;
+}
+
+(async () => {
+  const p = payload();
+  const android = /Android/i.test(navigator.userAgent);
+  const apple = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  $("play").href = PLAY;
+  $("android").hidden = apple;
+  $("other").hidden = !apple;
+  if (android && p) {
+    // Opens the app directly when link verification didn't, e.g. inside an in-app browser. The payload moves to
+    // `?d=` because the intent syntax takes over the fragment; this URL is handed to Android, never fetched.
+    $("open").href = "intent://" + location.host + "/v/?d=" + encodeURIComponent(p) + "#Intent;scheme=https;package=" + PACKAGE +
+      ";S.browser_fallback_url=" + encodeURIComponent(PLAY) + ";end";
+    $("open").hidden = false;
+  }
+  if (!p) return problem("missing");
+  try { show(await decode(p)); }
+  catch (e) { problem(e instanceof LinkError ? e.message : "invalid"); }
+})();
+</script>
+</body>
+</html>
