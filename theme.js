@@ -6,5 +6,5 @@
  var saved;try{saved=localStorage.getItem('anatomygo.appearance');}catch(e){}
  var dark=saved==='dark'||(saved!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
  var root=document.documentElement;root.classList.toggle('dark',dark);root.style.colorScheme=dark?'dark':'only light';
- var meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=dark?'#131b1f':'#f3f4f4';
+ var meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=dark?'#1d1f23':'#f3f4f4';
 })();
