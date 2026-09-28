@@ -4,7 +4,7 @@
 
 AnatomyGo is building an interactive 3D biology learning ecosystem, starting with human anatomy. We want students, educators, and curious minds to explore complex structures at their own pace—through tools that feel natural to use and are easy to access.
 
-**[Explore anatomygo.in](https://anatomygo.in)** · **[Our Open Collective](https://opencollective.com/anatomygo)** · **[Share feedback](https://github.com/th3kumar/anatomygo-site/issues)**
+**[Explore anatomygo.in](https://anatomygo.in)** · **[Share feedback](https://github.com/th3kumar/anatomygo-site/issues)**
 
 ## Start with curiosity
 
@@ -67,16 +67,6 @@ You can help by:
 - Submitting documentation corrections through a pull request.
 
 Please discuss larger changes in an issue first. Since the website assets are compiled, avoid editing the generated bundles directly. Keep discussion respectful and focused on helping people learn.
-
-## Supporting the work
-
-We applied for fiscal hosting with **Open Source Collective on September 27, 2026**. The application is pending review; we are not yet an approved hosted project.
-
-Our aim is to sustain useful public learning tools and the open-source work behind them. If accepted, proposed uses of funds include eligible public-source development and maintenance, anatomy content review, accessibility improvements, documentation, and project infrastructure. Spending would be subject to available funds and the fiscal host's policies.
-
-Fiscal hosting would help us manage that support transparently while keeping our attention on the project. The source-publication and licensing scope above is relevant to that review.
-
-Follow our progress on [Open Collective](https://opencollective.com/anatomygo). Hosting eligibility and approval are determined by OSC under its [published criteria](https://docs.oscollective.org/interested-in-joining-osc/acceptance-criteria).
 
 ## Preview this website locally
 
