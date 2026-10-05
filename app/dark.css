@@ -1,0 +1,115 @@
+/* Generated once from globals.css by ~/anatomygo-research/site-dark/gen_dark.py, then kept by hand.
+ * Every colour declaration in globals.css has a .dark counterpart here, in the same order and @media blocks,
+ * so the dark cascade mirrors the light one. Add a counterpart when adding a colour to globals.css. */
+:root.dark{--background:#1d1f23;--foreground:#e6e8eb;--card:#26292e;--card-foreground:#e6e8eb;--popover:#26292e;--popover-foreground:#e6e8eb;--primary:#e9ecef;--primary-foreground:#131518;--secondary:#33363c;--secondary-foreground:#e6e8eb;--muted:#33363c;--muted-foreground:#a4a9b0;--accent:#33363c;--accent-foreground:#e6e8eb;--destructive:#e8a092;--border:#ffffff12;--input:#ffffff1a;--ring:#a4a9b0;color-scheme:dark}
+:root.dark{color:#e6e8eb;background:#1d1f23}
+.dark button:focus-visible,.dark a:focus-visible{outline:2px solid #a4a9b099}
+.dark button:not([data-slot]):hover{color:#e6e8eb}
+.dark button:not([data-slot]):hover{background:#ffffff07}
+.dark .vignette{background:radial-gradient(ellipse at 51% 43%,transparent 35%,transparent 100%)}
+.dark .glass{background:#26292ef0;border:1px solid #ffffff15;box-shadow:0 16px 48px #00000050}
+.dark .eyebrow{color:#8c9197}
+.dark .status-dot{background:#6fb08f;box-shadow:0 0 12px #6fb08f80}
+.dark h1 em{color:#c8cbd0}
+.dark .identity-meta{color:#8c9197}
+.dark .identity-meta span{color:#737880}
+.dark .top-actions button{color:#c8cbd0}
+.dark .top-actions kbd{border:1px solid #ffffff1a}
+.dark .panel-heading{color:#e6e8eb}
+.dark .small-number{color:#8c9197}
+.dark .layer-presets{border-bottom:1px solid #ffffff10}
+.dark .layer-presets button{border:1px solid #ffffff16;color:#a4a9b0}
+.dark .system-list{scrollbar-color:#40444b transparent}
+.dark .system-count{color:#737880}
+.dark .panel-foot{border-top:1px solid #ffffff10;color:#8c9197}
+.dark .panel-foot button{color:#8c9197}
+.dark .view-controls button{color:#8c9197}
+.dark .view-controls .active{color:#e6e8eb;background:#ffffff10}
+.dark .view-controls i{background:#ffffff13}
+.dark .scene-caption{color:#8c9197}
+.dark .caption-line{background:#ffffff1a}
+.dark .explode-label{color:#e6e8eb}
+.dark .explode-label output{color:#e6e8eb}
+.dark .explode-label output span{color:#8c9197}
+.dark .slider-endpoints{color:#8c9197}
+.dark .dock-reset{border-left:1px solid #ffffff16;color:#8c9197}
+.dark .studio-footer{color:#8c9197}
+.dark .studio-footer b{color:#737880}
+.dark .studio-footer button{color:#8c9197}
+.dark .loading span{color:#8c9197}
+.dark .loading-track{background:#ffffff13}
+.dark .loading-track i{background:#6fb08f}
+.dark .error button{border:1px solid #ffffff1a}
+.dark .search-panel [data-slot=input-group]{background:#ffffff04}
+.dark .search-note{color:#8c9197}
+.dark .anatomy-search-results{background:#26292e!important;border:1px solid #ffffff16!important;color:#e6e8eb!important}
+.dark .detail-sheet{box-shadow:0 15px 70px #00000050}
+.dark .structure-description{color:#a4a9b0!important}
+.dark .context-note{color:#737880}
+.dark .structure-meta{border-block:1px solid #ffffff10;color:#737880}
+.dark .structure-meta strong{color:#c8cbd0}
+.dark .primary-action{border:1px solid #ffffff1a;color:#e6e8eb}
+.dark .primary-action.active{background:#ffffff10}
+.dark .secondary-action{color:#8c9197}
+.dark .member-list h3{color:#8c9197}
+.dark .member-list button{border-bottom:1px solid #ffffff10}
+.dark .source-link{color:#8c9197}
+.dark .about-copy{color:#a4a9b0}
+.dark .about-copy strong{color:#e6e8eb}
+.dark .about-copy h3{color:#e6e8eb}
+.dark .about-copy a{color:#c8cbd0}
+@media(max-width:767px){
+  .dark .layers-panel.mobile-open{background:#26292ef0}
+  .dark .bottom-dock{background:#26292ef0}
+  .dark .dock-layers{border-right:1px solid #ffffff16}
+  .dark .detail-sheet{background:#26292ef0}
+}
+.dark .anatomy-choice [data-slot=select-trigger]{border:1px solid #ffffff1a;color:#c8cbd0;background:#26292ef0}
+.dark .part-hover{background:#40444bf5;color:#e6e8eb;box-shadow:0 5px 18px #00000066}
+.dark .detail-scroll{scrollbar-color:#40444b transparent}
+.dark .detail-actions{border-top:1px solid #ffffff16}
+.dark .glass{box-shadow:0 2px 5px #00000018,0 16px 48px #00000038}
+.dark h1 .edition{color:#8c9197}
+.dark .anatomy-choice [data-slot=select-trigger]{background:#26292ef0;box-shadow:0 1px 2px #00000020}
+.dark .top-actions button{background:#26292ef0}
+.dark .top-actions button:hover{background:#33363c}
+.dark .panel-heading .small-number{background:#33363c;color:#a4a9b0}
+.dark .layer-presets{background:#2c2f34}
+.dark .layer-presets button{color:#8c9197}
+.dark .layer-presets button[aria-pressed=true]{background:#40444b;color:#f2f3f5;box-shadow:0 1px 3px #00000066}
+.dark .system-name{color:#737880}
+.dark .enabled .system-name{color:#c8cbd0}
+.dark .system-dot{box-shadow:0 0 0 2px #00000028}
+.dark .system-row [data-slot=switch-thumb]{background:#f2f3f4}
+.dark .view-controls .active{background:#e9ecef;color:#131518;box-shadow:0 2px 4px #00000066}
+.dark .explode-label{color:#e6e8eb}
+.dark .explode-label output{background:#33363c;border:1px solid #ffffff07}
+.dark .explode-label output span{color:#8c9197}
+.dark .explode-control [data-slot=slider-thumb]{border:3px solid #1d1f23;background:#e9ecef;box-shadow:0 0 0 1px #00000066,0 2px 5px #00000066}
+.dark .dock-reset{color:#8c9197}
+.dark .scene-caption{color:#8c9197}
+.dark .primary-action{background:#e9ecef;color:#131518!important;border:1px solid #e9ecef}
+.dark .primary-action:hover,.dark .primary-action.active{background:#f6f7f8}
+.dark .source-link{color:#c8cbd0}
+.dark .search-panel [data-slot=input-group]{background:#2c2f34}
+.dark .stats-choice{color:#e6e8eb}
+.dark .light-overlay{background:radial-gradient(ellipse at 50% 45%,transparent 45%,#00000033 100%)}
+.dark .light-overlay .light-handle{background:#e9ecef!important;color:#131518!important;box-shadow:0 8px 24px #00000066,0 0 0 7px #ffffff14}
+.dark .light-overlay .light-handle:hover{background:#f6f7f8!important}
+.dark .light-bar{color:#a4a9b0}
+.dark .light-bar .light-reset{color:#c8cbd0}
+
+/* Hand-written: the handoff's component treatments that have no colour in globals.css to mirror. */
+.dark .scene{background:linear-gradient(180deg,transparent 48%,rgba(255,255,255,.012) 48%),radial-gradient(ellipse 42% 58% at 50% 44%,#2a2d32 0%,#1d1f23 62%,#17191c 100%)}
+.dark .glass{background:rgba(38,41,46,.94);border-color:rgba(255,255,255,.07);box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px rgba(0,0,0,.35)}
+.dark .layer-presets{border-bottom-color:rgba(255,255,255,.07)}
+.dark .layer-presets button{border-color:transparent}
+.dark .layer-presets button[aria-pressed=true]{background:#40444b;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.dark .system-row [data-slot=switch],.dark .stats-choice [data-slot=switch]{--primary:#66747f;--primary-foreground:#f2f3f4}
+.dark [data-slot=switch][data-unchecked]{background:#2c2f34!important}
+.dark [data-slot=switch][data-unchecked] [data-slot=switch-thumb]{background:#737880!important}
+.dark .system-row [data-slot=switch-thumb],.dark .stats-choice [data-slot=switch][data-checked] [data-slot=switch-thumb]{box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.dark .explode-control [data-slot=slider-track]{background:#3e4249}
+.dark .explode-control [data-slot=slider-range]{background:#e9ecef}
+.dark .explode-control [data-slot=slider-thumb]{border-width:2px}
+.dark button:focus-visible,.dark a:focus-visible{outline:none;box-shadow:0 0 0 2px #a4a9b099}

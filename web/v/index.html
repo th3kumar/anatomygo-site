@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- The shared view is in the URL fragment, which never reaches a server. Usage statistics report this page as
+     https://anatomygo.in/v/ only, and pin text is only ever inserted as text. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f3f4f4"><meta name="color-scheme" content="light dark"><script src="/theme.js"></script>
+<title>A shared view · AnatomyGo</title>
+<meta property="og:title" content="A shared anatomy view">
+<meta property="og:description" content="Open it in AnatomyGo, the 3D anatomy atlas, or view it in your browser.">
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="./share.css">
+</head>
+<body>
+<main class="share">
+  <a class="identity" href="/">
+    <div class="eyebrow"><span class="status-dot"></span> SHARED VIEW</div>
+    <div class="wordmark">AnatomyGo<span class="edition">3D</span></div>
+  </a>
+
+  <section class="card" id="view" hidden>
+    <div class="card-header">
+      <div class="accent"></div>
+      <div class="eyebrow" id="kind">STUDY PINS</div>
+      <h1 class="title" id="title"></h1>
+      <p class="summary" id="summary"></p>
+    </div>
+    <ol class="pins" id="pins"></ol>
+    <button class="quiet" id="reveal-all" hidden>Reveal all answers</button>
+    <p class="note" id="disclaimer" hidden>Pins are the sender's personal study notes, not verified anatomical landmarks.</p>
+  </section>
+
+  <section class="card" id="problem" hidden>
+    <div class="card-header">
+      <div class="accent problem"></div>
+      <div class="eyebrow">LINK PROBLEM</div>
+      <h1 class="title">This link can't be opened</h1>
+      <p class="summary" id="problem-detail"></p>
+    </div>
+  </section>
+
+  <section class="card actions">
+    <button class="primary" id="open" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+      <span>Open in AnatomyGo</span>
+      <svg class="end" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <a class="secondary" id="explore" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      <span id="explore-label">View in 3D in your browser</span>
+      <small>about 35 MB</small>
+    </a>
+    <a class="secondary" id="play" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      <span>Get AnatomyGo on Google Play</span>
+    </a>
+    <p class="note" id="after">After installing, tap the link in your chat again to open this view in the app.</p>
+    <p class="note" id="android-only" hidden>The AnatomyGo app is for Android phones.</p>
+  </section>
+
+  <footer class="footer">
+    <p>Pins and notes stay inside the link. They are never sent to AnatomyGo.</p>
+    <p><span id="stats-state">Usage statistics are on.</span> <button id="stats">Turn off</button></p>
+  </footer>
+</main>
+<script type="module" src="./share.ts"></script>
+</body>
+</html>

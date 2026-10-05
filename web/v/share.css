@@ -1,0 +1,76 @@
+/* The explorer's look (app/globals.css) for a plain scrolling page. */
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;color:#20242b;background:#f3f4f4;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 51% 30%,#fbfcfc 0,#f3f4f4 55%,#e9edef 100%)}
+[hidden]{display:none!important}
+button,a{font:inherit;touch-action:manipulation}
+button{cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid #538d9a;outline-offset:4px}
+svg{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.share{max-width:480px;margin:0 auto;padding:29px 16px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.identity{display:block;text-decoration:none;color:inherit;padding:0 6px 6px}
+.eyebrow{font-size:12px;letter-spacing:.19em;color:#737d89;display:flex;align-items:center;gap:8px;text-transform:uppercase}
+.status-dot{height:5px;width:5px;background:#458a85;border-radius:50%;box-shadow:0 0 12px #458a8526}
+.wordmark{font-size:34px;font-weight:600;line-height:1.1;letter-spacing:-1.2px;margin-top:10px}
+.edition{display:inline-block;vertical-align:top;font:10px Arial,sans-serif;letter-spacing:.08em;margin:6px 0 0 10px;padding:3px 6px;border:1px solid #18253630;border-radius:6px;opacity:.55}
+
+.card{background:#ffffffeb;border:1px solid #25384a17;box-shadow:0 16px 48px #2433440a;backdrop-filter:blur(20px);border-radius:16px;padding:22px}
+.card-header{display:flex;flex-direction:column;gap:9px}
+.accent{width:28px;height:4px;border-radius:3px;background:#b0601c}
+.accent.problem{background:#a8574a}
+.title{font-size:25px;font-weight:600;letter-spacing:-.75px;line-height:1.2;margin:0;overflow-wrap:anywhere}
+.summary{font-size:14px;line-height:1.7;color:#66727f;margin:0}
+.note{font-size:11px;line-height:1.5;color:#87929d;margin:12px 0 0}
+
+.pins{list-style:none;padding:0;margin:16px 0 0}
+.pins li{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid #18253612;min-height:52px}
+.number{flex:none;width:26px;height:26px;border-radius:50%;background:#b0601c;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;margin-top:1px}
+.pin{flex:1;min-width:0}
+.label{font-size:14px;font-weight:500;color:#364653;line-height:1.5;overflow-wrap:anywhere}
+.notes{margin-top:3px;font-size:13px;line-height:1.6;color:#66727f;white-space:pre-wrap;overflow-wrap:anywhere}
+.reveal{font-size:12px;color:#537a89;border:1px solid #18253618;border-radius:8px;min-height:32px;padding:0 12px}
+.reveal:hover,.quiet:hover{background:#18253608}
+.quiet{font-size:12px;color:#537a89;border-radius:8px;min-height:40px;padding:0 10px;margin-top:6px}
+
+.actions{display:flex;flex-direction:column;gap:10px}
+.primary,.secondary{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:9px;font-size:14px;font-weight:500;text-decoration:none;width:100%;text-align:left}
+.primary{background:#263b48;color:#fff;border:1px solid #263b48}
+.primary:hover{background:#3b5261}
+.primary .end,.secondary .end{margin-left:auto;width:16px;height:16px}
+.secondary{color:#263b48;border:1px solid #263b4833;background:#fff}
+.secondary:hover{background:#263b4808}
+.primary small{white-space:nowrap;margin-left:auto;font-size:11px;font-weight:400;color:#ffffffb3}
+.secondary small{white-space:nowrap;margin-left:auto;font-size:11px;font-weight:400;color:#87929d}
+.actions .note{margin:2px 0 0}
+
+.footer{padding:4px 6px;font-size:11px;line-height:1.6;color:#73808c;text-align:center}
+.footer p{margin:0 0 4px}
+.footer button{color:#537a89;text-decoration:underline;text-underline-offset:2px;padding:4px 2px;min-height:32px}
+
+/* Dark: "Graphite Soft", as in the explorer (app/dark.css); pin numbers keep the app's dark shared-pin amber. */
+:root.dark{color:#e6e8eb;background:#1d1f23;color-scheme:dark}
+.dark body{background:linear-gradient(180deg,transparent 48%,rgba(255,255,255,.012) 48%),radial-gradient(ellipse 42% 58% at 50% 44%,#2a2d32 0%,#1d1f23 62%,#17191c 100%) fixed}
+.dark button:focus-visible,.dark a:focus-visible{outline:none;box-shadow:0 0 0 2px #a4a9b099}
+.dark .eyebrow{color:#a4a9b0}
+.dark .status-dot{background:#6fb08f;box-shadow:0 0 10px #6fb08f80}
+.dark .wordmark{color:#e6e8eb}
+.dark .edition{border-color:rgba(255,255,255,.07);background:#33363c;color:#a4a9b0;opacity:1}
+.dark .card{background:rgba(38,41,46,.94);border-color:rgba(255,255,255,.07);box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px rgba(0,0,0,.35)}
+.dark .accent{background:#f2b866}
+.dark .accent.problem{background:#e8a092}
+.dark .title,.dark .label{color:#e6e8eb}
+.dark .summary,.dark .notes{color:#a4a9b0}
+.dark .note{color:#737880}
+.dark .pins li{border-top-color:rgba(255,255,255,.07)}
+.dark .number{background:#f2b866;color:#3a2200}
+.dark .reveal,.dark .quiet,.dark .footer button{color:#c8cbd0}
+.dark .reveal{border-color:rgba(255,255,255,.1);background:#33363c}
+.dark .reveal:hover,.dark .quiet:hover{background:rgba(255,255,255,.04)}
+.dark .primary{background:#e9ecef;color:#131518;border-color:#e9ecef}
+.dark .primary:hover{background:#f6f7f8}
+.dark .primary small{color:#131518b3}
+.dark .secondary{color:#e6e8eb;border-color:rgba(255,255,255,.1);background:#33363c}
+.dark .secondary:hover{background:#40444b}
+.dark .secondary small{color:#737880}
+.dark .footer{color:#737880}
