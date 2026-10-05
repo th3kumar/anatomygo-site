@@ -66,8 +66,8 @@ The published-pack function is SECURITY INVOKER. Query indexes and statement-sco
 - [x] Supabase schema, RLS/RPC permissions and baseline import.
 - [x] Model bytes/digests and local permission tests.
 - [x] Anonymous live browser checks, desktop/mobile layout, sign-in gate, draft recovery, empty checklists and tooltip stacking.
-- [ ] Google OAuth provider and redirects configured by project owner.
-- [ ] Owner signs in; grant admin to the verified Google account through the private admins table (never through user-editable metadata).
+- [x] Google OAuth provider enabled. The authorize endpoint redirects to Google with the expected web client ID and Supabase callback; owner completed a Google login. Production-domain redirect remains part of deployment smoke testing.
+- [x] Owner signed in with a verified Google identity; admin membership granted through the private admins table and recorded in the private audit log. Account-scoped admin queue and unresolved mapping queries verified. Refresh the browser after provisioning to load the role.
 - [ ] Two real accounts: save, comment, vote, edit as a new revision, own-delete and admin approval/unpublish.
 - [ ] Public beta deployment and smoke check on anatomygo.in.
 - [x] Normal web viewer loads approved-only pins for an isolated mesh, checks the geometry fingerprint and shows surface needles with biological descriptions. A browser-only mock pack verified rendering without approving any imported data.
@@ -99,3 +99,5 @@ PGHOST=127.0.0.1 PGPORT=55439 PGUSER=playground_test bash supabase/tests/run.sh
 ```
 
 The browser check uses real hosted anonymous reads and makes no database writes. It covers catalogue/checklist loading, imported surface pins, tooltip stacking, a new surface placement, sign-in gating, draft recovery and mobile overflow. Screenshots are in ignored `.local/screenshots/`. The PostgreSQL tests exercise the actual migrations with simulated Auth claims; they do not substitute for the remaining real Google OAuth and two-account checks.
+
+2026-10-06 account setup: the previous missing-OAuth-secret error is resolved. Google authorization returns HTTP 302 to `accounts.google.com` with the expected client ID and callback. Owner identity and confirmed email were checked before granting admin. No proposal was approved as part of this setup.
