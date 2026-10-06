@@ -138,13 +138,24 @@ function GuideLayer({ step, index, total, onSkip, leaving }: { step: GuideStep; 
 }
 
 /** A one-time tip next to a control, shown at the moment it becomes useful. It does not block the page. */
-export function Hint({ target, side, children, onDone }: { target: string; side: Side; children: ReactNode; onDone(): void }) {
-  const rect = useRect(target)
+export function Hint({ target, side, children, onDone, action, beside }: {
+  target: string; side: Side; children: ReactNode; onDone(): void
+  /** An optional main action (e.g. Share); "Got it" then becomes a quieter "Not now". */
+  action?: { label: string; onClick(): void }
+  /** Keep the tip outside this element (e.g. the card the target sits in), still pointing at the target's height. */
+  beside?: string
+}) {
+  const own = useRect(target)
+  const outer = useRect(beside ?? '')
+  const rect = own && outer && (side === 'left' || side === 'right') ? new DOMRect(outer.left, own.top, outer.width, own.height) : own
   if (!rect) return null
   return (
     <Card rect={rect} side={side} label="Tip">
       <p>{children}</p>
-      <footer><button className="coach-next" onClick={onDone}>Got it</button></footer>
+      <footer>
+        {action && <button className="coach-skip" onClick={onDone}>Not now</button>}
+        <button className="coach-next" onClick={action ? action.onClick : onDone}>{action ? action.label : 'Got it'}</button>
+      </footer>
     </Card>
   )
 }

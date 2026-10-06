@@ -118,3 +118,4 @@
 .dark .new-tag{color:#8fd0ae;background:#6fb08f1f;border-color:#6fb08f55}
 .dark .detail-actions .features-action{background:#6fb08f14;color:#e6e8eb!important;border:1px solid #6fb08f55}.dark .detail-actions .features-action:hover{background:#6fb08f26}.dark .features-action svg:first-child{color:#8fd0ae}.dark .features-count{color:#8fd0ae;background:#6fb08f1f}
 @media(max-width:767px){.dark .playground-entry .new-tag{background:#6fb08f}}
+.dark .about-copy .about-credits{color:#8c9197}.dark .stats-choice{border-top-color:#ffffff10}.dark .stats-choice small{color:#8c9197}

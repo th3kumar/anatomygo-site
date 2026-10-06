@@ -367,6 +367,21 @@ export class SceneController {
     return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h, inFront: p.z < 1 && p.z > -1 }
   }
 
+  // Label widths from the same font the labels use (touch screens draw them larger), measured once per name.
+  private widths = new Map<string, number>()
+  private measure = document.createElement('canvas').getContext('2d')
+  private labelWidth(text: string, bold: boolean) {
+    const key = `${bold ? 'b' : ''}${text}`
+    let w = this.widths.get(key)
+    if (w === undefined) {
+      const big = PIN_HIT_PIXELS > 14
+      if (this.measure) this.measure.font = `${bold ? 600 : 400} ${big ? 12 : 11}px Inter, -apple-system, BlinkMacSystemFont, sans-serif`
+      w = (this.measure?.measureText(text).width ?? text.length * 6.4) + (big ? 22 : 18) + 2
+      this.widths.set(key, w)
+    }
+    return w
+  }
+
   private drawLabels() {
     const html: string[] = []
     const length = this.needleLength()
@@ -380,11 +395,14 @@ export class SceneController {
       if (!visible && !this.showHidden && !selected) continue
       if (!selected && !this.showOtherLabels) continue
       if (!head.inFront) continue
-      const box: [number, number, number, number] = [head.x + 8, head.y - 32, head.x + 8 + p.label.length * 6.4 + 22, head.y - 6]
+      // Names sit just right of their pin; one that would run off the screen slides left, still above its pin.
+      const width = this.labelWidth(p.label, selected), edge = this.container.clientWidth - 6
+      const shift = Math.max(6 - (head.x + 10), Math.min(0, edge - (head.x + 10 + width)))
+      const box: [number, number, number, number] = [head.x + 10 + shift, head.y - 32, head.x + 10 + shift + width, head.y - 6]
       if (!selected && taken.some((t) => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1])) continue
       taken.push(box)
       const cls = ['pin-label', selected ? 'selected' : '', visible ? '' : 'hidden-pin', p.muted ? 'muted' : ''].join(' ')
-      html.push(`<div class="${cls}" data-pin="${escapeHtml(p.id)}" style="transform:translate(${head.x.toFixed(1)}px,${head.y.toFixed(1)}px)">${escapeHtml(p.label)}${visible ? '' : ' <em>· behind</em>'}</div>`)
+      html.push(`<div class="${cls}" data-pin="${escapeHtml(p.id)}" style="transform:translate(${(head.x + shift).toFixed(1)}px,${head.y.toFixed(1)}px)">${escapeHtml(p.label)}${visible ? '' : ' <em>· behind</em>'}</div>`)
     }
     this.labels.innerHTML = html.join('')
     // While placing, clicks belong to the surface, so names step aside.

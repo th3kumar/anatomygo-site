@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 await mkdir('../.local/screenshots',{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=metal']});
-const page=await browser.newPage({viewport:{width:1440,height:900}});const errors=[];
+const desk=await browser.newContext({viewport:{width:1440,height:900},permissions:['clipboard-read','clipboard-write']});
+const page=await desk.newPage();const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 let leaveGuard=0;page.on('dialog',d=>{if(d.type()==='beforeunload'){leaveGuard++;d.accept();return;}errors.push(`native ${d.type()} dialog: ${d.message()}`);d.dismiss();});
 const loaded=()=>page.waitForFunction(()=>document.querySelector('.viewer canvas')&&!document.querySelector('.stage-loading'),null,{timeout:60000});
@@ -23,6 +24,7 @@ assert(pinned,'practice pin placed on the model');
 await stepIs('Save it');assert.equal(await page.getByLabel('Name',{exact:true}).inputValue(),'My practice pin');
 await page.getByRole('button',{name:'Save pin',exact:true}).click();
 await stepIs('Vote');assert.equal(await page.getByRole('dialog',{name:'Sign in to save'}).count(),0,'practice needs no sign-in');
+assert.equal(await page.getByRole('button',{name:'Share this pin'}).count(),0,'the practice pin cannot be shared');
 await page.getByRole('button',{name:'Yes, it’s right'}).click();
 await stepIs('Delete it');await page.getByRole('button',{name:'More options'}).click();await page.getByRole('menuitem',{name:'Delete my pin'}).click();
 await page.getByRole('dialog',{name:'Delete your pin?'}).getByRole('button',{name:'Delete pin',exact:true}).click();
@@ -39,6 +41,14 @@ await page.getByRole('tooltip').waitFor();
 const tooltip=await page.getByRole('tooltip').evaluate(el=>{const r=el.getBoundingClientRect();return{inside:r.left>=0&&r.right<=innerWidth,z:getComputedStyle(el).zIndex}});
 assert(tooltip.inside);assert.equal(tooltip.z,'1000');
 await page.screenshot({path:'../.local/screenshots/playground-desktop.png'});
+// Sharing: the card copies a link to that pin; opening it (signed out, first visit) shows the pin, not the practice.
+await page.getByRole('button',{name:'Share this pin'}).click();
+const shared=await page.evaluate(()=>navigator.clipboard.readText());
+assert.match(shared,/\/playground\/\?structure=FJ3366&pin=[0-9a-f-]{36}&from=share$/);
+const visitor=await (await browser.newContext({viewport:{width:1440,height:900}})).newPage();visitor.on('pageerror',e=>errors.push(e.message));
+await visitor.goto(shared.replace(/^https?:\/\/[^/]+/,'http://127.0.0.1:3018'));
+await visitor.locator('.pg-shared').waitFor({timeout:60000});assert.equal(await visitor.locator('.coach-layer').count(),0,'a shared link skips the practice');
+await visitor.getByRole('button',{name:'Close',exact:true}).click();await visitor.locator('.pg-offer').waitFor();await visitor.close();
 // A pin's floating name opens that feature.
 const named=page.locator('.labels .pin-label').filter({hasNotText:'behind'}).last();const label=await named.innerText();
 await named.click();await page.waitForFunction(t=>document.querySelector('.pg-card .pg-title')?.textContent===t,label);
@@ -100,5 +110,5 @@ await mobile.emulateMedia({colorScheme:'dark'});await mobile.screenshot({path:'.
 assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 assert.equal(await mobile.getByRole('button',{name:'Open on device',exact:true}).count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS: live catalogue, hands-on practice (no database writes), clickable pin names, Google button and sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
+console.log('PASS: live catalogue, hands-on practice (no database writes), pin sharing, clickable pin names, Google button and sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
 } finally { await browser.close(); }

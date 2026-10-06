@@ -1,11 +1,11 @@
 /**
  * Playground usage statistics, through the site's shared module (app/analytics.ts): the same measurement ID, the same
- * opt-out (About on the homepage, or the Playground menu) and the same rule. Events carry fixed names, atlas IDs, flags
+ * opt-out (About on the homepage) and the same rule. Events carry fixed names, atlas IDs, flags
  * and bucketed counts; never search text, pin names, notes, comments, emails or account IDs.
  */
-import { bucket, queryKind, setStatsEnabled, startAnalytics, statsEnabled, track } from '../../app/analytics'
+import { bucket, queryKind, startAnalytics, track } from '../../app/analytics'
 
-export { bucket, queryKind, setStatsEnabled, statsEnabled, track }
+export { bucket, queryKind, track }
 
 /** The page is reported as /playground/ only: the address can hold a sign-in code, and IDs travel in events. */
 export const startPlaygroundAnalytics = () => startAnalytics(`${location.origin}/playground/`, 'Playground · AnatomyGo')
