@@ -22,7 +22,8 @@ import { isPhone, usePhone } from './ui/media'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
 
-const INTRO = 'anatomygo.playground.intro'
+// Set once the practice run is finished or skipped. (The old click-through tour used '…intro'; the practice is new, so it has its own key.)
+const INTRO = 'anatomygo.playground.practice'
 // First-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
 type Practice = 'structure' | 'open' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
 const PRACTICE_PIN = 'practice-pin', PRACTICE_FEATURE = 'practice-feature'

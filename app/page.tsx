@@ -37,7 +37,7 @@ export default function Home(){
  const featureCounts=useFeatureCounts(details?state.selected:[]),featureTotal=featureCounts?Object.values(featureCounts).reduce((a,b)=>a+b,0):null;
  const featureHref=`/playground/?structure=${encodeURIComponent(selectedParts.length===1?selected?.id??'':chosen?.id??selected?.id??'')}`;
  const [tipsSeen,setTipsSeen]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('anatomygo.home.tips')??'[]');}catch{return [];}});
- const triedPlayground=useMemo(()=>{try{return !!localStorage.getItem('anatomygo.playground.intro');}catch{return true;}},[]);
+ const triedPlayground=useMemo(()=>{try{return !!localStorage.getItem('anatomygo.playground.practice');}catch{return true;}},[]);
  const seeTips=(...ids:string[])=>setTipsSeen(s=>{const next=[...new Set([...s,...ids])];try{localStorage.setItem('anatomygo.home.tips',JSON.stringify(next));}catch{}return next;});
  const [settled,setSettled]=useState(false);useEffect(()=>{if(progress<100)return;const t=setTimeout(()=>setSettled(true),1500);return()=>clearTimeout(t);},[progress]);
  const featureTip=!triedPlayground&&details&&selectedParts.length>0&&!tipsSeen.includes('features');
