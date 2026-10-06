@@ -10,6 +10,8 @@ interface Props {
   disabled: boolean
   open: boolean
   phone: boolean
+  /** The practice feature's id: listed like the others, marked as practice. */
+  practice?: string
   onOpen(open: boolean): void
   onSelect(id: string): void
   onAdd(): void
@@ -60,12 +62,12 @@ export function Checklist(p: Props) {
         <>
           <ol className="checklist pg-list" data-coach="list">
             {visible.map((l) => {
-              const s = status(l, p.pins[l.id] ?? 0)
+              const s = l.id === p.practice ? { dot: 'placed', text: 'Practice · only you see this' } : status(l, p.pins[l.id] ?? 0)
               return (
                 <li key={l.id}>
                   <button className={`item ${l.id === p.selected ? 'selected' : ''}`} aria-current={l.id === p.selected || undefined} onClick={() => p.onSelect(l.id)}>
                     <span className={`dot ${s.dot}`} />
-                    <span className="name">{l.label}<small>{s.text}</small></span>
+                    <span className="name">{l.label}<small className={l.id === p.practice ? 'practice' : undefined}>{s.text}</small></span>
                   </button>
                 </li>
               )

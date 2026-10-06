@@ -11,6 +11,8 @@ interface Props {
   scores: Record<string, Vote>
   me: string | null
   admin: boolean
+  /** A practice pin: kept in this tab only, so it can be voted on and deleted without an account. */
+  practice?: boolean
   busy: boolean
   onChoose(id: string): void
   onVote(value: number): void
@@ -44,19 +46,20 @@ export function LandmarkCard(p: Props) {
     if (reason) p.onReport(reason)
   }
   async function withdraw() {
-    if (await ask({ title: 'Delete your pin?', body: 'It disappears for everyone. You can’t undo this.', confirm: 'Delete pin', danger: true })) p.onWithdraw()
+    const body = p.practice ? 'It was only practice, so nothing else changes.' : 'It disappears for everyone. You can’t undo this.'
+    if (await ask({ title: 'Delete your pin?', body, confirm: 'Delete pin', danger: true })) p.onWithdraw()
   }
 
   const actions = pin ? [
-    { label: 'Report a problem', icon: <Flag size={15} />, onSelect: () => void report() },
-    ...(mine && !published ? [{ label: 'Delete my pin', icon: <Trash2 size={15} />, danger: true, onSelect: () => void withdraw() }] : []),
+    ...(p.practice ? [] : [{ label: 'Report a problem', icon: <Flag size={15} />, onSelect: () => void report() }]),
+    ...((mine || p.practice) && !published ? [{ label: 'Delete my pin', icon: <Trash2 size={15} />, danger: true, onSelect: () => void withdraw() }] : []),
   ] : []
 
   return (
     <aside className="landmark-card glass pg-card" aria-label={title}>
       <header className="pg-card-head">
-        <span className={`pg-state ${published ? 'published' : pin ? 'pinned' : ''}`}>
-          <i className={`dot ${published ? 'reviewed' : pin ? 'placed' : ''}`} />{published ? 'Published' : pin ? 'Community pin' : 'No pin yet'}
+        <span className={`pg-state ${p.practice ? 'practice' : published ? 'published' : pin ? 'pinned' : ''}`}>
+          <i className={`dot ${published ? 'reviewed' : pin ? 'placed' : ''}`} />{p.practice ? 'Practice pin' : published ? 'Published' : pin ? 'Community pin' : 'No pin yet'}
         </span>
         <div className="row">
           {actions.length > 0 && <Menu label="More options" className="icon" trigger={<MoreHorizontal size={17} />} items={actions} />}
@@ -87,7 +90,7 @@ export function LandmarkCard(p: Props) {
                 </ul>
               </>
             ) : (
-              <p className="pg-byline"><span className="avatar-sm" aria-hidden>{author(pin)[0]}</span>{pin.pg_profiles?.display_name ? `Pinned by ${author(pin)}` : author(pin)} · {day(pin.created_at)}</p>
+              <p className="pg-byline"><span className="avatar-sm" aria-hidden>{author(pin)[0]}</span>{p.practice ? 'Only you can see this. It goes when you finish.' : <>{pin.pg_profiles?.display_name ? `Pinned by ${author(pin)}` : author(pin)} · {day(pin.created_at)}</>}</p>
             )}
             <div className="pg-vote" data-hint="vote">
               <span>{mine ? 'This is your pin.' : 'Is this pin in the right spot?'}</span>
@@ -102,13 +105,13 @@ export function LandmarkCard(p: Props) {
             </div>
           </section>
         )}
-        {pin && <Comments key={pin.id} pin={pin} me={p.me} admin={p.admin} busy={p.busy} run={p.run} requireUser={p.requireUser} />}
+        {pin && !p.practice && <Comments key={pin.id} pin={pin} me={p.me} admin={p.admin} busy={p.busy} run={p.run} requireUser={p.requireUser} />}
       </div>
-      <footer className="card-actions">
+      {!p.practice && <footer className="card-actions">
         {pin
           ? <button className="outline wide" disabled={p.busy} onClick={p.onSuggest}><Pin size={15} />Suggest a better spot</button>
           : <button className="primary wide" data-coach="place" disabled={p.busy} onClick={p.onSuggest}><Pin size={15} />Pin this feature</button>}
-      </footer>
+      </footer>}
     </aside>
   )
 }

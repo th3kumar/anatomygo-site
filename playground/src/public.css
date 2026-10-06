@@ -282,3 +282,13 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
 .pg-google-slot { width: 100%; display: flex; justify-content: center; }
 .pg-google-wait { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 9px; }
 .pg-google-other { align-self: center; margin: 8px auto 0; font-size: 11.5px; color: var(--muted); display: flex; }
+/* Practice guide: only the lit control takes presses. */
+.coach-layer.guide { pointer-events: none; }
+.coach-layer.guide .coach-block { position: fixed; inset: auto; pointer-events: auto; }
+.coach-layer.guide .coach-block.dim { inset: 0; background: rgba(14, 20, 26, .5); }
+.dark .coach-layer.guide .coach-block.dim { background: rgba(0, 0, 0, .62); }
+.coach-layer.guide .coach-card { pointer-events: auto; }
+.coach-card.center { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); }
+.coach-card.from-inside::before { display: none; }
+.pg-stage-free { position: absolute; pointer-events: none; z-index: 1; }
+.pg-list .item small.practice, .pg-state.practice { color: var(--warn); }

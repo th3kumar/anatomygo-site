@@ -17,12 +17,15 @@ import { DraftCard } from './DraftCard'
 import { StructureFinder } from './StructureFinder'
 import { SignInDialog } from './SignInDialog'
 import { AskHost, ask } from './ui/ask'
-import { Hint, Tour, touch, type CoachStep } from './ui/Spotlight'
+import { Guide, Hint, touch, type GuideStep } from './ui/Spotlight'
 import { isPhone, usePhone } from './ui/media'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
 
 const INTRO = 'anatomygo.playground.intro'
+// First-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
+type Practice = 'structure' | 'open' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
+const PRACTICE_PIN = 'practice-pin', PRACTICE_FEATURE = 'practice-feature'
 const REFUSED: Record<PickFailure, string> = {
   miss: 'That spot isn’t on this structure.',
   occluded: 'Something is in front. Turn the model, or hide the neighbours.',
@@ -70,7 +73,10 @@ export function App() {
   const [toast, setToast] = useState('')
   const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[] } | null>(null)
   const [dialog, setDialog] = useState<'auth' | 'name' | 'admin' | null>(null)
-  const [touring, setTouring] = useState(false)
+  const [practice, setPractice] = useState<Practice | null>(null)
+  const [practicePlan, setPracticePlan] = useState<Practice[]>([])
+  const [practicePin, setPracticePin] = useState<{ feature: Landmark; pin: Proposal } | null>(null)
+  const [practiceVote, setPracticeVote] = useState(0)
   const [, setHintRevision] = useState(0)
   const phone = usePhone()
   // On a phone the list starts as a bar under the model; on a desktop it is open beside it.
@@ -78,17 +84,23 @@ export function App() {
   const [toggles, setToggles] = useState<Toggles>({ neighbours: false, labels: true, hidden: false, reverse: false })
   const [insets, setInsets] = useState({ left: 330, right: 100, top: 120, bottom: 72 })
 
-  const active = items.find((x) => x.id === selected) ?? null
+  // The practice pin joins the real ones on screen only.
+  const allItems = useMemo(() => (practicePin ? [...items, practicePin.feature] : items), [items, practicePin])
+  const allProposals = useMemo(() => (practicePin ? [...proposals, practicePin.pin] : proposals), [proposals, practicePin])
+  const allScores = useMemo(() => (practicePin
+    ? { ...scores, [PRACTICE_PIN]: { upvotes: practiceVote === 1 ? 1 : 0, downvotes: practiceVote === -1 ? 1 : 0, mine: practiceVote } }
+    : scores), [scores, practicePin, practiceVote])
+  const active = allItems.find((x) => x.id === selected) ?? null
   const pinsFor = useMemo(() => {
-    const score = (id: string) => (scores[id]?.upvotes ?? 0) - (scores[id]?.downvotes ?? 0)
-    return proposals.filter((p) => p.landmark_id === selected).sort((a, b) => score(b.id) - score(a.id))
-  }, [proposals, selected, scores])
+    const score = (id: string) => (allScores[id]?.upvotes ?? 0) - (allScores[id]?.downvotes ?? 0)
+    return allProposals.filter((p) => p.landmark_id === selected).sort((a, b) => score(b.id) - score(a.id))
+  }, [allProposals, selected, allScores])
   const chosen = pinsFor.find((p) => p.id === proposalId) ?? pinsFor.find((p) => p.id === active?.published_proposal) ?? pinsFor[0] ?? null
   const pinCounts = useMemo(() => {
     const result: Record<string, number> = {}
-    for (const p of proposals) result[p.landmark_id] = (result[p.landmark_id] ?? 0) + 1
+    for (const p of allProposals) result[p.landmark_id] = (result[p.landmark_id] ?? 0) + 1
     return result
-  }, [proposals])
+  }, [allProposals])
   const part = host?.meta ?? atlas?.parts.find((p) => p.id === meshId) ?? null
   const me = session?.user.id ?? null
 
@@ -173,24 +185,26 @@ export function App() {
     return () => { live = false }
   }, [atlas, host, toggles.neighbours])
 
-  // The first visit starts the short tour once the structure is on screen.
+  // A first visit starts the practice run: on the structure once it is on screen, or at the structure picker.
   useEffect(() => {
-    if (!host || loading || draft) return
-    try { if (!localStorage.getItem(INTRO)) startTour() } catch { /* private mode: no tour */ }
-  }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (practice || draft) return
+    let first = false
+    try { first = !localStorage.getItem(INTRO) } catch { /* private mode: no practice run */ }
+    if (first && (meshId ? host && !loading : atlas && finder)) startPractice()
+  }, [host?.meta.id, loading, !!atlas, !!finder]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Draft safety ───────────────────────────────────────────────────────────
   const untouched = (d: Draft | null) => !d || snapshot(d) === original.current
   useEffect(() => {
-    saveDraft(draft)
-    const guard = (e: BeforeUnloadEvent) => { if (!untouched(draft) && !leaving.current) { e.preventDefault(); e.returnValue = '' } }
+    saveDraft(draft?.practice ? null : draft)
+    const guard = (e: BeforeUnloadEvent) => { if (!untouched(draft) && !draft?.practice && !leaving.current) { e.preventDefault(); e.returnValue = '' } }
     addEventListener('beforeunload', guard)
     return () => removeEventListener('beforeunload', guard)
   }, [draft]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function leaveDraft() {
     if (busy) return false
-    if (untouched(draft)) return true
+    if (untouched(draft) || draft?.practice) return true
     return ask({ title: 'Discard your pin?', body: 'The pin and anything you wrote will be lost.', confirm: 'Discard', cancel: 'Keep editing', danger: true })
   }
   const updateDraft = (change: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...change, requestId: crypto.randomUUID() } : null))
@@ -217,6 +231,7 @@ export function App() {
       label: source?.label ?? (fresh ? '' : active?.label ?? ''), latin: source?.latin_name ?? (fresh ? '' : active?.latin_name ?? ''),
       description: source?.description ?? (fresh ? '' : active?.description ?? ''),
       anchor: source ? { triangle: source.triangle, u: source.u, v: source.v } : null, requestId: crypto.randomUUID(), geometry: host.meta.geometry,
+      ...(practice ? { practice: true } : {}),
     }
     original.current = snapshot(next)
     setPlacedNow(false)
@@ -249,6 +264,17 @@ export function App() {
 
   function save() {
     if (!draft) return
+    if (draft.practice) {
+      // Practice: the pin becomes a local one, shown like a real pin, and no sign-in is asked for.
+      const a = draft.anchor!, label = draft.label.trim() || 'My practice pin'
+      setPracticePin({
+        feature: { id: PRACTICE_FEATURE, mesh_id: draft.meshId, label, latin_name: draft.latin, description: draft.description, published_proposal: null },
+        pin: { id: PRACTICE_PIN, landmark_id: PRACTICE_FEATURE, mesh_id: draft.meshId, label, latin_name: draft.latin, description: draft.description, geometry: draft.geometry,
+               triangle: a.triangle, u: a.u, v: a.v, author_id: 'practice', supersedes: null, status: 'community', created_at: new Date().toISOString(), pg_profiles: { display_name: 'You' } },
+      })
+      setDraft(null); setPlacing(false); setSelected(PRACTICE_FEATURE); setProposalId(PRACTICE_PIN)
+      return
+    }
     markSeen('save')
     if (!requireUser()) return
     const pending = draft
@@ -267,6 +293,7 @@ export function App() {
 
   function vote(value: number) {
     if (!chosen) return
+    if (chosen.id === PRACTICE_PIN) { setPracticeVote((v) => (v === value ? 0 : value)); return }
     markSeen('vote')
     if (!requireUser()) return
     void run(async () => {
@@ -285,7 +312,7 @@ export function App() {
   const fit = useCallback((v: ViewName) => viewer.current?.fit(v), [])
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || document.querySelector('dialog[open]') || touring) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || document.querySelector('dialog[open]') || practice) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === '/') { e.preventDefault(); setFinder({}); return }
       if (e.key === 'Escape') { setPlacing(false); setRefused(''); return }
@@ -295,7 +322,7 @@ export function App() {
     }
     addEventListener('keydown', key)
     return () => removeEventListener('keydown', key)
-  }, [fit, touring])
+  }, [fit, practice])
 
   useEffect(() => {
     if (!toast) return
@@ -306,15 +333,15 @@ export function App() {
   // ── Scene ──────────────────────────────────────────────────────────────────
   const pins = useMemo(() => {
     const result: ScenePin[] = []
-    for (const l of items) {
-      const p = (l.id === selected ? chosen : null) ?? proposals.find((x) => x.id === l.published_proposal) ?? proposals.find((x) => x.landmark_id === l.id)
+    for (const l of allItems) {
+      const p = (l.id === selected ? chosen : null) ?? allProposals.find((x) => x.id === l.published_proposal) ?? allProposals.find((x) => x.landmark_id === l.id)
       if (p && (!draft || draft.landmarkId !== l.id)) result.push({ id: p.id, label: p.label, triangle: p.triangle, u: p.u, v: p.v, reviewed: p.id === l.published_proposal })
     }
     const visible = result.slice(0, 100)
     if (chosen && !draft && !visible.some((p) => p.id === chosen.id)) visible.push({ id: chosen.id, label: chosen.label, triangle: chosen.triangle, u: chosen.u, v: chosen.v })
     if (draft?.anchor) visible.push({ id: 'draft', label: draft.label || 'Your pin', ...draft.anchor })
     return visible
-  }, [items, proposals, chosen, draft, selected])
+  }, [allItems, allProposals, chosen, draft, selected])
 
   const cardOpen = !!(draft || active)
   // The model is framed in the space the panels leave free.
@@ -347,21 +374,61 @@ export function App() {
   // ── Guidance ───────────────────────────────────────────────────────────────
   const quiet = !!finder || !!dialog || !host || loading
   const tap = touch ? 'Tap' : 'Click'
-  const steps: CoachStep[] = [
-    ...(items.length ? [phone
-      ? { target: '[data-coach="list"] .pg-tab-open', side: 'top' as const, title: 'Parts & features', body: 'Tap here for the list. Each one has a pin on the model.' }
-      : { target: '[data-coach="list"]', side: 'right' as const, title: 'Pick a feature', body: `${tap} a name to see its pin on the model.` }] : []),
-    { target: '[data-coach="rail"]', side: 'left', title: 'Turn the model', body: touch ? 'Drag to turn it, pinch to zoom. Or tap a view here.' : 'Drag to turn it and scroll to zoom. These buttons jump to a view.' },
-    { target: '[data-coach="add"]', side: phone ? 'top' : 'right', title: items.length ? 'Add what’s missing' : 'Add the first one',
-      body: phone ? 'Tap + to pin a part or feature that isn’t listed. Others can vote on it.' : 'Pin a part or feature that isn’t listed. Others can vote on it.' },
-  ]
-  function startTour() {
+  function startPractice() {
+    setDraft(null); setPlacing(false); setSelected(null); setProposalId(null); setPracticePin(null); setPracticeVote(0)
     setListOpen(!phone)
-    if (phone && !draft) { setSelected(null); setProposalId(null) }
-    setTouring(true)
+    const rest: Practice[] = ['add', 'place', 'save', 'vote', 'delete', 'done']
+    setPracticePlan(meshId ? [...(items.length ? ['open' as const] : []), ...rest] : ['structure', 'open', ...rest])
+    setPractice(meshId ? (items.length ? 'open' : 'add') : 'structure')
+    if (!meshId) setFinder((f) => f ?? {})
   }
-  const endTour = useCallback(() => { setTouring(false); try { localStorage.setItem(INTRO, '1') } catch { /* private mode */ } }, [])
-  const hint = touring || quiet || placing ? null
+  const endPractice = useCallback(() => {
+    setPractice(null); setPracticePin(null); setPracticeVote(0); setPlacing(false)
+    setDraft((d) => (d?.practice ? null : d))
+    setSelected((x) => (x === PRACTICE_FEATURE ? null : x))
+    try { localStorage.setItem(INTRO, '1') } catch { /* private mode */ }
+  }, [])
+  // Each step moves on when the visitor has done it.
+  useEffect(() => {
+    if (!practice) return
+    const after = (ms: number, then: () => void) => { const t = setTimeout(then, ms); return () => clearTimeout(t) }
+    switch (practice) {
+      case 'structure':
+        if (meshId && host && !loading) return after(300, () => { if (!items.length) setPracticePlan((p) => p.filter((x) => x !== 'open')); setPractice(items.length ? 'open' : 'add') })
+        break
+      case 'open':
+        // A moment to see the card, then (on a phone) back to the bar where + lives.
+        if (selected && selected !== PRACTICE_FEATURE) return after(2200, () => { if (phone) { setSelected(null); setProposalId(null); setListOpen(false) } setPractice('add') })
+        break
+      case 'add': if (draft?.practice) setPractice('place'); break
+      case 'place':
+        if (!draft) setPractice('add')
+        else if (draft.anchor && !placing) {
+          updateDraft({ label: draft.label || 'My practice pin', description: draft.description || 'Practice only: this pin is not saved anywhere.' })
+          setPractice('save')
+        }
+        break
+      case 'save': if (practicePin) setPractice('vote'); else if (!draft) setPractice('add'); break
+      case 'vote': if (practiceVote !== 0) return after(900, () => setPractice('delete')); break
+      case 'delete': if (!practicePin) setPractice('done'); break
+    }
+    // The practice card stays open while it is being voted on and deleted.
+    if ((practice === 'vote' || practice === 'delete') && practicePin && selected !== PRACTICE_FEATURE) { setSelected(PRACTICE_FEATURE); setProposalId(PRACTICE_PIN) }
+  }, [practice, meshId, host, loading, selected, draft, placing, practicePin, practiceVote]) // eslint-disable-line react-hooks/exhaustive-deps
+  const guide: GuideStep | null =
+    practice === 'structure' ? { target: '.pg-finder, .pg-start', side: 'left', title: 'Pick a structure', body: 'Choose any one to practise on. Nothing you do in this practice is saved.' }
+    : practice === 'open' && selected ? { target: '.pg-card', side: phone ? 'top' : 'left', title: 'That’s a feature', body: 'Each one has a pin on the model, a name and a short note.' }
+    : practice === 'open' ? (phone && !listOpen
+      ? { target: '[data-coach="list"] .pg-tab-open', side: 'top', title: 'Open the list', body: 'Tap here to see this structure’s parts & features.' }
+      : { target: '[data-coach="list"]', side: phone ? 'top' : 'right', title: 'Open a feature', body: `${tap} any name to see its pin and what it is.` })
+    : practice === 'add' ? { target: '[data-coach="add"]', side: phone ? 'top' : 'right', title: 'Add your own', body: phone ? 'Tap + to pin something new.' : 'Click “Add a feature” to pin something new.' }
+    : practice === 'place' ? { target: '.pg-stage-free', side: 'top', inside: true, title: 'Place the pin', body: `${tap} anywhere on the model. It’s only practice.` }
+    : practice === 'save' ? { target: '[data-hint="save"]', side: phone ? 'top' : 'left', title: 'Save it', body: 'We filled in a name and a note for you. Save it: practice needs no sign-in.' }
+    : practice === 'vote' ? { target: '[data-hint="vote"]', side: phone ? 'top' : 'left', title: 'Vote', body: 'People vote on whether a pin sits in the right spot. Give yours a thumbs up.' }
+    : practice === 'delete' ? { target: '.pg-card', side: phone ? 'top' : 'left', title: 'Delete it', body: 'Done practising? Open the ⋯ menu on the card and delete your pin.' }
+    : practice === 'done' ? { target: null, side: 'top', title: 'You’re ready', body: 'Real pins work just the same. When you save one, you’ll sign in with Google.', action: { label: 'Start exploring', onClick: endPractice } }
+    : null
+  const hint = practice || quiet || placing ? null
     : draft?.anchor && placedNow && !busy && !phone && !seen('save') ? 'save'
     : !draft && chosen && chosen.author_id !== me && !seen('vote') ? 'vote' : null
   const doneHint = (id: string) => { markSeen(id); setHintRevision((n) => n + 1) }
@@ -379,18 +446,18 @@ export function App() {
                   allowReverse={toggles.reverse} showHidden={toggles.hidden} showOtherLabels={toggles.labels} dark={dark} insets={insets}
                   onPlace={place} onRepositionCommit={place} onPickRefused={(r) => setRefused(REFUSED[r.reason])}
                   onHover={(r) => setRefused(r && !r.ok && r.reason !== 'miss' ? REFUSED[r.reason] : '')}
-                  onPinClick={(id) => { const p = proposals.find((x) => x.id === id); if (p && !draft) void selectLandmark(p.landmark_id, p.id) }} />
+                  onPinClick={(id) => { const p = allProposals.find((x) => x.id === id); if (p && !draft) void selectLandmark(p.landmark_id, p.id) }} />
         )}
       </div>
 
       <Header structure={part} features={items.length} published={published} phone={phone} backHref={backHref} onBack={back}
-              onFind={() => setFinder({})} onTour={startTour}
+              onFind={() => setFinder({})} onTour={startPractice}
               account={session ? { name: profile, admin: isAdmin } : null}
               onSignIn={() => setDialog('auth')} onRename={() => setDialog('name')} onAdmin={() => setDialog('admin')}
               onSignOut={() => void run(async () => { await cloud!.auth.signOut(); setToast('Signed out.') })} />
 
       {meshId && !(phone && cardOpen) && (
-        <Checklist items={items} pins={pinCounts} selected={selected} loading={loading} disabled={!host || busy} phone={phone}
+        <Checklist items={allItems} pins={pinCounts} practice={PRACTICE_FEATURE} selected={selected} loading={loading} disabled={!host || busy} phone={phone}
                    open={listOpen} onOpen={setListOpen} onSelect={(id) => void selectLandmark(id)} onAdd={() => void startDraft(true)} />
       )}
       {host && <Controls compact={phone} onFit={fit} toggles={toggles} onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))} />}
@@ -401,9 +468,9 @@ export function App() {
                    stale={!!host && draft.geometry !== host.meta.geometry}
                    onChange={updateDraft} onPlace={() => { setPlacing(!placing); setRefused('') }} onSave={save} onCancel={() => void cancelDraft()} />
       ) : active && (
-        <LandmarkCard key={active.id} landmark={active} pins={pinsFor} chosen={chosen} scores={scores} me={me} admin={isAdmin} busy={busy}
+        <LandmarkCard key={active.id} landmark={active} pins={pinsFor} chosen={chosen} scores={allScores} practice={chosen?.id === PRACTICE_PIN} me={me} admin={isAdmin} busy={busy}
                       onChoose={setProposalId} onVote={vote} onSuggest={() => void startDraft()} onClose={() => { setSelected(null); setProposalId(null) }}
-                      onWithdraw={() => void run(async () => { await rpc('pg_withdraw', { p_proposal: chosen!.id }); setProposalId(null); setRefresh((x) => x + 1); setToast('Your pin was deleted.') })}
+                      onWithdraw={() => chosen?.id === PRACTICE_PIN ? (setPracticePin(null), setSelected(null), setProposalId(null)) : void run(async () => { await rpc('pg_withdraw', { p_proposal: chosen!.id }); setProposalId(null); setRefresh((x) => x + 1); setToast('Your pin was deleted.') })}
                       onReport={(reason) => void run(async () => { await rpc('pg_report', { p_proposal: chosen!.id, p_reason: reason }); setToast('Thanks. We’ll take a look.') })}
                       run={run} requireUser={requireUser} />
       )}
@@ -460,7 +527,8 @@ export function App() {
                })()} />
       )}
 
-      {touring && !quiet && <Tour steps={steps} onDone={endTour} />}
+      {practice && <div className="pg-stage-free" style={{ left: insets.left, top: insets.top, right: insets.right, bottom: insets.bottom }} />}
+      {guide && <Guide step={guide} index={Math.max(1, practicePlan.indexOf(practice!) + 1)} total={practicePlan.length} onSkip={endPractice} />}
       {hint === 'vote' && <Hint target='[data-hint="vote"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
       {hint === 'save' && <Hint target='[data-hint="save"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
       <AskHost />

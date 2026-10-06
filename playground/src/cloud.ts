@@ -7,7 +7,7 @@ export const cloud=url&&key&&!url.includes('YOUR_PROJECT')?createClient(url,key,
 export interface Landmark { id:string;mesh_id:string;label:string;latin_name:string;description:string;published_proposal:string|null }
 export interface Proposal extends Anchor { id:string;landmark_id:string;mesh_id:string;label:string;latin_name:string;description:string;geometry:string;author_id:string|null;supersedes:string|null;status:string;created_at:string;pg_profiles?:{display_name:string}|null }
 export interface Comment { id:string;body:string;author_id:string;created_at:string;pg_profiles:{display_name:string}|null }
-export interface Draft { meshId:string;landmarkId:string|null;supersedes:string|null;label:string;latin:string;description:string;anchor:Anchor|null;requestId:string;geometry:string }
+export interface Draft { meshId:string;landmarkId:string|null;supersedes:string|null;label:string;latin:string;description:string;anchor:Anchor|null;requestId:string;geometry:string;practice?:boolean }
 export interface Vote { upvotes:number;downvotes:number;mine:number }
 export async function rpc<T=unknown>(name:string,args:Record<string,unknown>={}):Promise<T> {
  if(!cloud)throw new Error('Online contributions are not configured for this preview.')
