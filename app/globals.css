@@ -100,7 +100,11 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
 .scene-caption[hidden]{display:none}
 .appearance-menu{min-width:176px}
 
-.published-landmarks{border-top:1px solid #87929d33;padding-top:16px}.published-landmarks h3{font-size:13px;margin-bottom:10px}.published-landmarks>button{display:block;text-align:left;width:100%;font-size:12px;white-space:normal;height:auto;min-height:36px}.published-landmarks>button[aria-pressed=true]{background:#458a8520}.published-biology{font-size:13px;line-height:1.65;margin-bottom:12px}.published-biology strong,.published-biology em{display:block}.published-biology em{font-size:12px;opacity:.7}.published-biology p{white-space:pre-wrap}
+.published-landmarks{border-top:1px solid #87929d33;padding-top:16px}.published-landmarks h3{font-size:13px;margin-bottom:10px}.published-landmarks>button{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;width:100%;font-size:12px;white-space:normal;height:auto;min-height:36px}.published-landmarks>button[aria-pressed=true]{background:#458a8520}.published-biology{font-size:13px;line-height:1.65;margin-bottom:12px}.published-biology strong,.published-biology em{display:block}.published-biology em{font-size:12px;opacity:.7}.published-biology p{white-space:pre-wrap}
+/* Community pins: offered from the details panel, marked as not yet reviewed in the list. */
+.pins-offer{display:flex;align-items:center;gap:8px;margin:0;padding:4px 4px 4px 10px;border-radius:10px;font-size:12.5px;line-height:1.4;color:#40505a;background:#458a8512;border:1px solid #458a852e}.pins-offer svg{flex:none;color:#2f6f6a}.pins-offer span{flex:1}.pins-offer button{height:32px;font-size:12px;font-weight:600;color:#2f6f6a}
+.pin-chip{flex:none;font-size:10px;font-weight:600;letter-spacing:.02em;line-height:16px;color:#66737c;border:1px solid #87929d55;border-radius:999px;padding:0 6px}
+.pin-byline{display:block;font-size:11.5px;opacity:.75;margin:2px 0 8px}.pin-check{display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:600;color:#2f6f6a;text-decoration:none}.pin-check:hover{text-decoration:underline}
 
 /* Playground entry points: the top bar link, the details action and the New tag. */
 .playground-entry{position:relative;display:flex;align-items:center;gap:9px;height:42px;padding:0 13px;border:1px solid var(--border);background:#ffffffd9;border-radius:10px;font-size:12px;font-weight:500;color:#515d69;text-decoration:none}.playground-entry:hover{background:white}.playground-entry svg{color:#458a85}
@@ -111,7 +115,7 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
 .structure-title,.search-result-name{text-transform:none!important}.structure-title::first-letter,.search-result-name::first-letter{text-transform:uppercase}
 .detail-scroll{padding-bottom:14px;mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent)}
 @media(max-width:767px){.playground-entry{width:44px;min-width:44px;height:44px;padding:0;justify-content:center}.playground-entry .new-tag{position:absolute;top:8px;right:8px;width:8px;height:8px;padding:0;font-size:0;border:0;background:#458a85;border-radius:50%}
- .detail-actions{display:grid!important;grid-template-columns:1fr 1fr;column-gap:6px}.detail-actions .secondary-action{grid-column:1/-1}.detail-actions .primary-action{padding:0 10px;font-size:12px;gap:7px}.detail-actions .primary-action svg:last-child{display:none}}
+ .detail-actions{display:grid!important;grid-template-columns:1fr 1fr;column-gap:6px}.detail-actions .secondary-action,.detail-actions .pins-offer{grid-column:1/-1}.detail-actions .primary-action{padding:0 10px;font-size:12px;gap:7px}.detail-actions .primary-action svg:last-child{display:none}}
 @media(min-width:1280px){.detail-sheet{bottom:54px!important}}  /* wide screens: the sheet clears the dock, so it can use the height */
 @media(max-width:767px){.top-actions button[aria-label="About this atlas"]{display:none}}  /* phones: "Source & credits" in the footer opens the same sheet */
 @media(max-width:400px){h1 .edition{display:none}}
