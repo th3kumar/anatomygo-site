@@ -90,7 +90,9 @@ export function App() {
   // Sharing: the pin a link asked for, the pin shown as "Shared with you", the soft nudge after saving, and the
   // practice offered (rather than started) to someone who arrived from a link.
   const sharedPin = useRef(new URLSearchParams(location.search).get('pin'))
-  const arrivedByShare = useRef(!!sharedPin.current)
+  // The homepage links to one pin as well (?from=home_pin): it opens that pin, but not as "Shared with you".
+  const fromHome = useRef(new URLSearchParams(location.search).get('from') === 'home_pin')
+  const arrivedByShare = useRef(!!sharedPin.current && !fromHome.current)
   const [sharedId, setSharedId] = useState<string | null>(null)
   const [shareNudge, setShareNudge] = useState<{ nth: number; feature: string } | null>(null)
   const [practiceOffer, setPracticeOffer] = useState(false)
@@ -247,10 +249,10 @@ export function App() {
     q.delete('pin')
     history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}`)
     const p = proposals.find((x) => x.id === id)
-    track('shared_pin_opened', { found: p ? 1 : 0, published: p && items.some((l) => l.published_proposal === p.id) ? 1 : 0 })
+    track('shared_pin_opened', { found: p ? 1 : 0, published: p && items.some((l) => l.published_proposal === p.id) ? 1 : 0, via: fromHome.current ? 'home' : 'link' })
     if (!p) { setToast('That pin was removed. Here are the other parts & features.'); return }
-    setSharedId(p.id)
-    void selectLandmark(p.landmark_id, p.id, 'share')
+    if (!fromHome.current) setSharedId(p.id)
+    void selectLandmark(p.landmark_id, p.id, fromHome.current ? 'home' : 'share')
   }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
   // Someone new who came from a link sees the pin first; with coach marks on, the practice is offered once they close it.
   useEffect(() => {
