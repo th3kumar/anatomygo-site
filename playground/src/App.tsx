@@ -23,10 +23,13 @@ import { bucket, errorKind, queryKind, signInFinished, track } from './telemetry
 import { pinLink, sharePin, shareText } from './share'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
+import { COACH_MARKS } from '../../app/coach'
 
 // Set once the practice run is finished or skipped. (The old click-through tour used '…intro'; the practice is new, so it has its own key.)
 const INTRO = 'anatomygo.playground.practice'
-// First-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
+// Set on the first visit, so the homepage drops its "New" tag on the Playground entry.
+const VISITED = 'anatomygo.playground.visited'
+// With coach marks on, first-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
 type Practice = 'structure' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
 const PRACTICE_PIN = 'practice-pin', PRACTICE_FEATURE = 'practice-feature'
 // After which saved pins (counted per browser) to suggest sharing: the first, then once more. Never on every save.
@@ -226,9 +229,10 @@ export function App() {
     return () => { live = false }
   }, [atlas, host, toggles.neighbours])
 
-  // A first visit starts the practice run: on the structure once it is on screen, or at the structure picker.
+  useEffect(() => { try { localStorage.setItem(VISITED, '1') } catch { /* private mode */ } }, [])
+  // With coach marks on, a first visit starts the practice run: on the structure once it is on screen, or at the structure picker.
   useEffect(() => {
-    if (practice || draft) return
+    if (!COACH_MARKS || practice || draft) return
     let first = false
     try { first = !localStorage.getItem(INTRO) } catch { /* private mode: no practice run */ }
     if (first && !arrivedByShare.current && (meshId ? host && !loading : atlas && finder)) startPractice('auto')
@@ -248,14 +252,14 @@ export function App() {
     setSharedId(p.id)
     void selectLandmark(p.landmark_id, p.id, 'share')
   }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Someone new who came from a link sees the pin first; the practice is offered once they close it.
+  // Someone new who came from a link sees the pin first; with coach marks on, the practice is offered once they close it.
   useEffect(() => {
     if (!sharedId || !arrivedByShare.current) return
     if (allProposals.find((x) => x.id === sharedId)?.landmark_id === selected) return
     arrivedByShare.current = false
     let first = false
     try { first = !localStorage.getItem(INTRO) } catch { /* private mode */ }
-    if (first && !practice) { setPracticeOffer(true); track('practice_offer_shown') }
+    if (COACH_MARKS && first && !practice) { setPracticeOffer(true); track('practice_offer_shown') }
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
   // The nudge is soft: it leaves on its own after a few seconds.
   useEffect(() => {
@@ -528,7 +532,7 @@ export function App() {
     : practice === 'delete' ? { target: '.pg-card', side: phone ? 'top' : 'left', title: 'Delete it', body: 'Done practising? Open the ⋯ menu on the card and delete your pin.' }
     : practice === 'done' ? { target: null, side: 'top', title: 'You’re ready', body: 'Real pins work just the same. When you save one, you’ll sign in with Google.', action: { label: 'Start exploring', onClick: () => endPractice('completed') } }
     : null
-  const hint = practice || quiet || placing ? null
+  const hint = !COACH_MARKS || practice || quiet || placing ? null
     : draft?.anchor && placedNow && !busy && !phone && !seen('save') ? 'save'
     : !draft && chosen && chosen.author_id !== me && !seen('vote') ? 'vote' : null
   const doneHint = (id: string) => { track('hint_dismissed', { hint: id }); markSeen(id); setHintRevision((n) => n + 1) }

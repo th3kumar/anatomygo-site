@@ -14,6 +14,8 @@ await features.waitFor({timeout:60000});
 assert.match(await features.innerText(),/^Parts & features/);
 assert.match(await features.getAttribute('href'),/structure=FJ3366&from=details$/);  // ?from= says which entry was used (removed on arrival)
 assert.equal(await page.locator('.top-actions a.playground-entry').getAttribute('href'),'/playground/?from=top_bar');
+await page.waitForTimeout(500);assert.equal(await page.locator('.tip-card').count(),0,'coach marks are off: no homepage tips');
+assert.equal(await page.locator('.playground-entry .new-tag').count(),1,'"New" until the Playground is opened');
 await page.getByRole('button',{name:'Test approved surface',exact:true}).click();
 await page.getByText('Browser fixture only; never published to the database.',{exact:true}).waitFor();
 await page.waitForFunction(()=>!document.querySelector('.loading'),null,{timeout:60000});
@@ -21,5 +23,7 @@ await page.screenshot({path:'../.local/screenshots/approved-viewer.png'});
 await page.getByRole('button',{name:'Show surrounding anatomy'}).click();
 assert.equal(await features.count(),1,'the Playground entry stays without isolation');
 assert.equal(await page.locator('.published-landmarks').count(),0);
-assert.deepEqual(errors,[]);console.log('PASS: Playground entries (top bar, details), isolated viewer entry, approved pack display and biology, cleanup on leaving isolation. Feed mocked; no published data changed.');
+await page.evaluate(()=>localStorage.setItem('anatomygo.playground.visited','1'));await page.reload();
+await page.locator('.top-actions a.playground-entry').waitFor();assert.equal(await page.locator('.playground-entry .new-tag').count(),0,'opening the Playground clears "New"');
+assert.deepEqual(errors,[]);console.log('PASS: Playground entries (top bar, details, no tips, "New" until visited), isolated viewer entry, approved pack display and biology, cleanup on leaving isolation. Feed mocked; no published data changed.');
 }finally{await b.close();}

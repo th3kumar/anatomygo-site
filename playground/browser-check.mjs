@@ -11,10 +11,13 @@ const loaded=()=>page.waitForFunction(()=>document.querySelector('.viewer canvas
 try {
 await page.goto('http://127.0.0.1:3018/playground/?structure=FJ3366');
 await loaded();
-// First visit: a hands-on practice. Each step waits for the real action; nothing is sent to the database.
+// First visit: coach marks are off, so nothing is shown and the homepage learns the Playground was opened.
+await page.waitForTimeout(1500);assert.equal(await page.locator('.coach-layer, .coach-card').count(),0,'a first visit is free exploring');
+assert.equal(await page.evaluate(()=>localStorage.getItem('anatomygo.playground.visited')),'1');
+// "How it works" starts a hands-on practice. Each step waits for the real action; nothing is sent to the database.
 const writes=[];page.on('request',r=>{if(/\/rpc\/pg_(submit|vote|withdraw|comment|report)(\?|$)/.test(r.url()))writes.push(r.url());});
 const stepIs=t=>page.locator('.coach-card h2',{hasText:t}).waitFor({timeout:15000});
-await stepIs('Add your own');
+await page.getByRole('button',{name:'How it works'}).click();await stepIs('Add your own');
 assert.deepEqual(await page.evaluate(()=>['Show neighbouring structures','Show pins behind the surface'].map(l=>document.querySelector(`.view-rail [aria-label="${l}"]`)?.getAttribute('aria-pressed'))),['true','true'],'practice shows neighbours and pins behind');
 await page.locator('.pg-list .item').first().click({force:true});assert.equal(await page.locator('.pg-card').count(),0,'saved features cannot be opened during practice');
 await page.locator('[data-coach="add"]').click();await stepIs('Place the pin');
@@ -33,22 +36,24 @@ await page.locator('.coach-layer').waitFor({state:'detached',timeout:2000});  //
 assert.equal(await page.locator('.pg-list .item',{hasText:'My practice pin'}).count(),0,'the practice pin goes when practice ends');
 assert.deepEqual(writes,[],'practice never writes to the database');
 await page.reload();await loaded();await page.waitForTimeout(800);
-assert.equal(await page.locator('.coach-card').count(),0,'practice shows once');
+assert.equal(await page.locator('.coach-card').count(),0,'practice never starts by itself');
 await page.locator('.pg-list .item').filter({hasText:/\d pins?$/}).first().click();
-await page.locator('[data-hint="vote"]').waitFor();
+await page.locator('[data-hint="vote"]').waitFor();await page.waitForTimeout(500);
+assert.equal(await page.locator('.coach-card').count(),0,'no one-time vote hint');
 await page.getByRole('button',{name:'Label every pin'}).hover();
 await page.getByRole('tooltip').waitFor();
 const tooltip=await page.getByRole('tooltip').evaluate(el=>{const r=el.getBoundingClientRect();return{inside:r.left>=0&&r.right<=innerWidth,z:getComputedStyle(el).zIndex}});
 assert(tooltip.inside);assert.equal(tooltip.z,'1000');
 await page.screenshot({path:'../.local/screenshots/playground-desktop.png'});
-// Sharing: the card copies a link to that pin; opening it (signed out, first visit) shows the pin, not the practice.
+// Sharing: the card copies a link to that pin; opening it (signed out, first visit) shows the pin, and no practice afterwards.
 await page.getByRole('button',{name:'Share this pin'}).click();
 const shared=await page.evaluate(()=>navigator.clipboard.readText());
 assert.match(shared,/\/playground\/\?structure=FJ3366&pin=[0-9a-f-]{36}&from=share$/);
 const visitor=await (await browser.newContext({viewport:{width:1440,height:900}})).newPage();visitor.on('pageerror',e=>errors.push(e.message));
 await visitor.goto(shared.replace(/^https?:\/\/[^/]+/,'http://127.0.0.1:3018'));
 await visitor.locator('.pg-shared').waitFor({timeout:60000});assert.equal(await visitor.locator('.coach-layer').count(),0,'a shared link skips the practice');
-await visitor.getByRole('button',{name:'Close',exact:true}).click();await visitor.locator('.pg-offer').waitFor();await visitor.close();
+await visitor.getByRole('button',{name:'Close',exact:true}).click();await visitor.waitForTimeout(800);
+assert.equal(await visitor.locator('.pg-offer, .coach-layer').count(),0,'no practice offer after a shared pin');await visitor.close();
 // A pin's floating name opens that feature.
 const named=page.locator('.labels .pin-label').filter({hasNotText:'behind'}).last();const label=await named.innerText();
 await named.click();await page.waitForFunction(t=>document.querySelector('.pg-card .pg-title')?.textContent===t,label);
@@ -95,6 +100,8 @@ const mobile=await phone.newPage();mobile.on('pageerror',e=>errors.push(e.messag
 const mobileLoaded=()=>mobile.waitForFunction(()=>document.querySelector('.viewer canvas')&&!document.querySelector('.stage-loading'),null,{timeout:60000});
 const inView=sel=>mobile.locator(sel).first().evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight});
 await mobile.goto('http://127.0.0.1:3018/playground/?structure=FJ3366');await mobileLoaded();
+await mobile.waitForTimeout(1500);assert.equal(await mobile.locator('.coach-layer').count(),0,'a first visit on a phone is free exploring too');
+await mobile.getByRole('button',{name:'Menu',exact:true}).tap();await mobile.getByRole('menuitem',{name:'How it works'}).tap();
 await mobile.locator('.coach-card').waitFor();assert(await inView('.coach-card'),'the practice card stays on screen');
 await mobile.locator('.coach-card h2',{hasText:'Add your own'}).waitFor();
 await mobile.getByRole('button',{name:'Skip tutorial'}).tap();
@@ -110,5 +117,5 @@ await mobile.emulateMedia({colorScheme:'dark'});await mobile.screenshot({path:'.
 assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 assert.equal(await mobile.getByRole('button',{name:'Open on device',exact:true}).count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS: live catalogue, hands-on practice (no database writes), pin sharing, clickable pin names, Google button and sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
+console.log('PASS: live catalogue, quiet first visit, hands-on practice on request (no database writes), pin sharing, clickable pin names, Google button and sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
 } finally { await browser.close(); }
