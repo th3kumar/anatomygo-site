@@ -5,6 +5,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,ArrowUpRight,ChevronRight,Focus,Info,Layers3,Moon,Pause,Pin,RotateCcw,RotateCw,Search,Sun,SunMoon,X} from 'lucide-react';
 import {useFeatureCounts} from './feature-counts';
 import {Tip} from './tips';
+import {COACH_MARKS} from './coach';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Slider} from '@/components/ui/slider';
@@ -35,15 +36,16 @@ export default function Home(){
  const selectedParts=state.selected.map(id=>parts.get(id)).filter(p=>!!p),selected=selectedParts[0],system=SYSTEMS.find(s=>s.id===selected?.system);
  const published=usePublishedPins(state.isolate&&selectedParts.length===1?selected.id:null);
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=published.pins.find(p=>p.id===selectedPin);
- // Playground entry: a count of the structure's parts & features, and two one-time tips until the visitor has tried it.
+ // Playground entry: a count of the structure's parts & features, a "New" tag and (with coach marks on) two one-time tips until the visitor has tried it.
  const featureCounts=useFeatureCounts(details?state.selected:[]),featureTotal=featureCounts?Object.values(featureCounts).reduce((a,b)=>a+b,0):null;
  const featureHref=`/playground/?structure=${encodeURIComponent(selectedParts.length===1?selected?.id??'':chosen?.id??selected?.id??'')}&from=details`;
  const [tipsSeen,setTipsSeen]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('anatomygo.home.tips')??'[]');}catch{return [];}});
- const triedPlayground=useMemo(()=>{try{return !!localStorage.getItem('anatomygo.playground.practice');}catch{return true;}},[]);
+ // Tried: the Playground has been opened (its own flag), or its practice was finished or skipped (older visitors).
+ const triedPlayground=useMemo(()=>{try{return !!(localStorage.getItem('anatomygo.playground.visited')||localStorage.getItem('anatomygo.playground.practice'));}catch{return true;}},[]);
  const seeTips=(...ids:string[])=>setTipsSeen(s=>{const next=[...new Set([...s,...ids])];try{localStorage.setItem('anatomygo.home.tips',JSON.stringify(next));}catch{}return next;});
  const [settled,setSettled]=useState(false);useEffect(()=>{if(progress<100)return;const t=setTimeout(()=>setSettled(true),1500);return()=>clearTimeout(t);},[progress]);
- const featureTip=!triedPlayground&&details&&selectedParts.length>0&&!tipsSeen.includes('features');
- const entryTip=!triedPlayground&&settled&&!details&&!panel&&!about&&!lighting&&!tipsSeen.includes('entry')&&!tipsSeen.includes('features');
+ const featureTip=COACH_MARKS&&!triedPlayground&&details&&selectedParts.length>0&&!tipsSeen.includes('features');
+ const entryTip=COACH_MARKS&&!triedPlayground&&settled&&!details&&!panel&&!about&&!lighting&&!tipsSeen.includes('entry')&&!tipsSeen.includes('features');
  useEffect(()=>{if(entryTip)track('home_tip_shown',{tip:'entry'});},[entryTip]);useEffect(()=>{if(featureTip)track('home_tip_shown',{tip:'features'});},[featureTip]);
  useEffect(()=>setSelectedPin(null),[state.selected]);
  const visibleCount=atlas?.parts.filter(p=>state.isolate?state.selected.includes(p.id):state.visible.includes(p.system)||state.selected.includes(p.id)).length??0;
