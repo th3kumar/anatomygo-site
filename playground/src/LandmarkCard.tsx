@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flag, MapPin, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { Flag, MoreHorizontal, Pin, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { comments as loadComments, rpc, type Comment, type Landmark, type Proposal, type Vote } from './cloud'
 import { ask, askText } from './ui/ask'
 import { Menu } from './ui/Menu'
@@ -87,7 +87,7 @@ export function LandmarkCard(p: Props) {
                 </ul>
               </>
             ) : (
-              <p className="pg-byline"><span className="avatar-sm" aria-hidden>{author(pin)[0]}</span>Pinned by {author(pin)} · {day(pin.created_at)}</p>
+              <p className="pg-byline"><span className="avatar-sm" aria-hidden>{author(pin)[0]}</span>{pin.pg_profiles?.display_name ? `Pinned by ${author(pin)}` : author(pin)} · {day(pin.created_at)}</p>
             )}
             <div className="pg-vote" data-hint="vote">
               <span>{mine ? 'This is your pin.' : 'Is this pin in the right spot?'}</span>
@@ -106,8 +106,8 @@ export function LandmarkCard(p: Props) {
       </div>
       <footer className="card-actions">
         {pin
-          ? <button className="outline wide" disabled={p.busy} onClick={p.onSuggest}><MapPin size={15} />Suggest a better spot</button>
-          : <button className="primary wide" data-coach="place" disabled={p.busy} onClick={p.onSuggest}><MapPin size={15} />Pin this feature</button>}
+          ? <button className="outline wide" disabled={p.busy} onClick={p.onSuggest}><Pin size={15} />Suggest a better spot</button>
+          : <button className="primary wide" data-coach="place" disabled={p.busy} onClick={p.onSuggest}><Pin size={15} />Pin this feature</button>}
       </footer>
     </aside>
   )

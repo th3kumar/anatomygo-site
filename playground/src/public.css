@@ -105,6 +105,12 @@
 .pg-step input, .pg-step textarea { font-size: 13px; }
 .pg-warn { margin: 8px 0 0; padding: 8px 10px; border-radius: 9px; font-size: 12px; line-height: 1.45; color: var(--text); background: color-mix(in srgb, var(--warn) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
 
+/* Pin names are buttons: click or tap one to open that feature. */
+.labels .pin-label { pointer-events: auto; cursor: pointer; transition: filter .15s; }
+.labels .pin-label:hover { filter: brightness(1.15); }
+.labels.passive .pin-label { pointer-events: none; }
+@media (pointer: coarse) { .labels .pin-label { padding: 6px 11px; font-size: 12px; } }
+
 /* ── Placing ──────────────────────────────────────────────────────────────── */
 .pg-caption { position: absolute; bottom: 28px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 12px; font-size: 13px; color: var(--fg); white-space: nowrap; pointer-events: none; }
 .pg-caption svg { color: var(--ok); }
@@ -265,3 +271,6 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
   .coach-card p:not(.coach-count) { font-size: 14px; }
   .coach-next, .coach-skip { min-height: 38px; }
 }
+.pg-auth-popup { height: 100dvh; display: grid; place-items: center; background: var(--stage); }
+.pg-auth-popup .centre-card { position: static; transform: none; width: min(380px, 92vw); }
+.pg-auth-popup .centre-card button { align-self: flex-start; }

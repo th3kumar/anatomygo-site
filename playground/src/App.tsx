@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { Session } from '@supabase/supabase-js'
 import { MousePointerClick, Search, X } from 'lucide-react'
 import { loadAtlas, loadMesh, neighbours, type Atlas, type LoadedMesh } from './api'
-import { checklist, cloud, placements, restoreDraft, rpc, saveDraft, structureCounts, submit, votes, type Draft, type Landmark, type Proposal, type Vote } from './cloud'
+import { AUTH_CHANNEL, checklist, cloud, placements, restoreDraft, rpc, saveDraft, signInWithGoogle, structureCounts, submit, votes, type Draft, type Landmark, type Proposal, type Vote } from './cloud'
 import { Viewer, type ViewerHandle } from './Viewer'
 import type { PickFailure, PickResult } from './picking'
 import { SceneController, type ScenePin, type ViewName } from './scene'
@@ -69,12 +69,13 @@ export function App() {
   const [toast, setToast] = useState('')
   const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[] } | null>(null)
   const [dialog, setDialog] = useState<'auth' | 'name' | 'admin' | null>(null)
+  const [googleOpen, setGoogleOpen] = useState(false)
   const [touring, setTouring] = useState(false)
   const [, setHintRevision] = useState(0)
   const phone = usePhone()
   // On a phone the list starts as a bar under the model; on a desktop it is open beside it.
   const [listOpen, setListOpen] = useState(() => !isPhone())
-  const [toggles, setToggles] = useState<Toggles>({ neighbours: false, labels: false, hidden: false, reverse: false })
+  const [toggles, setToggles] = useState<Toggles>({ neighbours: false, labels: true, hidden: false, reverse: false })
   const [insets, setInsets] = useState({ left: 330, right: 100, top: 120, bottom: 72 })
 
   const active = items.find((x) => x.id === selected) ?? null
@@ -124,8 +125,21 @@ export function App() {
     if (!cloud) return
     const { data: { subscription } } = cloud.auth.onAuthStateChange((_event, s) => setSession(s))
     cloud.auth.getSession().then(({ data, error }) => { if (error) tell(error); else setSession(data.session) })
-    return () => subscription.unsubscribe()
+    // The Google window signs in on its own page; it says so here, and coming back to this tab re-reads the session too.
+    const reread = () => { void cloud!.auth.getSession().then(({ data }) => { if (data.session) setSession(data.session) }) }
+    let channel: BroadcastChannel | null = null
+    try { channel = new BroadcastChannel(AUTH_CHANNEL); channel.onmessage = reread } catch { /* older browsers: focus still works */ }
+    addEventListener('focus', reread)
+    return () => { subscription.unsubscribe(); channel?.close(); removeEventListener('focus', reread) }
   }, [])
+
+  // Once signed in, the sign-in dialog has done its job.
+  useEffect(() => {
+    if (!session || dialog !== 'auth') return
+    setDialog(null)
+    setGoogleOpen(false)
+    setToast(draft ? 'Signed in. Now press Save pin.' : 'Signed in.')
+  }, [session?.user.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let live = true
@@ -429,14 +443,13 @@ export function App() {
                          onChoose={(id) => void chooseStructure(id)} onClose={() => setFinder(null)} />
       )}
       {dialog === 'auth' && (
-        <Dialog title="Sign in to save" onClose={() => setDialog(null)}>
-          <p>Sign in to save pins, vote and comment.{draft ? ' Your pin stays right here.' : ''}</p>
+        <Dialog title="Sign in to save" onClose={() => { setDialog(null); setGoogleOpen(false) }}>
+          <p>{googleOpen ? 'Finish signing in in the Google window. This page updates by itself.' : `Sign in to save pins, vote and comment.${draft ? ' Your pin stays right here.' : ''}`}</p>
           {cloud ? (
-            <button className="primary wide" disabled={busy} onClick={() => void run(async () => {
+            <button className={googleOpen ? 'outline wide' : 'primary wide'} disabled={busy} onClick={() => void run(async () => {
               saveDraft(draft)
-              const { error } = await cloud!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + `/playground/?structure=${encodeURIComponent(meshId)}` } })
-              if (error) throw error
-            })}>Continue with Google</button>
+              if (await signInWithGoogle(meshId) === 'popup') setGoogleOpen(true)
+            })}>{googleOpen ? 'Open the Google window again' : 'Continue with Google'}</button>
           ) : <p className="pg-warn">Saving is switched off in this preview.</p>}
           <p className="note">We use Google only to sign you in. Your email is never shown.</p>
         </Dialog>

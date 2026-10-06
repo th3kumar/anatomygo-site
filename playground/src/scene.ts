@@ -54,7 +54,8 @@ export interface SceneCallbacks {
 
 const CLICK_PIXELS = 4
 const CLICK_MS = 400
-const PIN_HIT_PIXELS = 14
+// A finger needs a bigger target than a mouse pointer.
+const PIN_HIT_PIXELS = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 24 : 14
 
 export class SceneController {
   readonly renderer: THREE.WebGLRenderer
@@ -123,6 +124,9 @@ export class SceneController {
     el.addEventListener('pointermove', this.pointerMove)
     el.addEventListener('pointerup', this.pointerUp)
     el.addEventListener('pointerleave', this.pointerLeave)
+    // A pin's name is a target too: pressing and releasing on it (without dragging) selects that pin.
+    labels.addEventListener('pointerdown', this.labelDown)
+    labels.addEventListener('pointerup', this.labelUp)
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
     this.resize()
@@ -140,6 +144,8 @@ export class SceneController {
     this.controls.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
+    this.labels.removeEventListener('pointerdown', this.labelDown)
+    this.labels.removeEventListener('pointerup', this.labelUp)
   }
 
   /** Shows one attachment mesh, centred by a scene transform (the source geometry is never changed). */
@@ -378,9 +384,11 @@ export class SceneController {
       if (!selected && taken.some((t) => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1])) continue
       taken.push(box)
       const cls = ['pin-label', selected ? 'selected' : '', visible ? '' : 'hidden-pin', p.muted ? 'muted' : ''].join(' ')
-      html.push(`<div class="${cls}" style="transform:translate(${head.x.toFixed(1)}px,${head.y.toFixed(1)}px)">${escapeHtml(p.label)}${visible ? '' : ' <em>· behind</em>'}</div>`)
+      html.push(`<div class="${cls}" data-pin="${escapeHtml(p.id)}" style="transform:translate(${head.x.toFixed(1)}px,${head.y.toFixed(1)}px)">${escapeHtml(p.label)}${visible ? '' : ' <em>· behind</em>'}</div>`)
     }
     this.labels.innerHTML = html.join('')
+    // While placing, clicks belong to the surface, so names step aside.
+    this.labels.classList.toggle('passive', this.mode !== 'orbit')
   }
 
   private drawAxes() {
@@ -500,6 +508,18 @@ export class SceneController {
       return
     }
     if (down.onPin) this.callbacks.onPinClick(down.onPin)
+  }
+
+  private labelPress: { id: string; x: number; y: number } | null = null
+  private labelDown = (event: PointerEvent) => {
+    const id = (event.target as HTMLElement).closest<HTMLElement>('[data-pin]')?.dataset.pin
+    this.labelPress = id ? { id, x: event.clientX, y: event.clientY } : null
+  }
+  private labelUp = (event: PointerEvent) => {
+    const press = this.labelPress
+    this.labelPress = null
+    // The label is redrawn on every frame, so the press is remembered rather than read from the release target.
+    if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= CLICK_PIXELS * 2) this.callbacks.onPinClick(press.id)
   }
 
   private pointerLeave = () => {

@@ -25,10 +25,17 @@ await page.getByRole('tooltip').waitFor();
 const tooltip=await page.getByRole('tooltip').evaluate(el=>{const r=el.getBoundingClientRect();return{inside:r.left>=0&&r.right<=innerWidth,z:getComputedStyle(el).zIndex}});
 assert(tooltip.inside);assert.equal(tooltip.z,'1000');
 await page.screenshot({path:'../.local/screenshots/playground-desktop.png'});
+// A pin's floating name opens that feature.
+const named=page.locator('.labels .pin-label').filter({hasNotText:'behind'}).last();const label=await named.innerText();
+await named.click();await page.waitForFunction(t=>document.querySelector('.pg-card .pg-title')?.textContent===t,label);
 await page.getByRole('button',{name:'Suggest a better spot'}).click();
 await page.getByLabel('Name',{exact:true}).fill('Browser test draft — not submitted');
 await page.getByRole('button',{name:'Save pin',exact:true}).click();
 await page.getByRole('dialog',{name:'Sign in to save'}).waitFor();
+// Desktop sign-in runs in a small Google window; this page and its draft stay put. (No account is used.)
+const [google]=await Promise.all([page.waitForEvent('popup'),page.getByRole('button',{name:'Continue with Google',exact:true}).click()]);
+await google.waitForURL(/accounts\.google\.com|\/auth\/v1\/authorize/,{timeout:30000});await google.close();
+await page.getByText('Finish signing in in the Google window.',{exact:false}).waitFor();
 assert.equal(await page.getByLabel('Name',{exact:true}).inputValue(),'Browser test draft — not submitted');
 await page.getByRole('dialog',{name:'Sign in to save'}).getByRole('button',{name:'Close',exact:true}).click();
 await page.reload();await loaded();assert.equal(leaveGuard,1,'leaving with an unsaved pin asks first');
@@ -75,5 +82,5 @@ await mobile.emulateMedia({colorScheme:'dark'});await mobile.screenshot({path:'.
 assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 assert.equal(await mobile.getByRole('button',{name:'Open on device',exact:true}).count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS: live catalogue, one-time tour, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
+console.log('PASS: live catalogue, one-time tour, clickable pin names, Google sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
 } finally { await browser.close(); }

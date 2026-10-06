@@ -1,4 +1,4 @@
-import { Check, MapPin, X } from 'lucide-react'
+import { Check, Pin, X } from 'lucide-react'
 import type { Draft } from './cloud'
 import { touch } from './ui/Spotlight'
 
@@ -37,7 +37,7 @@ export function DraftCard(p: Props) {
               ? (placed ? `Drag the pin, or ${tap} a new spot on the model.` : `${Tap} the model where this feature sits.`)
               : placed ? 'Turn the model to check it from another side.' : `Start, then ${tap} the model where it sits.`}</p>
             <button className={placed || p.placing ? 'outline' : 'primary'} disabled={p.busy} onClick={p.onPlace}>
-              <MapPin size={15} />{p.placing ? (placed ? 'Done' : 'Stop') : placed ? 'Move pin' : 'Place pin'}
+              <Pin size={15} />{p.placing ? (placed ? 'Done' : 'Stop') : placed ? 'Move pin' : 'Place pin'}
             </button>
           </div>
         </section>
