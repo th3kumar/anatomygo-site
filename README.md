@@ -46,13 +46,13 @@ We credit those foundations openly. AnatomyGo's website work includes a mobile-a
 
 ### Repository and source status
 
-This repository contains the **deployed static website** served by GitHub Pages: HTML, compiled JavaScript/CSS, model files, and the shared-view page. It does not currently include the editable source for AnatomyGo's customised web application. The linked Human Atlas repository provides the upstream source, but does not contain all AnatomyGo-specific changes.
+This branch includes editable React/Three.js viewer source and the web-only **Playground**, consolidated from the local customised Human Atlas checkout. The existing static deployment remains at the repository root during migration; new builds go to `dist/`.
 
-The Android application's source is not currently public. Its preview here demonstrates development progress; it is not an open-source Android release.
+Playground uses Supabase for signed-in contributions, votes, comments and admin-selected pin revisions. See the [rollout and operating guide](docs/playground-rollout.md) for setup, validation, data migration and remaining launch gates. The live website has not been replaced by this branch.
 
 - **Upstream application:** [MIT license notice](human-atlas-license.txt).
-- **Anatomy data:** CC BY 4.0, with sources and adaptation details in [ATTRIBUTION.md](ATTRIBUTION.md).
-- **Third-party dependencies:** retain their respective licenses.
+- **Anatomy data:** CC BY 4.0, with sources and adaptations in [ATTRIBUTION.md](ATTRIBUTION.md).
+- **Android source:** maintained separately; Playground is web-only.
 
 ## Help shape AnatomyGo
 
@@ -66,18 +66,20 @@ You can help by:
 - Suggesting improvements to accessibility, learning workflows, or documentation.
 - Submitting documentation corrections through a pull request.
 
-Please discuss larger changes in an issue first. Since the website assets are compiled, avoid editing the generated bundles directly. Keep discussion respectful and focused on helping people learn.
+Please discuss larger changes in an issue first. Edit the application source and rebuild; do not edit generated bundles directly. Keep discussion respectful and focused on helping people learn.
 
-## Preview this website locally
+## Build and preview locally
 
-This is a static deployment, so no Node.js build step is required to serve the files already in this repository. With Python 3 installed:
+Use Node.js 22.13 or newer:
 
 ```sh
-git clone https://github.com/th3kumar/anatomygo-site.git
-cd anatomygo-site
-python3 -m http.server 8080 --bind 127.0.0.1
+npm ci
+npm --prefix playground ci
+npm run check
+npm run build
+python3 -m http.server 3018 --bind 127.0.0.1 --directory dist
 ```
 
-Open **http://127.0.0.1:8080**. The viewer needs a browser with WebGL support. These commands preview the deployed build; they do not rebuild the application from source.
+Open **http://localhost:3018**. Configure `playground/.env.local` from the example to connect Supabase. Serve only `dist/`; never expose the source repository or local data folder. Setup and launch status: [Playground rollout](docs/playground-rollout.md).
 
-When updating the deployment, preserve `CNAME`, `.nojekyll`, `.well-known/assetlinks.json`, `/v/`, and the attribution files. Existing shared links depend on the domain and shared-view route remaining available.
+Preserve `CNAME`, `.nojekyll`, `.well-known/assetlinks.json`, `/v/`, model files and attribution when deploying. Existing shared links depend on them.

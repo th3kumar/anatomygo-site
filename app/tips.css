@@ -1,0 +1,12 @@
+/* One-time tips: the Playground's coach-mark card, sized for the homepage. */
+.tip-card{position:fixed;z-index:80;width:min(280px,calc(100vw - 24px));padding:14px 15px 12px 16px;border-radius:14px;background:#263b48;color:#fff;box-shadow:0 18px 48px rgba(0,0,0,.28);transition:left .35s cubic-bezier(.2,.8,.2,1),top .35s cubic-bezier(.2,.8,.2,1);animation:tip-in .3s ease-out}
+.tip-card::before{content:'';position:absolute;width:12px;height:12px;background:inherit;border-radius:2px;transform:rotate(45deg)}
+.tip-card.from-right::before{left:-5px;top:calc(var(--arrow) - 6px)}.tip-card.from-left::before{right:-5px;top:calc(var(--arrow) - 6px)}
+.tip-card.from-bottom::before{top:-5px;left:calc(var(--arrow) - 6px)}.tip-card.from-top::before{bottom:-5px;left:calc(var(--arrow) - 6px)}
+.tip-card p{margin:0;font-size:13px;line-height:1.5}
+.tip-card p strong{display:block;font-size:14px;font-weight:600;margin-bottom:3px}
+.tip-card button{display:block;margin:12px 0 0 auto;min-height:32px;padding:0 14px;border-radius:8px;font-size:12px;font-weight:600;background:#fff!important;color:#263b48!important;border:0}
+.tip-card button:hover{opacity:.9}
+.dark .tip-card{background:#e9ecef;color:#131518}.dark .tip-card button{background:#131518!important;color:#e9ecef!important}
+@keyframes tip-in{from{opacity:0;translate:0 4px}}
+@media(max-width:767px){.tip-card p{font-size:14px}.tip-card button{min-height:40px}}

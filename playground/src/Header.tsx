@@ -1,0 +1,90 @@
+import { useState } from 'react'
+import { ArrowLeft, BarChart3, HelpCircle, LogIn, LogOut, Monitor, Moon, MoreHorizontal, PenLine, Search, Shield, Sun, UserRound } from 'lucide-react'
+import type { MouseEvent } from 'react'
+import { setAppearance, useAppearance, type Appearance } from './theme'
+import { Menu, type MenuEntry } from './ui/Menu'
+import { sentence, systemColor, systemName } from './ui/systems'
+import { setStatsEnabled, statsEnabled, track } from './telemetry'
+
+interface Props {
+  structure: { name: string; system: string } | null
+  features: number
+  published: number
+  phone: boolean
+  backHref: string
+  onBack(e: MouseEvent): void
+  onFind(): void
+  onTour(): void
+  account: { name: string; admin: boolean } | null
+  onSignIn(): void
+  onSignOut(): void
+  onRename(): void
+  onAdmin(): void
+}
+
+const appearances: { id: Appearance; label: string; icon: typeof Sun }[] = [
+  { id: 'system', label: 'Match my device', icon: Monitor }, { id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon },
+]
+export const featureCount = (n: number) => (n === 1 ? '1 part or feature' : `${n} parts & features`)
+
+export function Header(p: Props) {
+  const { choice, dark } = useAppearance()
+  const Current = choice === 'system' ? Monitor : dark ? Moon : Sun
+  const appearanceItems: MenuEntry[] = appearances.map((a) => ({
+    label: a.label, icon: <a.icon size={15} />, checked: choice === a.id,
+    onSelect: () => { track('appearance_changed', { mode: a.id, area: 'playground' }); setAppearance(a.id) },
+  }))
+  // The same choice as "Share usage statistics" in About on the homepage: one setting for the whole site.
+  const [stats, setStats] = useState(statsEnabled)
+  const privacyItems: MenuEntry[] = [{ heading: 'Privacy' }, {
+    label: 'Share usage statistics', icon: <BarChart3 size={15} />, checked: stats, toggle: true,
+    onSelect: () => { if (stats) track('stats_disabled', { area: 'playground' }); setStatsEnabled(!stats); setStats(!stats) },
+  }]
+  const accountItems: MenuEntry[] = p.account ? [
+    { label: p.account.name ? 'Change public name' : 'Choose a public name', icon: <PenLine size={15} />, onSelect: p.onRename },
+    ...(p.account.admin ? [{ label: 'Review queue', icon: <Shield size={15} />, onSelect: p.onAdmin }] : []),
+    'divider',
+    { label: 'Sign out', icon: <LogOut size={15} />, onSelect: p.onSignOut },
+  ] : [{ label: 'Sign in', icon: <LogIn size={15} />, onSelect: p.onSignIn }]
+  const initial = p.account?.name.trim()[0]?.toUpperCase()
+  const accountTrigger = initial ? <span aria-hidden>{initial}</span> : <UserRound size={17} />
+
+  return (
+    <>
+      <header className="identity pg-identity">
+        <nav className="eyebrow" aria-label="Breadcrumb">
+          <a href={p.backHref} onClick={p.onBack}><ArrowLeft size={12} />AnatomyGo</a>
+          <span aria-hidden>/</span>
+          <span>Playground</span>
+        </nav>
+        <h1 title={p.structure ? sentence(p.structure.name) : undefined}>{p.structure ? sentence(p.structure.name) : 'Playground'}</h1>
+        {p.structure && (
+          <p className="identity-meta">
+            <i className="system-dot" style={{ background: systemColor(p.structure.system) }} />
+            {systemName(p.structure.system)}
+            <span>·</span>{featureCount(p.features)}
+            {p.published > 0 && <><span>·</span>{p.published} published</>}
+          </p>
+        )}
+      </header>
+      {p.phone ? (
+        // Phones: search plus one menu, so the title keeps its room.
+        <div className="top-actions">
+          <button className="square" aria-label="Find a structure" onClick={p.onFind}><Search size={17} /></button>
+          <Menu label={p.account ? 'Your account and settings' : 'Menu'} className={`square ${initial ? 'avatar' : ''}`} heading={p.account?.name || undefined}
+                trigger={p.account ? accountTrigger : <MoreHorizontal size={18} />}
+                items={[{ label: 'How it works', icon: <HelpCircle size={15} />, onSelect: p.onTour }, { heading: 'Appearance' }, ...appearanceItems, ...privacyItems, 'divider', ...accountItems]} />
+        </div>
+      ) : (
+        <div className="top-actions">
+          <button onClick={p.onFind} aria-keyshortcuts="/"><Search size={15} />Find a structure<kbd>/</kbd></button>
+          <button className="square" aria-label="How it works" title="How it works" onClick={p.onTour}><HelpCircle size={17} /></button>
+          <Menu label="Appearance" heading="Appearance" trigger={<Current size={17} />} items={[...appearanceItems, ...privacyItems]} />
+          {p.account
+            ? <Menu label="Your account" className={`square ${initial ? 'avatar' : ''}`} heading={p.account.name || 'Signed in'} trigger={accountTrigger} items={accountItems} />
+            : <button onClick={p.onSignIn}>Sign in</button>}
+        </div>
+      )}
+    </>
+  )
+}
