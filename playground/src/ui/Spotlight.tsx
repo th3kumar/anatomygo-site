@@ -56,15 +56,16 @@ function position(rect: DOMRect, size: { width: number; height: number }, prefer
   return { side, left, top, arrow: Math.max(18, Math.min(size.width - 18, anchor - left)) }
 }
 
-function Card({ rect, side, label, inside = false, children }: { rect: DOMRect; side: Side; label: string; inside?: boolean; children: ReactNode }) {
+function Card({ rect, side, label, inside = false, children }: { rect: DOMRect | null; side: Side; label: string; inside?: boolean; children: ReactNode }) {
   const card = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<{ width: number; height: number } | null>(null)
   useLayoutEffect(() => {
     const r = card.current!.getBoundingClientRect()
     if (!size || size.width !== r.width || size.height !== r.height) setSize({ width: r.width, height: r.height })
   })
-  // A target that fills most of the window (the model) gets the card along its top edge, inside it, with no arrow.
-  const p = !size ? null : inside
+  const centre = (w: number, h: number) => ({ side: 'inside' as const, arrow: 0, left: (innerWidth - w) / 2, top: (innerHeight - h) / 2 })
+  // No target: the middle of the window. A target that fills most of it (the model): along its top edge, inside it.
+  const p = !size ? null : !rect ? centre(size.width, size.height) : inside
     ? { side: 'inside' as const, arrow: 0, left: Math.max(EDGE, Math.min(innerWidth - size.width - EDGE, rect.left + rect.width / 2 - size.width / 2)), top: rect.top + 16 }
     : position(rect, size, side)
   const style = (p ? { left: p.left, top: p.top, '--arrow': `${p.arrow}px` } : { left: 0, top: 0, visibility: 'hidden' }) as CSSProperties
@@ -77,10 +78,28 @@ function Card({ rect, side, label, inside = false, children }: { rect: DOMRect; 
 
 /**
  * Hands-on practice. The page is dimmed except one control, and only that control takes clicks: the visitor moves on
- * by doing the thing, not by pressing Next. A small "Skip tutorial" is always there.
+ * by doing the thing, not by pressing Next. A small "Skip tutorial" is always there. Between steps the lit window and
+ * the card glide to the next control, and at the end the layer fades out.
  */
-export function Guide({ step, index, total, onSkip }: { step: GuideStep; index: number; total: number; onSkip(): void }) {
-  const rect = useRect(step.target ?? '')
+export function Guide(props: { step: GuideStep | null; index: number; total: number; onSkip(): void }) {
+  const [shown, setShown] = useState(props.step)
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    if (props.step) { setShown(props.step); setLeaving(false); return }
+    setLeaving(true)
+    const t = setTimeout(() => { setShown(null); setLeaving(false) }, 260)
+    return () => clearTimeout(t)
+  }, [props.step])
+  const step = props.step ?? shown
+  return step ? <GuideLayer step={step} index={props.index} total={props.total} onSkip={props.onSkip} leaving={leaving} /> : null
+}
+
+function GuideLayer({ step, index, total, onSkip, leaving }: { step: GuideStep; index: number; total: number; onSkip(): void; leaving: boolean }) {
+  // While the next control is still appearing, the window stays where it was rather than blinking out.
+  const live = useRect(step.target ?? '')
+  const last = useRef<DOMRect | null>(null)
+  if (live) last.current = live
+  const rect = step.target ? live ?? last.current : null
   const action = useRef<HTMLButtonElement>(null)
   useEffect(() => { action.current?.focus({ preventScroll: true }) }, [step.title])
   useEffect(() => {
@@ -88,33 +107,32 @@ export function Guide({ step, index, total, onSkip }: { step: GuideStep; index: 
     addEventListener('keydown', keys, true)
     return () => removeEventListener('keydown', keys, true)
   }, [onSkip])
-  const body = (
-    <>
-      <p className="coach-count">Practice · {index} of {total}</p>
-      <h2>{step.title}</h2>
-      <p>{step.body}</p>
-      <footer>
-        {step.action
-          ? <button ref={action} className="coach-next" onClick={step.action.onClick}>{step.action.label}</button>
-          : <button className="coach-skip" onClick={onSkip}>Skip tutorial</button>}
-      </footer>
-    </>
-  )
-  // Blocks around the lit control: presses elsewhere go nowhere (and do not close open panels).
+  if (step.target && !rect) return null
+  // Without a target the window closes to a point in the middle, so the dimming covers everything.
+  const hole = rect
+    ? { left: rect.left - PAD, top: rect.top - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD }
+    : { left: innerWidth / 2, top: innerHeight / 2, right: innerWidth / 2, bottom: innerHeight / 2 }
+  // Presses outside the lit control go nowhere, and do not close open panels either.
   const stop = { onPointerDown: (e: { stopPropagation(): void }) => e.stopPropagation(), onClick: (e: { stopPropagation(): void }) => e.stopPropagation() }
-  if (!step.target) {
-    return <div className="coach-layer guide"><div className="coach-block dim" {...stop} /><div className="coach-card center" role="dialog" aria-label="Practice">{body}</div></div>
-  }
-  if (!rect) return null
-  const hole = { left: rect.left - PAD, top: rect.top - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD }
   return (
-    <div className="coach-layer guide">
+    <div className={`coach-layer guide ${leaving ? 'leaving' : ''}`}>
       <div className="coach-block" {...stop} style={{ left: 0, top: 0, right: 0, height: Math.max(0, hole.top) }} />
       <div className="coach-block" {...stop} style={{ left: 0, top: hole.bottom, right: 0, bottom: 0 }} />
       <div className="coach-block" {...stop} style={{ left: 0, top: hole.top, width: Math.max(0, hole.left), height: hole.bottom - hole.top }} />
       <div className="coach-block" {...stop} style={{ left: hole.right, top: hole.top, right: 0, height: hole.bottom - hole.top }} />
-      <div className="coach-hole" style={{ left: hole.left, top: hole.top, width: hole.right - hole.left, height: hole.bottom - hole.top }} />
-      <Card rect={rect} side={step.side} label="Practice" inside={step.inside}>{body}</Card>
+      <div className={`coach-hole ${rect ? '' : 'closed'}`} style={{ left: hole.left, top: hole.top, width: hole.right - hole.left, height: hole.bottom - hole.top }} />
+      <Card rect={rect} side={step.side} label="Practice" inside={step.inside}>
+        <div className="coach-body" key={step.title}>
+          <p className="coach-count">Practice · {index} of {total}</p>
+          <h2>{step.title}</h2>
+          <p>{step.body}</p>
+          <footer>
+            {step.action
+              ? <button ref={action} className="coach-next" onClick={step.action.onClick}>{step.action.label}</button>
+              : <button className="coach-skip" onClick={onSkip}>Skip tutorial</button>}
+          </footer>
+        </div>
+      </Card>
     </div>
   )
 }

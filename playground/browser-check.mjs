@@ -13,10 +13,9 @@ await loaded();
 // First visit: a hands-on practice. Each step waits for the real action; nothing is sent to the database.
 const writes=[];page.on('request',r=>{if(/\/rpc\/pg_(submit|vote|withdraw|comment|report)(\?|$)/.test(r.url()))writes.push(r.url());});
 const stepIs=t=>page.locator('.coach-card h2',{hasText:t}).waitFor({timeout:15000});
-await stepIs('Open a feature');
-await page.mouse.click(720,450);assert.equal(await page.locator('.pg-card').count(),0,'presses outside the lit control do nothing');
-await page.locator('.pg-list .item').filter({hasText:/\d pins?$/}).first().click();
-await stepIs('That’s a feature');await stepIs('Add your own');
+await stepIs('Add your own');
+assert.deepEqual(await page.evaluate(()=>['Show neighbouring structures','Show pins behind the surface'].map(l=>document.querySelector(`.view-rail [aria-label="${l}"]`)?.getAttribute('aria-pressed'))),['true','true'],'practice shows neighbours and pins behind');
+await page.locator('.pg-list .item').first().click({force:true});assert.equal(await page.locator('.pg-card').count(),0,'saved features cannot be opened during practice');
 await page.locator('[data-coach="add"]').click();await stepIs('Place the pin');
 const area=await page.locator('.pg-stage-free').boundingBox();let pinned=false;
 for(const fy of [.5,.4,.6,.3,.7]){for(const fx of [.5,.45,.55,.4,.6]){await page.mouse.click(area.x+area.width*fx,area.y+area.height*fy);if(await page.locator('.pg-step.done').count()){pinned=true;break;}}if(pinned)break;}
@@ -28,7 +27,7 @@ await page.getByRole('button',{name:'Yes, it’s right'}).click();
 await stepIs('Delete it');await page.getByRole('button',{name:'More options'}).click();await page.getByRole('menuitem',{name:'Delete my pin'}).click();
 await page.getByRole('dialog',{name:'Delete your pin?'}).getByRole('button',{name:'Delete pin',exact:true}).click();
 await stepIs('You’re ready');await page.getByRole('button',{name:'Start exploring',exact:true}).click();
-assert.equal(await page.locator('.coach-layer').count(),0);
+await page.locator('.coach-layer').waitFor({state:'detached',timeout:2000});  // after its fade-out
 assert.equal(await page.locator('.pg-list .item',{hasText:'My practice pin'}).count(),0,'the practice pin goes when practice ends');
 assert.deepEqual(writes,[],'practice never writes to the database');
 await page.reload();await loaded();await page.waitForTimeout(800);
@@ -87,10 +86,9 @@ const mobileLoaded=()=>mobile.waitForFunction(()=>document.querySelector('.viewe
 const inView=sel=>mobile.locator(sel).first().evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight});
 await mobile.goto('http://127.0.0.1:3018/playground/?structure=FJ3366');await mobileLoaded();
 await mobile.locator('.coach-card').waitFor();assert(await inView('.coach-card'),'the practice card stays on screen');
-await mobile.locator('.pg-tab-open').tap();await mobile.locator('.coach-card h2',{hasText:'Open a feature'}).waitFor();assert(await inView('.coach-card'),'still on screen with the list open');
+await mobile.locator('.coach-card h2',{hasText:'Add your own'}).waitFor();
 await mobile.getByRole('button',{name:'Skip tutorial'}).tap();
-assert.equal(await mobile.locator('.coach-layer').count(),0,'practice can be skipped on a phone');
-await mobile.getByRole('button',{name:'Hide parts and features'}).tap();
+await mobile.locator('.coach-layer').waitFor({state:'detached',timeout:2000});  // practice can be skipped on a phone
 assert.equal(await mobile.locator('.pg-checklist').count(),0,'the list starts as a bar so the model is visible');
 await mobile.locator('.pg-tab-open').tap();
 await mobile.locator('.pg-list .item').filter({hasText:/\d pins?$/}).first().tap();

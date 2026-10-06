@@ -12,6 +12,8 @@ interface Props {
   note?: string
   /** Pieces of the structure the visitor came from; listed alone, most features first, until they type. */
   group?: string[]
+  /** Practice: only the group is offered, with no search and no way to close. */
+  locked?: boolean
   onChoose(id: string): void
   onClose(): void
 }
@@ -23,7 +25,7 @@ export function StructureFinder(p: Props) {
   const panel = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const term = query.trim().toLowerCase()
-  const grouped = !!p.group?.length && query === (p.initialQuery ?? '')
+  const grouped = !!p.group?.length && (p.locked || query === (p.initialQuery ?? ''))
 
   const results = useMemo((): Part[] => {
     if (grouped) {
@@ -66,15 +68,15 @@ export function StructureFinder(p: Props) {
 
   return (
     <div ref={panel} className="floating-card glass search-panel pg-finder" role="dialog" aria-label="Find a structure">
-      <div className="pg-search">
+      {!p.locked && <div className="pg-search">
         <Search size={16} />
         <input autoFocus={!touch} aria-label="Search structures" placeholder={`Search ${p.atlas.parts.length.toLocaleString()} structures`} value={query}
                role="combobox" aria-expanded aria-controls="finder-results" aria-activedescendant={results[active] ? `finder-${results[active].id}` : undefined}
                onChange={(e) => setQuery(e.target.value)} onKeyDown={keys} />
         <button className="icon" aria-label="Close" title="Close" onClick={p.onClose}><X size={16} /></button>
-      </div>
+      </div>}
       {p.note && <p className="pg-finder-note">{p.note}</p>}
-      <p className="pg-finder-label">{grouped ? 'Pick one' : term ? (results.length ? 'Structures' : '') : p.counts ? 'Structures with parts & features' : 'Loading…'}</p>
+      <p className="pg-finder-label">{p.locked ? 'Practice' : grouped ? 'Pick one' : term ? (results.length ? 'Structures' : '') : p.counts ? 'Structures with parts & features' : 'Loading…'}</p>
       <ul className="search-results" id="finder-results" role="listbox" ref={list}>
         {results.map((x, i) => {
           const c = p.counts?.[x.id]

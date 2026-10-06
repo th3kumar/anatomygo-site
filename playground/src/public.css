@@ -292,3 +292,30 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
 .coach-card.from-inside::before { display: none; }
 .pg-stage-free { position: absolute; pointer-events: none; z-index: 1; }
 .pg-list .item small.practice, .pg-state.practice { color: var(--warn); }
+
+/* ── Motion: short and soft, so changes read as one continuous scene (reduced motion turns it off) ─────── */
+@keyframes pg-fade { from { opacity: 0; } }
+@keyframes pg-in-left { from { opacity: 0; translate: -10px 0; } }
+@keyframes pg-in-right { from { opacity: 0; translate: 10px 0; } }
+@keyframes pg-in-up { from { opacity: 0; translate: 0 18px; } }
+@keyframes pg-in-down { from { opacity: 0; translate: 0 -6px; } }
+@keyframes pg-pop { from { opacity: 0; scale: .97; } }
+@keyframes coach-dim { from { box-shadow: 0 0 0 200vmax transparent; } }
+@keyframes coach-text { from { opacity: 0; translate: 0 3px; } }
+.viewer canvas { animation: pg-fade .5s ease-out; }
+.public-studio .pg-card { animation: pg-in-right .3s cubic-bezier(.2, .8, .2, 1); }
+.public-studio .pg-checklist, .pg-list-tab { animation: pg-in-left .3s cubic-bezier(.2, .8, .2, 1); }
+.public-studio .pg-finder { animation: pg-in-down .22s ease-out; }
+.menu-list { animation: pg-pop .16s ease-out; transform-origin: top right; }
+.pg-dialog[open] { animation: pg-pop .2s ease-out; }
+.pg-dialog[open]::backdrop { animation: pg-fade .2s ease-out; }
+.public-studio .toast { animation: pg-in-up .25s ease-out; }
+.pg-caption, .stage-loading, .centre-card { animation: pg-fade .25s ease-out; }
+.coach-layer.guide .coach-hole { animation: coach-dim .35s ease-out; }
+.coach-layer.guide { transition: opacity .25s ease; }
+.coach-layer.guide.leaving { opacity: 0; }
+.coach-body { animation: coach-text .28s ease-out; }
+.coach-hole.closed { border-radius: 50%; }
+@media (max-width: 799px) {
+  .public-studio .pg-card, .public-studio .pg-checklist, .pg-list-tab { animation: pg-in-up .3s cubic-bezier(.2, .8, .2, 1); }
+}

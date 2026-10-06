@@ -25,8 +25,9 @@ import { sentence } from './ui/systems'
 // Set once the practice run is finished or skipped. (The old click-through tour used '…intro'; the practice is new, so it has its own key.)
 const INTRO = 'anatomygo.playground.practice'
 // First-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
-type Practice = 'structure' | 'open' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
+type Practice = 'structure' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
 const PRACTICE_PIN = 'practice-pin', PRACTICE_FEATURE = 'practice-feature'
+const PRACTICE_STRUCTURE = 'FJ3387'  // Right tibia: large, familiar and well covered, so the first pin is easy
 const REFUSED: Record<PickFailure, string> = {
   miss: 'That spot isn’t on this structure.',
   occluded: 'Something is in front. Turn the model, or hide the neighbours.',
@@ -72,7 +73,7 @@ export function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
-  const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[] } | null>(null)
+  const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[]; locked?: boolean } | null>(null)
   const [dialog, setDialog] = useState<'auth' | 'name' | 'admin' | null>(null)
   const [practice, setPractice] = useState<Practice | null>(null)
   const [practicePlan, setPracticePlan] = useState<Practice[]>([])
@@ -378,15 +379,20 @@ export function App() {
   function startPractice() {
     setDraft(null); setPlacing(false); setSelected(null); setProposalId(null); setPracticePin(null); setPracticeVote(0)
     setListOpen(!phone)
+    // Context helps a first pin: neighbouring structures and pins behind the surface are shown (and stay on afterwards).
+    setToggles((t) => ({ ...t, neighbours: true, hidden: true }))
     const rest: Practice[] = ['add', 'place', 'save', 'vote', 'delete', 'done']
-    setPracticePlan(meshId ? [...(items.length ? ['open' as const] : []), ...rest] : ['structure', 'open', ...rest])
-    setPractice(meshId ? (items.length ? 'open' : 'add') : 'structure')
-    if (!meshId) setFinder((f) => f ?? {})
+    const choose = !meshId && !!atlas?.parts.some((x) => x.id === PRACTICE_STRUCTURE)
+    setPracticePlan(choose ? ['structure', ...rest] : rest)
+    setPractice(choose ? 'structure' : 'add')
+    // One choice only: the picker offers just the practice structure.
+    if (choose) setFinder({ note: 'For this practice, open the right tibia.', group: [PRACTICE_STRUCTURE], locked: true })
   }
   const endPractice = useCallback(() => {
     setPractice(null); setPracticePin(null); setPracticeVote(0); setPlacing(false)
     setDraft((d) => (d?.practice ? null : d))
     setSelected((x) => (x === PRACTICE_FEATURE ? null : x))
+    setFinder((f) => (f?.locked ? {} : f))
     try { localStorage.setItem(INTRO, '1') } catch { /* private mode */ }
   }, [])
   // Each step moves on when the visitor has done it.
@@ -395,11 +401,7 @@ export function App() {
     const after = (ms: number, then: () => void) => { const t = setTimeout(then, ms); return () => clearTimeout(t) }
     switch (practice) {
       case 'structure':
-        if (meshId && host && !loading) return after(300, () => { if (!items.length) setPracticePlan((p) => p.filter((x) => x !== 'open')); setPractice(items.length ? 'open' : 'add') })
-        break
-      case 'open':
-        // A moment to see the card, then (on a phone) back to the bar where + lives.
-        if (selected && selected !== PRACTICE_FEATURE) return after(2200, () => { if (phone) { setSelected(null); setProposalId(null); setListOpen(false) } setPractice('add') })
+        if (meshId && host && !loading) return after(400, () => setPractice('add'))
         break
       case 'add': if (draft?.practice) setPractice('place'); break
       case 'place':
@@ -417,11 +419,7 @@ export function App() {
     if ((practice === 'vote' || practice === 'delete') && practicePin && selected !== PRACTICE_FEATURE) { setSelected(PRACTICE_FEATURE); setProposalId(PRACTICE_PIN) }
   }, [practice, meshId, host, loading, selected, draft, placing, practicePin, practiceVote]) // eslint-disable-line react-hooks/exhaustive-deps
   const guide: GuideStep | null =
-    practice === 'structure' ? { target: '.pg-finder, .pg-start', side: 'left', title: 'Pick a structure', body: 'Choose any one to practise on. Nothing you do in this practice is saved.' }
-    : practice === 'open' && selected ? { target: '.pg-card', side: phone ? 'top' : 'left', title: 'That’s a feature', body: 'Each one has a pin on the model, a name and a short note.' }
-    : practice === 'open' ? (phone && !listOpen
-      ? { target: '[data-coach="list"] .pg-tab-open', side: 'top', title: 'Open the list', body: 'Tap here to see this structure’s parts & features.' }
-      : { target: '[data-coach="list"]', side: phone ? 'top' : 'right', title: 'Open a feature', body: `${tap} any name to see its pin and what it is.` })
+    practice === 'structure' ? { target: '.pg-finder [role=option]', side: phone ? 'bottom' : 'left', title: 'Open the right tibia', body: `${tap} Right tibia to practise on it. Nothing you do here is saved.` }
     : practice === 'add' ? { target: '[data-coach="add"]', side: phone ? 'top' : 'right', title: 'Add your own', body: phone ? 'Tap + to pin something new.' : 'Click “Add a feature” to pin something new.' }
     : practice === 'place' ? { target: '.pg-stage-free', side: 'top', inside: true, title: 'Place the pin', body: `${tap} anywhere on the model. It’s only practice.` }
     : practice === 'save' ? { target: '[data-hint="save"]', side: phone ? 'top' : 'left', title: 'Save it', body: 'We filled in a name and a note for you. Save it: practice needs no sign-in.' }
@@ -445,9 +443,10 @@ export function App() {
                   selected={draft?.anchor ? 'draft' : chosen?.id ?? null}
                   mode={placing ? (draft?.anchor ? 'reposition' : 'place') : 'orbit'}
                   allowReverse={toggles.reverse} showHidden={toggles.hidden} showOtherLabels={toggles.labels} dark={dark} insets={insets}
+                  contextBlocks={!practice}  // practice: taps reach the structure even where a neighbour is in front
                   onPlace={place} onRepositionCommit={place} onPickRefused={(r) => setRefused(REFUSED[r.reason])}
                   onHover={(r) => setRefused(r && !r.ok && r.reason !== 'miss' ? REFUSED[r.reason] : '')}
-                  onPinClick={(id) => { const p = allProposals.find((x) => x.id === id); if (p && !draft) void selectLandmark(p.landmark_id, p.id) }} />
+                  onPinClick={(id) => { const p = allProposals.find((x) => x.id === id); if (p && !draft && !practice) void selectLandmark(p.landmark_id, p.id) }} />
         )}
       </div>
 
@@ -459,7 +458,7 @@ export function App() {
 
       {meshId && !(phone && cardOpen) && (
         <Checklist items={allItems} pins={pinCounts} practice={PRACTICE_FEATURE} selected={selected} loading={loading} disabled={!host || busy} phone={phone}
-                   open={listOpen} onOpen={setListOpen} onSelect={(id) => void selectLandmark(id)} onAdd={() => void startDraft(true)} />
+                   open={listOpen} onOpen={setListOpen} onSelect={(id) => { if (!practice || id === PRACTICE_FEATURE) void selectLandmark(id) }} onAdd={() => void startDraft(true)} />
       )}
       {host && <Controls compact={phone} onFit={fit} toggles={toggles} onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))} />}
 
@@ -506,8 +505,8 @@ export function App() {
       {toast && !error && <div className="toast glass" role="status">{toast}</div>}
 
       {finder && atlas && (
-        <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group}
-                         onChoose={(id) => void chooseStructure(id)} onClose={() => setFinder(null)} />
+        <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group} locked={finder.locked}
+                         onChoose={(id) => void chooseStructure(id)} onClose={() => { if (!finder.locked) setFinder(null) }} />
       )}
       {dialog === 'auth' && <SignInDialog draft={draft} structure={meshId} onClose={() => setDialog(null)} />}
       {dialog === 'name' && (
@@ -529,7 +528,7 @@ export function App() {
       )}
 
       {practice && <div className="pg-stage-free" style={{ left: insets.left, top: insets.top, right: insets.right, bottom: insets.bottom }} />}
-      {guide && <Guide step={guide} index={Math.max(1, practicePlan.indexOf(practice!) + 1)} total={practicePlan.length} onSkip={endPractice} />}
+      <Guide step={guide} index={Math.max(1, practice ? practicePlan.indexOf(practice) + 1 : practicePlan.length)} total={practicePlan.length} onSkip={endPractice} />
       {hint === 'vote' && <Hint target='[data-hint="vote"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
       {hint === 'save' && <Hint target='[data-hint="save"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
       <AskHost />
