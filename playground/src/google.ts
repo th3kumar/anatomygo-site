@@ -35,7 +35,7 @@ async function sha256(text: string) {
 }
 
 /** Draws Google's button into `parent`. A click there signs in; `onDone` gets null or the reason it failed. */
-export async function showGoogleButton(parent: HTMLElement, look: { dark: boolean; width: number }, onDone: (error: string | null) => void) {
+export async function showGoogleButton(parent: HTMLElement, look: { dark: boolean; width: number }, onDone: (error: string | null) => void, onChosen: () => void = () => {}) {
   const id = await load()
   const nonce = crypto.randomUUID()
   id.initialize({
@@ -46,6 +46,7 @@ export async function showGoogleButton(parent: HTMLElement, look: { dark: boolea
     itp_support: true,
     context: 'signin',
     callback: async ({ credential }: { credential: string }) => {
+      onChosen()
       const { error } = await cloud!.auth.signInWithIdToken({ provider: 'google', token: credential, nonce })
       onDone(error ? error.message : null)
     },

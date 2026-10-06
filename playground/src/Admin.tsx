@@ -5,6 +5,7 @@ import { rpc } from './cloud'
 import { Dialog } from './Dialog'
 import { ask } from './ui/ask'
 import { sentence } from './ui/systems'
+import { track } from './telemetry'
 
 interface QueueItem { id: string; landmark_id: string; mesh_id: string; label: string; description: string; structure: string; published: boolean; upvotes: number; downvotes: number; reports: number }
 interface Unmapped { bucket_label: string; remaining: number }
@@ -32,6 +33,7 @@ export function Admin({ atlas, onClose, onOpen }: { atlas: Atlas; onClose(): voi
 
   async function act(question: Parameters<typeof ask>[0], task: () => Promise<unknown>) {
     if (!(await ask(question))) return
+    track('admin_action', { action: question.confirm.toLowerCase().replace(/\s+/g, '_') })
     setBusy(true)
     setError('')
     try { await task(); setRevision((n) => n + 1) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }

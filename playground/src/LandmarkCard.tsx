@@ -3,6 +3,7 @@ import { Flag, MoreHorizontal, Pin, ThumbsDown, ThumbsUp, Trash2, X } from 'luci
 import { comments as loadComments, rpc, type Comment, type Landmark, type Proposal, type Vote } from './cloud'
 import { ask, askText } from './ui/ask'
 import { Menu } from './ui/Menu'
+import { bucket, track } from './telemetry'
 
 interface Props {
   landmark: Landmark
@@ -21,7 +22,7 @@ interface Props {
   onWithdraw(): void
   onReport(reason: string): void
   run(task: () => Promise<void>): Promise<void>
-  requireUser(): boolean
+  requireUser(reason?: string): boolean
 }
 
 const author = (p: Proposal) => p.pg_profiles?.display_name ?? 'Starter pin'
@@ -38,7 +39,7 @@ export function LandmarkCard(p: Props) {
   const description = pin?.description || p.landmark.description
 
   async function report() {
-    if (!pin || !p.requireUser()) return
+    if (!pin || !p.requireUser('report')) return
     const reason = await askText({
       title: 'Report this pin', body: 'Tell us what’s wrong. If it sits on the wrong part, say which part is right.',
       input: { label: 'What’s wrong?', maxLength: 1000 }, confirm: 'Send report',
@@ -116,7 +117,7 @@ export function LandmarkCard(p: Props) {
   )
 }
 
-function Comments({ pin, me, admin, busy, run, requireUser }: { pin: Proposal; me: string | null; admin: boolean; busy: boolean; run: Props['run']; requireUser(): boolean }) {
+function Comments({ pin, me, admin, busy, run, requireUser }: { pin: Proposal; me: string | null; admin: boolean; busy: boolean; run: Props['run']; requireUser(reason?: string): boolean }) {
   const [list, setList] = useState<Comment[]>([])
   const [more, setMore] = useState(false)
   const [text, setText] = useState('')
@@ -129,16 +130,17 @@ function Comments({ pin, me, admin, busy, run, requireUser }: { pin: Proposal; m
   }, [pin.id, revision])
 
   function post() {
-    if (!requireUser()) return
+    if (!requireUser('comment')) return
     void run(async () => {
       await rpc('pg_comment', { p_proposal: pin.id, p_body: text, p_request: request })
+      track('comment_posted', { length: bucket(text.trim().length) })
       setText('')
       setRequest(crypto.randomUUID())
       setRevision((r) => r + 1)
     })
   }
   async function remove(c: Comment) {
-    if (await ask({ title: 'Delete this comment?', confirm: 'Delete', danger: true })) void run(async () => { await rpc('pg_remove_comment', { p_comment: c.id }); setRevision((r) => r + 1) })
+    if (await ask({ title: 'Delete this comment?', confirm: 'Delete', danger: true })) void run(async () => { await rpc('pg_remove_comment', { p_comment: c.id }); track('comment_deleted'); setRevision((r) => r + 1) })
   }
   const older = () => void run(async () => {
     const next = await loadComments(pin.id, list.at(-1)?.created_at)
@@ -147,7 +149,7 @@ function Comments({ pin, me, admin, busy, run, requireUser }: { pin: Proposal; m
   })
 
   return (
-    <details className="fold pg-comments">
+    <details className="fold pg-comments" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) track('comments_opened', { count: bucket(list.length) }) }}>
       <summary>Comments{list.length > 0 && <span className="count">{more ? `${list.length}+` : list.length}</span>}</summary>
       <div className="fold-body">
         {list.length === 0 && <p className="faint">No comments yet. Spotted something? Say what you see.</p>}

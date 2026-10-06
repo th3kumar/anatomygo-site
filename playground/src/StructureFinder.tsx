@@ -14,7 +14,8 @@ interface Props {
   group?: string[]
   /** Practice: only the group is offered, with no search and no way to close. */
   locked?: boolean
-  onChoose(id: string): void
+  /** `how` says which list it came from and where, for statistics (never the query itself). */
+  onChoose(id: string, how: { kind: 'group' | 'suggested' | 'search'; query: string; rank: number }): void
   onClose(): void
 }
 
@@ -59,10 +60,12 @@ export function StructureFinder(p: Props) {
     return () => document.removeEventListener('pointerdown', outside)
   }, [])
 
+  const choose = (i: number) => p.onChoose(results[i].id, { kind: grouped ? 'group' : term ? 'search' : 'suggested', query, rank: i })
+
   function keys(e: KeyboardEvent) {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(results.length - 1, i + 1)) }
     if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)) }
-    if (e.key === 'Enter' && results[active]) p.onChoose(results[active].id)
+    if (e.key === 'Enter' && results[active]) choose(active)
     if (e.key === 'Escape') { e.preventDefault(); p.onClose() }
   }
 
@@ -83,7 +86,7 @@ export function StructureFinder(p: Props) {
           return (
             <li key={x.id} role="presentation">
               <button id={`finder-${x.id}`} role="option" aria-selected={i === active} className={i === active ? 'selected' : ''}
-                      onMouseMove={() => setActive(i)} onClick={() => p.onChoose(x.id)}>
+                      onMouseMove={() => setActive(i)} onClick={() => choose(i)}>
                 <span className="r1">
                   <span>{sentence(x.name)}</span>
                   {x.id === p.current && <span className="badge">Open</span>}

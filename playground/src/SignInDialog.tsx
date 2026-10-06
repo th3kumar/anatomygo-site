@@ -3,6 +3,7 @@ import { cloud, saveDraft, signInWithGoogle, type Draft } from './cloud'
 import { Dialog } from './Dialog'
 import { googleButtonAvailable, showGoogleButton } from './google'
 import { useAppearance } from './theme'
+import { errorKind, signInStarted, track } from './telemetry'
 
 /**
  * Sign-in. Google's own button when it is configured (it names this site and opens Google's small window); otherwise,
@@ -24,8 +25,9 @@ export function SignInDialog({ draft, structure, onClose }: { draft: Draft | nul
     setReady(false)
     showGoogleButton(slot.current, { dark, width: Math.min(320, slot.current.clientWidth || 320) }, (error) => {
       // Success needs nothing here: the page sees the new session and closes this dialog.
+      if (error) track('sign_in_failed', { method: 'google_button', kind: errorKind(error) })
       if (error && live) { setProblem(`Google sign-in didn’t finish (${error}).`); setMode('fallback') }
-    }).then(() => { if (live) setReady(true) }).catch(() => { if (live) setMode('fallback') })
+    }, () => signInStarted('google_button')).then(() => { if (live) setReady(true) }).catch(() => { track('google_button_unavailable'); if (live) setMode('fallback') })
     return () => { live = false }
   }, [mode, dark]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,8 +36,12 @@ export function SignInDialog({ draft, structure, onClose }: { draft: Draft | nul
     setProblem('')
     try {
       saveDraft(draft)
-      if (await signInWithGoogle(structure) === 'popup') setWaiting(true)
-    } catch (e) { setProblem(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+      if (await signInWithGoogle(structure, signInStarted) === 'popup') setWaiting(true)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      track('sign_in_failed', { method: 'fallback', kind: errorKind(message) })
+      setProblem(message)
+    } finally { setBusy(false) }
   }
 
   return (
@@ -48,7 +54,7 @@ export function SignInDialog({ draft, structure, onClose }: { draft: Draft | nul
             {!ready && <span className="pg-google-wait">Loading Google sign-in…</span>}
           </div>
           {/* Google's button stays silent if it ever refuses this address (a new domain, say); this keeps a way in. */}
-          <button className="link pg-google-other" onClick={() => setMode('fallback')}>Trouble signing in? Use Google’s sign-in page</button>
+          <button className="link pg-google-other" onClick={() => { track('sign_in_fallback_opened'); setMode('fallback') }}>Trouble signing in? Use Google’s sign-in page</button>
         </>
       ) : (
         <button className={waiting ? 'outline wide' : 'primary wide'} disabled={busy} onClick={() => void fallback()}>

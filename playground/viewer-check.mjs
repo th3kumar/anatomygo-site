@@ -12,8 +12,8 @@ await page.goto('http://127.0.0.1:3018/?structure=FJ3366&isolate=1');
 const features=page.locator('.detail-sheet a.features-action');
 await features.waitFor({timeout:60000});
 assert.match(await features.innerText(),/^Parts & features/);
-assert.match(await features.getAttribute('href'),/structure=FJ3366/);
-assert.equal(await page.locator('.top-actions a.playground-entry').getAttribute('href'),'/playground/');
+assert.match(await features.getAttribute('href'),/structure=FJ3366&from=details$/);  // ?from= says which entry was used (removed on arrival)
+assert.equal(await page.locator('.top-actions a.playground-entry').getAttribute('href'),'/playground/?from=top_bar');
 await page.getByRole('button',{name:'Test approved surface',exact:true}).click();
 await page.getByText('Browser fixture only; never published to the database.',{exact:true}).waitFor();
 await page.waitForFunction(()=>!document.querySelector('.loading'),null,{timeout:60000});

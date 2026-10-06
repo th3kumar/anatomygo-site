@@ -19,6 +19,7 @@ import { SignInDialog } from './SignInDialog'
 import { AskHost, ask } from './ui/ask'
 import { Guide, Hint, touch, type GuideStep } from './ui/Spotlight'
 import { isPhone, usePhone } from './ui/media'
+import { bucket, errorKind, queryKind, signInFinished, track } from './telemetry'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
 
@@ -106,12 +107,36 @@ export function App() {
   const part = host?.meta ?? atlas?.parts.find((p) => p.id === meshId) ?? null
   const me = session?.user.id ?? null
 
-  const tell = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+  const tell = (e: unknown) => {
+    const message = e instanceof Error ? e.message : String(e)
+    track('playground_error', { kind: errorKind(message) })
+    setError(message)
+  }
   async function run(task: () => Promise<void>) {
     if (busy) return
     setBusy(true)
     setError('')
     try { await task() } catch (e) { tell(e) } finally { setBusy(false) }
+  }
+
+  // ── Statistics ─────────────────────────────────────────────────────────────
+  // How the visitor arrived (the homepage links add ?from=, removed here), and how each structure was opened.
+  const structureSource = useRef('link')
+  useEffect(() => {
+    const q = new URLSearchParams(location.search), from = q.get('from')
+    let first = false
+    try { first = !localStorage.getItem(INTRO) } catch { /* private mode */ }
+    track('playground_view', { entry: from ?? (q.has('code') ? 'sign_in_return' : 'direct'), structure: q.has('structure') ? 1 : 0, first_visit: first ? 1 : 0, device: isPhone() ? 'phone' : 'desktop' })
+    if (from) { q.delete('from'); history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}`) }
+    if (!webgl) track('webgl_unavailable')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!host || loading) return
+    track('structure_opened', { structure_id: host.meta.id, system_id: host.meta.system, features: bucket(items.length), source: structureSource.current })
+  }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  function openFinder(source: string, state: NonNullable<typeof finder> = {}) {
+    track('finder_opened', { source })
+    setFinder(state)
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -125,7 +150,7 @@ export function App() {
       const direct = a.parts.find((p) => p.id === requested)
       const group = a.concepts.find((c) => c.id === requested)
       if (direct) setMeshId(direct.id)
-      else setFinder(group ? { query: group.name, note: 'This comes in more than one piece. Pick one.', group: group.elements } : {})
+      else openFinder(group ? 'group_link' : 'no_structure', group ? { query: group.name, note: 'This comes in more than one piece. Pick one.', group: group.elements } : {})
     }).catch(tell)
     return () => { live = false }
   }, [])
@@ -149,7 +174,10 @@ export function App() {
 
   // Once signed in, the sign-in dialog has done its job.
   useEffect(() => {
-    if (!session || dialog !== 'auth') return
+    if (!session) return
+    const method = signInFinished()
+    if (method) track('sign_in_completed', { method })
+    if (dialog !== 'auth') return
     setDialog(null)
     setToast(draft ? 'Signed in. Now press Save pin.' : 'Signed in.')
   }, [session?.user.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -192,7 +220,7 @@ export function App() {
     if (practice || draft) return
     let first = false
     try { first = !localStorage.getItem(INTRO) } catch { /* private mode: no practice run */ }
-    if (first && (meshId ? host && !loading : atlas && finder)) startPractice()
+    if (first && (meshId ? host && !loading : atlas && finder)) startPractice('auto')
   }, [host?.meta.id, loading, !!atlas, !!finder]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Draft safety ───────────────────────────────────────────────────────────
@@ -212,15 +240,18 @@ export function App() {
   const updateDraft = (change: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...change, requestId: crypto.randomUUID() } : null))
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  async function chooseStructure(id: string) {
+  async function chooseStructure(id: string, source = 'finder') {
     if (!(await leaveDraft())) return
+    structureSource.current = source
     setDraft(null); setSelected(null); setProposalId(null); setPlacing(false); setFinder(null)
     if (id !== meshId) setMeshId(id)
     history.replaceState(null, '', `/playground/?structure=${encodeURIComponent(id)}`)
   }
 
-  async function selectLandmark(id: string, proposal: string | null = null) {
+  async function selectLandmark(id: string, proposal: string | null = null, source = 'list') {
     if (draft && !(await leaveDraft())) return
+    const pins = allProposals.filter((x) => x.landmark_id === id)
+    track('feature_opened', { source, pins: bucket(pins.length), published: allItems.find((x) => x.id === id)?.published_proposal ? 1 : 0 })
     setDraft(null); setPlacing(false); setSelected(id); setProposalId(proposal)
     if (phone) setListOpen(false)
   }
@@ -236,6 +267,7 @@ export function App() {
       ...(practice ? { practice: true } : {}),
     }
     original.current = snapshot(next)
+    track('draft_started', { kind: fresh ? 'new' : source ? 'correction' : 'first_pin', practice: practice ? 1 : 0 })
     setPlacedNow(false)
     setDraft(next)
     setPlacing(!next.anchor)
@@ -245,11 +277,13 @@ export function App() {
 
   async function cancelDraft() {
     if (!(await leaveDraft())) return
+    if (draft) track('draft_cancelled', { stage: !draft.anchor ? 'placing' : draft.label.trim() || draft.description.trim() ? 'described' : 'placed', practice: draft.practice ? 1 : 0 })
     setDraft(null); setPlacing(false)
   }
 
   function place(p: PickResult & { ok: true }) {
     if (busy) return
+    track('pin_placed', { kind: draft?.anchor ? 'moved' : 'placed', practice: draft?.practice ? 1 : 0 })
     updateDraft({ anchor: { triangle: p.triangle, u: p.u, v: p.v } })
     setPlacedNow(true)
     // On a phone the sheet grows once the pin is down, so bring the pin into the space left above it.
@@ -258,9 +292,9 @@ export function App() {
     setRefused('')
   }
 
-  function requireUser() {
-    if (!session) { setDialog('auth'); return false }
-    if (!profile) { setDialog('name'); return false }
+  function requireUser(reason = 'save') {
+    if (!session) { track('sign_in_prompted', { reason }); setDialog('auth'); return false }
+    if (!profile) { track('public_name_prompted', { reason }); setDialog('name'); return false }
     return true
   }
 
@@ -282,6 +316,7 @@ export function App() {
     const pending = draft
     void run(async () => {
       const id = await submit(pending)
+      track('pin_saved', { kind: pending.supersedes ? 'correction' : pending.landmarkId ? 'first_pin' : 'new', has_latin: pending.latin.trim() ? 1 : 0, description: bucket(pending.description.trim().length) })
       setDraft(null); saveDraft(null); setPlacing(false)
       const p = await placements(meshId)
       setProposals(p)
@@ -295,32 +330,35 @@ export function App() {
 
   function vote(value: number) {
     if (!chosen) return
-    if (chosen.id === PRACTICE_PIN) { setPracticeVote((v) => (v === value ? 0 : value)); return }
+    const next = allScores[chosen.id]?.mine === value ? 0 : value
+    track('vote_cast', { value: next === 1 ? 'up' : next === -1 ? 'down' : 'clear', practice: chosen.id === PRACTICE_PIN ? 1 : 0 })
+    if (chosen.id === PRACTICE_PIN) { setPracticeVote(next); return }
     markSeen('vote')
-    if (!requireUser()) return
+    if (!requireUser('vote')) return
     void run(async () => {
-      await rpc('pg_vote', { p_proposal: chosen.id, p_value: scores[chosen.id]?.mine === value ? 0 : value })
+      await rpc('pg_vote', { p_proposal: chosen.id, p_value: next })
       setScores(await votes(proposals.map((p) => p.id)))
     })
   }
 
   function back(e: MouseEvent) {
+    track('playground_exit', { to: 'atlas' })
     if (untouched(draft)) return
     e.preventDefault()
     const href = (e.currentTarget as HTMLAnchorElement).href
     void leaveDraft().then((ok) => { if (ok) { leaving.current = true; saveDraft(null); location.href = href } })
   }
 
-  const fit = useCallback((v: ViewName) => viewer.current?.fit(v), [])
+  const fit = useCallback((v: ViewName, source = 'rail') => { track('camera_view', { view: v, source, area: 'playground' }); viewer.current?.fit(v) }, [])
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || document.querySelector('dialog[open]') || practice) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === '/') { e.preventDefault(); setFinder({}); return }
+      if (e.key === '/') { e.preventDefault(); openFinder('keyboard'); return }
       if (e.key === 'Escape') { setPlacing(false); setRefused(''); return }
-      if (e.key.toLowerCase() === 'f') fit('oblique')
+      if (e.key.toLowerCase() === 'f') fit('oblique', 'keyboard')
       const i = Number(e.key) - 1
-      if (i >= 0 && i < views.length) fit(views[i].view)
+      if (i >= 0 && i < views.length) fit(views[i].view, 'keyboard')
     }
     addEventListener('keydown', key)
     return () => removeEventListener('keydown', key)
@@ -376,7 +414,11 @@ export function App() {
   // ── Guidance ───────────────────────────────────────────────────────────────
   const quiet = !!finder || !!dialog || !host || loading
   const tap = touch ? 'Tap' : 'Click'
-  function startPractice() {
+  const practiceRef = useRef<{ step: Practice | null; at: number }>({ step: null, at: 0 })
+  practiceRef.current.step = practice
+  function startPractice(source: 'auto' | 'help') {
+    track('practice_started', { source, start: !meshId ? 'picker' : 'structure' })
+    practiceRef.current.at = Date.now()
     setDraft(null); setPlacing(false); setSelected(null); setProposalId(null); setPracticePin(null); setPracticeVote(0)
     setListOpen(!phone)
     // Context helps a first pin: neighbouring structures and pins behind the surface are shown (and stay on afterwards).
@@ -386,15 +428,18 @@ export function App() {
     setPracticePlan(choose ? ['structure', ...rest] : rest)
     setPractice(choose ? 'structure' : 'add')
     // One choice only: the picker offers just the practice structure.
-    if (choose) setFinder({ note: 'For this practice, open the right tibia.', group: [PRACTICE_STRUCTURE], locked: true })
+    if (choose) openFinder('practice', { note: 'For this practice, open the right tibia.', group: [PRACTICE_STRUCTURE], locked: true })
   }
-  const endPractice = useCallback(() => {
+  const endPractice = useCallback((outcome: 'completed' | 'skipped') => {
+    const seconds = Math.round((Date.now() - practiceRef.current.at) / 1000)
+    track(outcome === 'completed' ? 'practice_completed' : 'practice_skipped', { step: practiceRef.current.step ?? 'none', seconds: bucket(seconds) })
     setPractice(null); setPracticePin(null); setPracticeVote(0); setPlacing(false)
     setDraft((d) => (d?.practice ? null : d))
     setSelected((x) => (x === PRACTICE_FEATURE ? null : x))
     setFinder((f) => (f?.locked ? {} : f))
     try { localStorage.setItem(INTRO, '1') } catch { /* private mode */ }
   }, [])
+  useEffect(() => { if (practice) track('practice_step', { step: practice, index: practicePlan.indexOf(practice) + 1 }) }, [practice]) // eslint-disable-line react-hooks/exhaustive-deps
   // Each step moves on when the visitor has done it.
   useEffect(() => {
     if (!practice) return
@@ -425,12 +470,13 @@ export function App() {
     : practice === 'save' ? { target: '[data-hint="save"]', side: phone ? 'top' : 'left', title: 'Save it', body: 'We filled in a name and a note for you. Save it: practice needs no sign-in.' }
     : practice === 'vote' ? { target: '[data-hint="vote"]', side: phone ? 'top' : 'left', title: 'Vote', body: 'People vote on whether a pin sits in the right spot. Give yours a thumbs up.' }
     : practice === 'delete' ? { target: '.pg-card', side: phone ? 'top' : 'left', title: 'Delete it', body: 'Done practising? Open the ⋯ menu on the card and delete your pin.' }
-    : practice === 'done' ? { target: null, side: 'top', title: 'You’re ready', body: 'Real pins work just the same. When you save one, you’ll sign in with Google.', action: { label: 'Start exploring', onClick: endPractice } }
+    : practice === 'done' ? { target: null, side: 'top', title: 'You’re ready', body: 'Real pins work just the same. When you save one, you’ll sign in with Google.', action: { label: 'Start exploring', onClick: () => endPractice('completed') } }
     : null
   const hint = practice || quiet || placing ? null
     : draft?.anchor && placedNow && !busy && !phone && !seen('save') ? 'save'
     : !draft && chosen && chosen.author_id !== me && !seen('vote') ? 'vote' : null
-  const doneHint = (id: string) => { markSeen(id); setHintRevision((n) => n + 1) }
+  const doneHint = (id: string) => { track('hint_dismissed', { hint: id }); markSeen(id); setHintRevision((n) => n + 1) }
+  useEffect(() => { if (hint) track('hint_shown', { hint }) }, [hint])
 
   const published = items.filter((l) => l.published_proposal).length
   const backHref = meshId ? `/?structure=${encodeURIComponent(meshId)}&isolate=1` : '/'
@@ -444,23 +490,23 @@ export function App() {
                   mode={placing ? (draft?.anchor ? 'reposition' : 'place') : 'orbit'}
                   allowReverse={toggles.reverse} showHidden={toggles.hidden} showOtherLabels={toggles.labels} dark={dark} insets={insets}
                   contextBlocks={!practice}  // practice: taps reach the structure even where a neighbour is in front
-                  onPlace={place} onRepositionCommit={place} onPickRefused={(r) => setRefused(REFUSED[r.reason])}
+                  onPlace={place} onRepositionCommit={place} onPickRefused={(r) => { track('pin_refused', { reason: r.reason, practice: practice ? 1 : 0 }); setRefused(REFUSED[r.reason]) }}
                   onHover={(r) => setRefused(r && !r.ok && r.reason !== 'miss' ? REFUSED[r.reason] : '')}
-                  onPinClick={(id) => { const p = allProposals.find((x) => x.id === id); if (p && !draft && !practice) void selectLandmark(p.landmark_id, p.id) }} />
+                  onPinClick={(id) => { const p = allProposals.find((x) => x.id === id); if (p && !draft && !practice) void selectLandmark(p.landmark_id, p.id, 'model') }} />
         )}
       </div>
 
       <Header structure={part} features={items.length} published={published} phone={phone} backHref={backHref} onBack={back}
-              onFind={() => setFinder({})} onTour={startPractice}
+              onFind={() => openFinder('header')} onTour={() => startPractice('help')}
               account={session ? { name: profile, admin: isAdmin } : null}
-              onSignIn={() => setDialog('auth')} onRename={() => setDialog('name')} onAdmin={() => setDialog('admin')}
-              onSignOut={() => void run(async () => { await cloud!.auth.signOut(); setToast('Signed out.') })} />
+              onSignIn={() => { track('sign_in_prompted', { reason: 'header' }); setDialog('auth') }} onRename={() => setDialog('name')} onAdmin={() => setDialog('admin')}
+              onSignOut={() => void run(async () => { await cloud!.auth.signOut(); track('signed_out'); setToast('Signed out.') })} />
 
       {meshId && !(phone && cardOpen) && (
         <Checklist items={allItems} pins={pinCounts} practice={PRACTICE_FEATURE} selected={selected} loading={loading} disabled={!host || busy} phone={phone}
-                   open={listOpen} onOpen={setListOpen} onSelect={(id) => { if (!practice || id === PRACTICE_FEATURE) void selectLandmark(id) }} onAdd={() => void startDraft(true)} />
+                   open={listOpen} onOpen={(o) => { track('list_toggled', { open: o ? 1 : 0 }); setListOpen(o) }} onSelect={(id) => { if (!practice || id === PRACTICE_FEATURE) void selectLandmark(id) }} onAdd={() => void startDraft(true)} />
       )}
-      {host && <Controls compact={phone} onFit={fit} toggles={toggles} onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))} />}
+      {host && <Controls compact={phone} onFit={fit} toggles={toggles} onToggle={(k) => { track('display_toggled', { setting: k, on: toggles[k] ? 0 : 1 }); setToggles((t) => ({ ...t, [k]: !t[k] })) }} />}
 
       {draft ? (
         <DraftCard draft={draft} placing={placing} busy={busy} signedIn={!!session}
@@ -469,9 +515,13 @@ export function App() {
                    onChange={updateDraft} onPlace={() => { setPlacing(!placing); setRefused('') }} onSave={save} onCancel={() => void cancelDraft()} />
       ) : active && (
         <LandmarkCard key={active.id} landmark={active} pins={pinsFor} chosen={chosen} scores={allScores} practice={chosen?.id === PRACTICE_PIN} me={me} admin={isAdmin} busy={busy}
-                      onChoose={setProposalId} onVote={vote} onSuggest={() => void startDraft()} onClose={() => { setSelected(null); setProposalId(null) }}
-                      onWithdraw={() => chosen?.id === PRACTICE_PIN ? (setPracticePin(null), setSelected(null), setProposalId(null)) : void run(async () => { await rpc('pg_withdraw', { p_proposal: chosen!.id }); setProposalId(null); setRefresh((x) => x + 1); setToast('Your pin was deleted.') })}
-                      onReport={(reason) => void run(async () => { await rpc('pg_report', { p_proposal: chosen!.id, p_reason: reason }); setToast('Thanks. We’ll take a look.') })}
+                      onChoose={(id) => { track('pin_alternative_viewed'); setProposalId(id) }} onVote={vote} onSuggest={() => void startDraft()} onClose={() => { setSelected(null); setProposalId(null) }}
+                      onWithdraw={() => {
+                        track('pin_deleted', { practice: chosen?.id === PRACTICE_PIN ? 1 : 0 })
+                        if (chosen?.id === PRACTICE_PIN) { setPracticePin(null); setSelected(null); setProposalId(null); return }
+                        void run(async () => { await rpc('pg_withdraw', { p_proposal: chosen!.id }); setProposalId(null); setRefresh((x) => x + 1); setToast('Your pin was deleted.') })
+                      }}
+                      onReport={(reason) => void run(async () => { await rpc('pg_report', { p_proposal: chosen!.id, p_reason: reason }); track('report_sent'); setToast('Thanks. We’ll take a look.') })}
                       run={run} requireUser={requireUser} />
       )}
 
@@ -491,7 +541,7 @@ export function App() {
         <div className="centre-card glass pg-start">
           <h2>Pick a structure</h2>
           <p>Choose a bone, muscle or organ to see its parts & features, or add your own.</p>
-          <button className="primary" onClick={() => setFinder({})}><Search size={15} />Find a structure</button>
+          <button className="primary" onClick={() => openFinder('start')}><Search size={15} />Find a structure</button>
         </div>
       )}
 
@@ -506,13 +556,15 @@ export function App() {
 
       {finder && atlas && (
         <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group} locked={finder.locked}
-                         onChoose={(id) => void chooseStructure(id)} onClose={() => { if (!finder.locked) setFinder(null) }} />
+                         onChoose={(id, how) => { track('finder_choice', { kind: how.kind, query_kind: queryKind(how.query), rank: bucket(how.rank + 1) }); void chooseStructure(id, practice ? 'practice' : 'finder') }}
+                         onClose={() => { if (!finder.locked) setFinder(null) }} />
       )}
       {dialog === 'auth' && <SignInDialog draft={draft} structure={meshId} onClose={() => setDialog(null)} />}
       {dialog === 'name' && (
         <NameDialog current={profile} busy={busy} onClose={() => setDialog(null)}
                     onSave={(name) => void run(async () => {
                       await rpc('pg_set_profile', { p_name: name })
+                      track('public_name_set', { first: profile ? 0 : 1 })
                       setProfile(name)
                       setDialog(null)
                       setToast(draft ? 'Name saved. Now press Save pin.' : 'Name saved.')
@@ -522,13 +574,14 @@ export function App() {
         <Admin atlas={atlas} onClose={() => { setDialog(null); setRefresh((x) => x + 1) }}
                onOpen={(mesh, id, proposal) => void (async () => {
                  if (!(await leaveDraft())) return
+                 structureSource.current = 'admin'
                  setDialog(null); setDraft(null); setPlacing(false); setMeshId(mesh); setSelected(id); setProposalId(proposal); setRefresh((x) => x + 1)
                  history.replaceState(null, '', `/playground/?structure=${encodeURIComponent(mesh)}`)
                })()} />
       )}
 
       {practice && <div className="pg-stage-free" style={{ left: insets.left, top: insets.top, right: insets.right, bottom: insets.bottom }} />}
-      <Guide step={guide} index={Math.max(1, practice ? practicePlan.indexOf(practice) + 1 : practicePlan.length)} total={practicePlan.length} onSkip={endPractice} />
+      <Guide step={guide} index={Math.max(1, practice ? practicePlan.indexOf(practice) + 1 : practicePlan.length)} total={practicePlan.length} onSkip={() => endPractice('skipped')} />
       {hint === 'vote' && <Hint target='[data-hint="vote"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
       {hint === 'save' && <Hint target='[data-hint="save"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
       <AskHost />

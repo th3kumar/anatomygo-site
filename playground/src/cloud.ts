@@ -59,12 +59,13 @@ export const AUTH_CHANNEL='anatomygo-auth'
  * lands on /playground/?auth=popup (already an allowed redirect), finishes the sign-in and closes. Phones, and browsers
  * that block the window, use the usual full-page redirect back to the structure.
  */
-export async function signInWithGoogle(structure:string):Promise<'popup'|'redirect'> {
+export async function signInWithGoogle(structure:string,onStart:(method:'google_window'|'redirect')=>void=()=>{}):Promise<'popup'|'redirect'> {
  if(!cloud)throw new Error('Online contributions are not configured for this preview.')
  const back=location.origin+`/playground/?structure=${encodeURIComponent(structure)}`
  const w=480,h=640,popup=matchMedia('(pointer: coarse)').matches?null:window.open('','anatomygo-google',`popup,width=${w},height=${h},left=${Math.round(screenX+(outerWidth-w)/2)},top=${Math.round(screenY+(outerHeight-h)/2)}`)
- if(!popup){const {error}=await cloud.auth.signInWithOAuth({provider:'google',options:{redirectTo:back}});if(error)throw new Error(error.message);return 'redirect'}
+ if(!popup){onStart('redirect');const {error}=await cloud.auth.signInWithOAuth({provider:'google',options:{redirectTo:back}});if(error)throw new Error(error.message);return 'redirect'}
  try{popup.document.title='Sign in · AnatomyGo';popup.document.body.style.cssText='margin:0;display:grid;place-items:center;height:100vh;font:14px -apple-system,sans-serif;color:#68727d';popup.document.body.textContent='Opening Google…'}catch{/* cosmetic only */}
+ onStart('google_window')
  const {data,error}=await cloud.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/playground/?auth=popup',skipBrowserRedirect:true}})
  if(error||!data.url){popup.close();throw new Error(error?.message??'Google sign-in could not start.')}
  popup.location.href=data.url
