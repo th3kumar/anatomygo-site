@@ -32,7 +32,9 @@ await page.getByRole('button',{name:'Suggest a better spot'}).click();
 await page.getByLabel('Name',{exact:true}).fill('Browser test draft — not submitted');
 await page.getByRole('button',{name:'Save pin',exact:true}).click();
 await page.getByRole('dialog',{name:'Sign in to save'}).waitFor();
-// Desktop sign-in runs in a small Google window; this page and its draft stay put. (No account is used.)
+// Sign-in shows Google's own button; its fallback runs in a small Google window. This page and its draft stay put. (No account is used.)
+await page.locator('.pg-google-slot iframe').waitFor({state:'attached',timeout:20000});  // Google's own button, naming this site
+await page.getByRole('button',{name:/Trouble signing in/}).click();
 const [google]=await Promise.all([page.waitForEvent('popup'),page.getByRole('button',{name:'Continue with Google',exact:true}).click()]);
 await google.waitForURL(/accounts\.google\.com|\/auth\/v1\/authorize/,{timeout:30000});await google.close();
 await page.getByText('Finish signing in in the Google window.',{exact:false}).waitFor();
@@ -82,5 +84,5 @@ await mobile.emulateMedia({colorScheme:'dark'});await mobile.screenshot({path:'.
 assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 assert.equal(await mobile.getByRole('button',{name:'Open on device',exact:true}).count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS: live catalogue, one-time tour, clickable pin names, Google sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
+console.log('PASS: live catalogue, one-time tour, clickable pin names, Google button and sign-in window, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
 } finally { await browser.close(); }

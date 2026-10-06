@@ -142,6 +142,8 @@
 
 /* ── Dialogs ──────────────────────────────────────────────────────────────── */
 .pg-dialog { max-height: calc(100dvh - 40px); overflow: auto; }
+/* Centred explicitly: browser extensions sometimes reset dialog margins, which pins native dialogs to the top-left. */
+.pg-dialog:modal { position: fixed; inset: 0 !important; margin: auto !important; }
 .pg-dialog.wide { width: min(760px, 94vw); }
 .pg-dialog > header, .pg-dialog form > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -4px -8px 6px 0; }
 .pg-dialog p { margin: 6px 0 12px; color: var(--text); }
@@ -274,3 +276,9 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
 .pg-auth-popup { height: 100dvh; display: grid; place-items: center; background: var(--stage); }
 .pg-auth-popup .centre-card { position: static; transform: none; width: min(380px, 92vw); }
 .pg-auth-popup .centre-card button { align-self: flex-start; }
+.pg-google { position: relative; min-height: 44px; display: flex; justify-content: center; margin: 4px 0 2px; }
+/* Google's frame is a light page: matching its scheme keeps Chrome from painting a white box behind it in dark mode. */
+.pg-google-slot, .pg-google-slot iframe { color-scheme: light; }
+.pg-google-slot { width: 100%; display: flex; justify-content: center; }
+.pg-google-wait { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 9px; }
+.pg-google-other { align-self: center; margin: 8px auto 0; font-size: 11.5px; color: var(--muted); display: flex; }

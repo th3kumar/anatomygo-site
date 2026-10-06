@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { Session } from '@supabase/supabase-js'
 import { MousePointerClick, Search, X } from 'lucide-react'
 import { loadAtlas, loadMesh, neighbours, type Atlas, type LoadedMesh } from './api'
-import { AUTH_CHANNEL, checklist, cloud, placements, restoreDraft, rpc, saveDraft, signInWithGoogle, structureCounts, submit, votes, type Draft, type Landmark, type Proposal, type Vote } from './cloud'
+import { AUTH_CHANNEL, checklist, cloud, placements, restoreDraft, rpc, saveDraft, structureCounts, submit, votes, type Draft, type Landmark, type Proposal, type Vote } from './cloud'
 import { Viewer, type ViewerHandle } from './Viewer'
 import type { PickFailure, PickResult } from './picking'
 import { SceneController, type ScenePin, type ViewName } from './scene'
@@ -15,6 +15,7 @@ import { Checklist } from './Checklist'
 import { LandmarkCard } from './LandmarkCard'
 import { DraftCard } from './DraftCard'
 import { StructureFinder } from './StructureFinder'
+import { SignInDialog } from './SignInDialog'
 import { AskHost, ask } from './ui/ask'
 import { Hint, Tour, touch, type CoachStep } from './ui/Spotlight'
 import { isPhone, usePhone } from './ui/media'
@@ -69,7 +70,6 @@ export function App() {
   const [toast, setToast] = useState('')
   const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[] } | null>(null)
   const [dialog, setDialog] = useState<'auth' | 'name' | 'admin' | null>(null)
-  const [googleOpen, setGoogleOpen] = useState(false)
   const [touring, setTouring] = useState(false)
   const [, setHintRevision] = useState(0)
   const phone = usePhone()
@@ -137,7 +137,6 @@ export function App() {
   useEffect(() => {
     if (!session || dialog !== 'auth') return
     setDialog(null)
-    setGoogleOpen(false)
     setToast(draft ? 'Signed in. Now press Save pin.' : 'Signed in.')
   }, [session?.user.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -442,18 +441,7 @@ export function App() {
         <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group}
                          onChoose={(id) => void chooseStructure(id)} onClose={() => setFinder(null)} />
       )}
-      {dialog === 'auth' && (
-        <Dialog title="Sign in to save" onClose={() => { setDialog(null); setGoogleOpen(false) }}>
-          <p>{googleOpen ? 'Finish signing in in the Google window. This page updates by itself.' : `Sign in to save pins, vote and comment.${draft ? ' Your pin stays right here.' : ''}`}</p>
-          {cloud ? (
-            <button className={googleOpen ? 'outline wide' : 'primary wide'} disabled={busy} onClick={() => void run(async () => {
-              saveDraft(draft)
-              if (await signInWithGoogle(meshId) === 'popup') setGoogleOpen(true)
-            })}>{googleOpen ? 'Open the Google window again' : 'Continue with Google'}</button>
-          ) : <p className="pg-warn">Saving is switched off in this preview.</p>}
-          <p className="note">We use Google only to sign you in. Your email is never shown.</p>
-        </Dialog>
-      )}
+      {dialog === 'auth' && <SignInDialog draft={draft} structure={meshId} onClose={() => setDialog(null)} />}
       {dialog === 'name' && (
         <NameDialog current={profile} busy={busy} onClose={() => setDialog(null)}
                     onSave={(name) => void run(async () => {
