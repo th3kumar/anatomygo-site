@@ -9,14 +9,17 @@ const page=await b.newPage({viewport:{width:1440,height:900}});const errors=[];p
 try{
 await page.route('**/rest/v1/rpc/pg_published_pack',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'apikey,content-type','access-control-allow-methods':'POST,OPTIONS'},body:JSON.stringify(pack)}));
 await page.goto('http://127.0.0.1:3018/?structure=FJ3366&isolate=1');
-await page.getByRole('link',{name:'See and add landmarks'}).waitFor({timeout:60000});
-assert.match(await page.getByRole('link',{name:'See and add landmarks'}).getAttribute('href'),/structure=FJ3366/);
+const features=page.locator('.detail-sheet a.features-action');
+await features.waitFor({timeout:60000});
+assert.match(await features.innerText(),/^Parts & features/);
+assert.match(await features.getAttribute('href'),/structure=FJ3366/);
+assert.equal(await page.locator('.top-actions a.playground-entry').getAttribute('href'),'/playground/');
 await page.getByRole('button',{name:'Test approved surface',exact:true}).click();
 await page.getByText('Browser fixture only; never published to the database.',{exact:true}).waitFor();
 await page.waitForFunction(()=>!document.querySelector('.loading'),null,{timeout:60000});
 await page.screenshot({path:'../.local/screenshots/approved-viewer.png'});
 await page.getByRole('button',{name:'Show surrounding anatomy'}).click();
-assert.equal(await page.getByRole('link',{name:'See and add landmarks'}).count(),0);
+assert.equal(await features.count(),1,'the Playground entry stays without isolation');
 assert.equal(await page.locator('.published-landmarks').count(),0);
-assert.deepEqual(errors,[]);console.log('PASS: isolated viewer entry, approved pack display and biology, cleanup on leaving isolation. Feed mocked; no published data changed.');
+assert.deepEqual(errors,[]);console.log('PASS: Playground entries (top bar, details), isolated viewer entry, approved pack display and biology, cleanup on leaving isolation. Feed mocked; no published data changed.');
 }finally{await b.close();}

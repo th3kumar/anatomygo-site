@@ -101,3 +101,17 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
 .appearance-menu{min-width:176px}
 
 .published-landmarks{border-top:1px solid #87929d33;padding-top:16px}.published-landmarks h3{font-size:13px;margin-bottom:10px}.published-landmarks>button{display:block;text-align:left;width:100%;font-size:12px;white-space:normal;height:auto;min-height:36px}.published-landmarks>button[aria-pressed=true]{background:#458a8520}.published-biology{font-size:13px;line-height:1.65;margin-bottom:12px}.published-biology strong,.published-biology em{display:block}.published-biology em{font-size:12px;opacity:.7}.published-biology p{white-space:pre-wrap}
+
+/* Playground entry points: the top bar link, the details action and the New tag. */
+.playground-entry{position:relative;display:flex;align-items:center;gap:9px;height:42px;padding:0 13px;border:1px solid var(--border);background:#ffffffd9;border-radius:10px;font-size:12px;font-weight:500;color:#515d69;text-decoration:none}.playground-entry:hover{background:white}.playground-entry svg{color:#458a85}
+.new-tag{font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:14px;color:#2f6f6a;background:#458a851f;border:1px solid #458a8540;border-radius:999px;padding:1px 6px}
+.detail-actions .features-action{background:#458a8514;color:#26313c!important;border:1px solid #458a8566}.detail-actions .features-action:hover{background:#458a8526}.features-action svg:first-child{color:#2f6f6a}.features-label{flex:1;text-align:left}.features-action svg:last-child{margin-left:0!important}
+.features-count{font-size:11px;font-variant-numeric:tabular-nums;line-height:18px;color:#2f6f6a;background:#458a851f;border-radius:6px;padding:1px 7px}
+/* Atlas names are already in sentence case ("Gingiva of upper jaw"); only the first letter is raised. */
+.structure-title,.search-result-name{text-transform:none!important}.structure-title::first-letter,.search-result-name::first-letter{text-transform:uppercase}
+.detail-scroll{padding-bottom:14px;mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent)}
+@media(max-width:767px){.playground-entry{width:44px;min-width:44px;height:44px;padding:0;justify-content:center}.playground-entry .new-tag{position:absolute;top:8px;right:8px;width:8px;height:8px;padding:0;font-size:0;border:0;background:#458a85;border-radius:50%}
+ .detail-actions{display:grid!important;grid-template-columns:1fr 1fr;column-gap:6px}.detail-actions .secondary-action{grid-column:1/-1}.detail-actions .primary-action{padding:0 10px;font-size:12px;gap:7px}.detail-actions .primary-action svg:last-child{display:none}}
+@media(min-width:1280px){.detail-sheet{bottom:54px!important}}  /* wide screens: the sheet clears the dock, so it can use the height */
+@media(max-width:767px){.top-actions button[aria-label="About this atlas"]{display:none}}  /* phones: "Source & credits" in the footer opens the same sheet */
+@media(max-width:400px){h1 .edition{display:none}}

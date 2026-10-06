@@ -113,3 +113,8 @@
 .dark .explode-control [data-slot=slider-range]{background:#e9ecef}
 .dark .explode-control [data-slot=slider-thumb]{border-width:2px}
 .dark button:focus-visible,.dark a:focus-visible{outline:none;box-shadow:0 0 0 2px #a4a9b099}
+
+.dark .playground-entry{background:#26292ef0;color:#c8cbd0;border-color:#ffffff1a}.dark .playground-entry:hover{background:#33363c}.dark .playground-entry svg{color:#6fb08f}
+.dark .new-tag{color:#8fd0ae;background:#6fb08f1f;border-color:#6fb08f55}
+.dark .detail-actions .features-action{background:#6fb08f14;color:#e6e8eb!important;border:1px solid #6fb08f55}.dark .detail-actions .features-action:hover{background:#6fb08f26}.dark .features-action svg:first-child{color:#8fd0ae}.dark .features-count{color:#8fd0ae;background:#6fb08f1f}
+@media(max-width:767px){.dark .playground-entry .new-tag{background:#6fb08f}}
