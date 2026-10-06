@@ -20,6 +20,7 @@ import { AskHost, ask } from './ui/ask'
 import { Guide, Hint, touch, type GuideStep } from './ui/Spotlight'
 import { isPhone, usePhone } from './ui/media'
 import { bucket, errorKind, queryKind, signInFinished, track } from './telemetry'
+import { pinLink, sharePin, shareText } from './share'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
 
@@ -28,6 +29,9 @@ const INTRO = 'anatomygo.playground.practice'
 // First-timers practise once: open a feature, add one, place, save, vote and delete it. The practice pin never leaves the tab.
 type Practice = 'structure' | 'add' | 'place' | 'save' | 'vote' | 'delete' | 'done'
 const PRACTICE_PIN = 'practice-pin', PRACTICE_FEATURE = 'practice-feature'
+// After which saved pins (counted per browser) to suggest sharing: the first, then once more. Never on every save.
+const SHARE_NUDGES = [1, 5], SAVED = 'anatomygo.playground.saved'
+const lowerFirst = (t: string) => (/^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t)
 const PRACTICE_STRUCTURE = 'FJ3387'  // Right tibia: large, familiar and well covered, so the first pin is easy
 const REFUSED: Record<PickFailure, string> = {
   miss: 'That spot isn’t on this structure.',
@@ -80,6 +84,13 @@ export function App() {
   const [practicePlan, setPracticePlan] = useState<Practice[]>([])
   const [practicePin, setPracticePin] = useState<{ feature: Landmark; pin: Proposal } | null>(null)
   const [practiceVote, setPracticeVote] = useState(0)
+  // Sharing: the pin a link asked for, the pin shown as "Shared with you", the soft nudge after saving, and the
+  // practice offered (rather than started) to someone who arrived from a link.
+  const sharedPin = useRef(new URLSearchParams(location.search).get('pin'))
+  const arrivedByShare = useRef(!!sharedPin.current)
+  const [sharedId, setSharedId] = useState<string | null>(null)
+  const [shareNudge, setShareNudge] = useState<{ nth: number; feature: string } | null>(null)
+  const [practiceOffer, setPracticeOffer] = useState(false)
   const [, setHintRevision] = useState(0)
   const phone = usePhone()
   // On a phone the list starts as a bar under the model; on a desktop it is open beside it.
@@ -220,8 +231,48 @@ export function App() {
     if (practice || draft) return
     let first = false
     try { first = !localStorage.getItem(INTRO) } catch { /* private mode: no practice run */ }
-    if (first && (meshId ? host && !loading : atlas && finder)) startPractice('auto')
+    if (first && !arrivedByShare.current && (meshId ? host && !loading : atlas && finder)) startPractice('auto')
   }, [host?.meta.id, loading, !!atlas, !!finder]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A shared link names one pin: once its structure is on screen, open it (or say kindly that it is gone).
+  useEffect(() => {
+    const id = sharedPin.current
+    if (!id || !host || loading) return
+    sharedPin.current = null
+    const q = new URLSearchParams(location.search)
+    q.delete('pin')
+    history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}`)
+    const p = proposals.find((x) => x.id === id)
+    track('shared_pin_opened', { found: p ? 1 : 0, published: p && items.some((l) => l.published_proposal === p.id) ? 1 : 0 })
+    if (!p) { setToast('That pin was removed. Here are the other parts & features.'); return }
+    setSharedId(p.id)
+    void selectLandmark(p.landmark_id, p.id, 'share')
+  }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Someone new who came from a link sees the pin first; the practice is offered once they close it.
+  useEffect(() => {
+    if (!sharedId || !arrivedByShare.current) return
+    if (allProposals.find((x) => x.id === sharedId)?.landmark_id === selected) return
+    arrivedByShare.current = false
+    let first = false
+    try { first = !localStorage.getItem(INTRO) } catch { /* private mode */ }
+    if (first && !practice) { setPracticeOffer(true); track('practice_offer_shown') }
+  }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The nudge is soft: it leaves on its own after a few seconds.
+  useEffect(() => {
+    if (!shareNudge) return
+    const t = setTimeout(() => setShareNudge(null), 12000)
+    return () => clearTimeout(t)
+  }, [shareNudge])
+
+  async function share(source: 'card' | 'nudge') {
+    if (!chosen || !part || chosen.id === PRACTICE_PIN) return
+    const published = active?.published_proposal === chosen.id
+    const result = await sharePin(pinLink(part.id, chosen.id), shareText(lowerFirst(chosen.label), lowerFirst(sentence(part.name)), published), `${chosen.label} · AnatomyGo`)
+    track('pin_shared', { source, result, published: published ? 1 : 0 })
+    setShareNudge(null)
+    if (result === 'copied') setToast('Link copied. Paste it anywhere to share this pin.')
+    if (result === 'failed') setToast('Couldn’t copy the link. Try again.')
+  }
 
   // ── Draft safety ───────────────────────────────────────────────────────────
   const untouched = (d: Draft | null) => !d || snapshot(d) === original.current
@@ -322,9 +373,13 @@ export function App() {
       setProposals(p)
       setItems(await checklist(meshId))
       setScores(await votes(p.map((x) => x.id)))
-      setSelected(p.find((x) => x.id === id)?.landmark_id ?? null)
+      const feature = p.find((x) => x.id === id)?.landmark_id ?? null
+      setSelected(feature)
       setProposalId(id)
-      setToast('Pin saved. Everyone can see it and vote on it now.')
+      let saved = 0
+      try { saved = Number(localStorage.getItem(SAVED) ?? 0) + 1; localStorage.setItem(SAVED, String(saved)) } catch { /* not counted */ }
+      if (feature && SHARE_NUDGES.includes(saved)) { setShareNudge({ nth: saved, feature }); track('share_nudge_shown', { nth: saved }) }
+      else setToast('Pin saved. Everyone can see it and vote on it now.')
     })
   }
 
@@ -416,7 +471,8 @@ export function App() {
   const tap = touch ? 'Tap' : 'Click'
   const practiceRef = useRef<{ step: Practice | null; at: number }>({ step: null, at: 0 })
   practiceRef.current.step = practice
-  function startPractice(source: 'auto' | 'help') {
+  function startPractice(source: 'auto' | 'help' | 'offer') {
+    setPracticeOffer(false)
     track('practice_started', { source, start: !meshId ? 'picker' : 'structure' })
     practiceRef.current.at = Date.now()
     setDraft(null); setPlacing(false); setSelected(null); setProposalId(null); setPracticePin(null); setPracticeVote(0)
@@ -514,7 +570,7 @@ export function App() {
                    stale={!!host && draft.geometry !== host.meta.geometry}
                    onChange={updateDraft} onPlace={() => { setPlacing(!placing); setRefused('') }} onSave={save} onCancel={() => void cancelDraft()} />
       ) : active && (
-        <LandmarkCard key={active.id} landmark={active} pins={pinsFor} chosen={chosen} scores={allScores} practice={chosen?.id === PRACTICE_PIN} me={me} admin={isAdmin} busy={busy}
+        <LandmarkCard key={active.id} landmark={active} pins={pinsFor} chosen={chosen} scores={allScores} practice={chosen?.id === PRACTICE_PIN} shared={!!sharedId && chosen?.id === sharedId} onShare={() => void share('card')} me={me} admin={isAdmin} busy={busy}
                       onChoose={(id) => { track('pin_alternative_viewed'); setProposalId(id) }} onVote={vote} onSuggest={() => void startDraft()} onClose={() => { setSelected(null); setProposalId(null) }}
                       onWithdraw={() => {
                         track('pin_deleted', { practice: chosen?.id === PRACTICE_PIN ? 1 : 0 })
@@ -552,7 +608,14 @@ export function App() {
           <button className="icon" aria-label="Dismiss" onClick={() => setError('')}><X size={14} /></button>
         </div>
       )}
-      {toast && !error && <div className="toast glass" role="status">{toast}</div>}
+      {toast && !error && !practiceOffer && <div className="toast glass" role="status">{toast}</div>}
+      {practiceOffer && !practice && !error && (
+        <div className="toast glass pg-offer" role="status">
+          <span>New here? A 1-minute practice shows you how to pin.</span>
+          <button className="primary" onClick={() => { track('practice_offer_accepted'); startPractice('offer') }}>Try it</button>
+          <button className="icon" aria-label="Dismiss" onClick={() => { track('practice_offer_dismissed'); setPracticeOffer(false) }}><X size={14} /></button>
+        </div>
+      )}
 
       {finder && atlas && (
         <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group} locked={finder.locked}
@@ -582,6 +645,12 @@ export function App() {
 
       {practice && <div className="pg-stage-free" style={{ left: insets.left, top: insets.top, right: insets.right, bottom: insets.bottom }} />}
       <Guide step={guide} index={Math.max(1, practice ? practicePlan.indexOf(practice) + 1 : practicePlan.length)} total={practicePlan.length} onSkip={() => endPractice('skipped')} />
+      {shareNudge && selected === shareNudge.feature && !draft && !practice && (
+        <Hint target='[data-share]' side={phone ? 'top' : 'left'} beside='.pg-card' action={{ label: 'Share', onClick: () => void share('nudge') }}
+              onDone={() => { track('share_nudge_dismissed', { nth: shareNudge.nth }); setShareNudge(null) }}>
+          {shareNudge.nth === 1 ? 'Saved! Share it with a friend to get a second opinion.' : 'Five pins saved. Know someone who’d check this one? Share it.'}
+        </Hint>
+      )}
       {hint === 'vote' && <Hint target='[data-hint="vote"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
       {hint === 'save' && <Hint target='[data-hint="save"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
       <AskHost />

@@ -319,3 +319,10 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
 @media (max-width: 799px) {
   .public-studio .pg-card, .public-studio .pg-checklist, .pg-list-tab { animation: pg-in-up .3s cubic-bezier(.2, .8, .2, 1); }
 }
+
+/* Opened from a shared link */
+.pg-shared { align-self: flex-start; margin: 0 0 8px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--text); background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent); animation: pg-fade .4s ease-out; }
+/* The soft offer after a shared visit */
+.pg-offer { display: flex; align-items: center; gap: 12px; }
+.public-studio .pg-offer .primary { min-height: 32px; padding: 0 12px; color: var(--primary-fg); white-space: nowrap; flex: none; }
+@media (max-width: 799px) { .public-studio .toast.pg-offer { width: calc(100vw - 24px); } .pg-offer span { flex: 1; } }

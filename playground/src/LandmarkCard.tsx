@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flag, MoreHorizontal, Pin, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
+import { Flag, MoreHorizontal, Pin, Share2, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react'
 import { comments as loadComments, rpc, type Comment, type Landmark, type Proposal, type Vote } from './cloud'
 import { ask, askText } from './ui/ask'
 import { Menu } from './ui/Menu'
@@ -14,6 +14,9 @@ interface Props {
   admin: boolean
   /** A practice pin: kept in this tab only, so it can be voted on and deleted without an account. */
   practice?: boolean
+  /** Opened from a shared link: says so, and whether the pin has been reviewed yet. */
+  shared?: boolean
+  onShare(): void
   busy: boolean
   onChoose(id: string): void
   onVote(value: number): void
@@ -63,10 +66,12 @@ export function LandmarkCard(p: Props) {
           <i className={`dot ${published ? 'reviewed' : pin ? 'placed' : ''}`} />{p.practice ? 'Practice pin' : published ? 'Published' : pin ? 'Community pin' : 'No pin yet'}
         </span>
         <div className="row">
+          {pin && !p.practice && <button className="icon" data-share aria-label="Share this pin" title="Share this pin" onClick={p.onShare}><Share2 size={16} /></button>}
           {actions.length > 0 && <Menu label="More options" className="icon" trigger={<MoreHorizontal size={17} />} items={actions} />}
           <button className="icon" aria-label="Close" title="Close" onClick={p.onClose}><X size={17} /></button>
         </div>
       </header>
+      {p.shared && pin && <p className="pg-shared">Shared with you{published ? '' : ' · not yet reviewed'}</p>}
       <h2 className="pg-title">{title}</h2>
       {latin && <p className="latin">{latin}</p>}
       <div className="card-scroll">
