@@ -11,7 +11,7 @@ function TipButton({label,children,onClick,pressed}:{label:string;children:React
 }
 export type Toggles={neighbours:boolean;labels:boolean;hidden:boolean;reverse:boolean}
 export function Controls({onFit,toggles,onToggle}:{onFit(v:ViewName):void;toggles:Toggles;onToggle(k:keyof Toggles):void}) {
- return <nav className="view-rail glass" aria-label="Camera and display">{views.map(v=><TipButton key={v.view} label={v.label} onClick={()=>onFit(v.view)}>{v.short}</TipButton>)}<i/>
+ return <nav className="view-rail glass" data-coach="rail" aria-label="Camera and display">{views.map(v=><TipButton key={v.view} label={v.label} onClick={()=>onFit(v.view)}>{v.short}</TipButton>)}<i/>
  <TipButton label="Fit structure" onClick={()=>onFit('oblique')}><Maximize2 size={16}/></TipButton>
  {([['neighbours','Show neighbouring structures',<Layers size={16}/>],['labels','Label every pin',<Tags size={16}/>],['hidden','Show pins behind the surface',<Eye size={16}/>],['reverse','Allow reverse side',<FlipHorizontal2 size={16}/>]] as [keyof Toggles,string,ReactNode][]).map(([k,label,icon])=><TipButton key={k} label={label} pressed={toggles[k]} onClick={()=>onToggle(k)}>{icon}</TipButton>)}</nav>
 }

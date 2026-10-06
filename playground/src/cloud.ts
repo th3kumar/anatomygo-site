@@ -18,6 +18,13 @@ export async function checklist(mesh:string):Promise<Landmark[]> {
  const all:Landmark[]=[]
  for(let offset=0;;offset+=500){const {data,error}=await cloud.from('pg_landmarks').select('id,mesh_id,label,latin_name,description,published_proposal').eq('mesh_id',mesh).eq('archived',false).order('id').range(offset,offset+499);if(error)throw new Error(error.message);all.push(...data);if(data.length<500)return all}
 }
+/** Landmarks and published pins per structure, for the structure finder. Read-only. */
+export async function structureCounts():Promise<Record<string,{landmarks:number;published:number}>> {
+ const count=(rows:{mesh_id:string|null;published_proposal:string|null}[])=>{const result:Record<string,{landmarks:number;published:number}>={};for(const r of rows){if(!r.mesh_id)continue;const c=result[r.mesh_id]??={landmarks:0,published:0};c.landmarks++;if(r.published_proposal)c.published++}return result}
+ if(!cloud){const r=await fetch('/playground-seed.json');return r.ok?count((await r.json()).landmarks):{}}
+ const all:{mesh_id:string|null;published_proposal:string|null}[]=[]
+ for(let offset=0;;offset+=1000){const {data,error}=await cloud.from('pg_landmarks').select('mesh_id,published_proposal').eq('archived',false).order('id').range(offset,offset+999);if(error)throw new Error(error.message);all.push(...data);if(data.length<1000)return count(all)}
+}
 export async function placements(mesh:string,landmark?:string):Promise<Proposal[]> {
  if(!cloud){const r=await fetch('/playground-seed.json');if(!r.ok)return[];const seed=await r.json();return seed.proposals.filter((p:Proposal)=>p.mesh_id===mesh&&(!landmark||p.landmark_id===landmark))}
  const all:Proposal[]=[]
