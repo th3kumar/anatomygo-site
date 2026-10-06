@@ -41,8 +41,9 @@
 .pg-empty p { margin: 0; font-size: 14px; font-weight: 600; color: var(--strong); }
 .pg-empty span { font-size: 12.5px; color: var(--muted); }
 .pg-empty button { margin-top: 16px; }
-.pg-list-tab { position: absolute; left: 30px; top: 150px; z-index: 3; height: 40px; padding: 0 10px 0 12px; font-size: 12px; font-weight: 500; color: var(--text); border-radius: 11px; }
-.pg-list-tab:hover { background: var(--solid) !important; }
+.pg-list-tab { position: absolute; left: 30px; top: 150px; z-index: 3; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 12px; }
+.pg-tab-open { height: 34px; padding: 0 10px; gap: 8px; font-size: 12px; font-weight: 500; color: var(--text); }
+.pg-list-tab .icon { width: 34px; height: 34px; }
 
 /* ── Landmark card ────────────────────────────────────────────────────────── */
 .public-studio .pg-card { right: 100px; top: 96px; bottom: auto; max-height: calc(100% - 126px); width: 344px; padding: 18px 20px 16px; }
@@ -121,7 +122,8 @@
 
 /* ── Structure finder ─────────────────────────────────────────────────────── */
 .public-studio .pg-finder { top: 84px; width: 400px; max-height: min(600px, calc(100% - 120px)); padding: 6px 8px 10px; gap: 4px; z-index: 30; box-shadow: var(--glass-shadow), 0 24px 60px #0000002e; }
-.pg-search { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--faint); border-bottom: 1px solid var(--line); }
+.pg-search { display: flex; align-items: center; gap: 10px; padding: 0 2px 0 10px; color: var(--faint); border-bottom: 1px solid var(--line); }
+.pg-search .icon { width: 36px; height: 36px; }
 .pg-search input { flex: 1; border: 0; background: transparent; height: 48px !important; padding: 0; font-size: 15px; }
 .pg-search input:focus-visible { box-shadow: none; }
 .pg-finder-note { margin: 8px 6px 0; padding: 8px 10px; border-radius: 9px; background: var(--hover); font-size: 12.5px; color: var(--text); }
@@ -189,24 +191,77 @@ button.danger-solid:hover:not(:disabled) { background: color-mix(in srgb, var(--
   .top-actions kbd { display: none; }
 }
 
-/* ── Phones (refined in the mobile pass) ──────────────────────────────────── */
+/* ── Phones: the model first, one bottom sheet at a time ─────────────────── */
 @media (max-width: 799px) {
-  .pg-identity { left: 14px; top: 14px; min-width: 0; max-width: calc(100vw - 190px); }
-  .pg-identity h1 { font-size: 21px; margin: 6px 0 4px; }
-  .pg-identity .identity-meta { font-size: 11px; }
-  .top-actions { top: 12px; right: 12px; gap: 6px; }
-  .top-actions > button, .top-actions .menu > button { height: 38px; }
-  .top-actions > button:first-child { width: 38px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
-  .top-actions kbd { display: none; }
-  .public-studio .view-rail { right: 8px; top: 112px; transform: none; gap: 0; padding: 3px; max-height: calc(100dvh - 180px); overflow: auto; }
-  .public-studio.has-inspector .view-rail { max-height: max(90px, calc(58dvh - 180px)); }
-  .public-studio .view-rail button { width: 31px; min-height: 29px; height: 29px; flex-shrink: 0; font-size: 11px; }
-  .public-studio .pg-checklist { left: 10px; top: 112px; bottom: 70px; width: min(270px, calc(100vw - 70px)); z-index: 6; }
-  .pg-list-tab { left: 12px; top: 112px; }
-  .public-studio .pg-card { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 44dvh; padding: 14px 16px; border-radius: 16px; z-index: 7; }
-  .pg-title { font-size: 21px; }
-  .public-studio .axes { right: 58px; bottom: calc(44dvh + 20px); }
-  .public-studio .pg-finder { left: 10px; right: 10px; top: 60px; width: auto; }
-  .pg-caption { bottom: calc(44dvh + 24px); white-space: normal; max-width: calc(100vw - 24px); }
-  .coach-card { width: min(272px, calc(100vw - 24px)); }
+  input, textarea, select { font-size: 16px !important; }  /* below 16px iOS zooms the page on focus */
+
+  .pg-identity { left: 14px; right: 104px; top: calc(12px + env(safe-area-inset-top)); min-width: 0; max-width: none; }
+  .pg-identity nav { font-size: 9.5px; }
+  .pg-identity h1 { font-size: 21px; letter-spacing: -.5px; margin: 5px 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pg-identity .identity-meta { font-size: 11px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+  .top-actions { top: calc(12px + env(safe-area-inset-top)); right: 12px; gap: 6px; }
+  .top-actions > button, .top-actions .menu > button { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .top-actions .menu-list { min-width: 236px; }
+  .menu-list button { padding: 11px 10px; font-size: 14px; }
+
+  .public-studio .view-rail { right: 8px; top: calc(92px + env(safe-area-inset-top)); transform: none; gap: 0; padding: 3px; border-radius: 12px; }
+  .public-studio .view-rail button { width: 36px; height: 32px; font-size: 11.5px; }
+  .view-rail i { margin: 3px 6px; }
+  .view-rail .menu > button { color: var(--faint); }
+  .view-rail .menu > button.on { color: var(--fg); background: var(--seg-on); box-shadow: var(--seg-shadow); }
+  .view-rail .menu-list { right: calc(100% + 8px); top: auto; bottom: 0; min-width: 250px; }
+  .public-studio .view-rail .menu-list button { width: 100%; height: auto; justify-content: flex-start; padding: 11px 10px; font-size: 14px; font-weight: 400; color: var(--text); white-space: nowrap; }
+  .view-rail .menu-list button svg { color: var(--muted); }
+
+  .public-studio .axes { left: 2px; right: auto; bottom: calc(var(--sheet) - 6px); transform: scale(.7); transform-origin: left bottom; }
+
+  /* Sheets */
+  .public-studio .pg-checklist, .public-studio .pg-card { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; z-index: 7;
+    border-radius: 20px 20px 0 0; border-bottom: 0; box-shadow: 0 -12px 40px rgba(0, 0, 0, .16); }
+  .pg-checklist::before, .pg-card::before { content: ''; flex: none; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto 10px; }
+  .public-studio .pg-checklist { max-height: 62dvh; padding: 8px 10px env(safe-area-inset-bottom); }
+  .pg-checklist .panel-heading h2 { font-size: 15px; }
+  .pg-checklist .panel-heading button.icon { width: 40px; height: 40px; }
+  .pg-list .item { min-height: 50px; }
+  .pg-list .item .name { font-size: 14.5px; }
+  .pg-list .item small { font-size: 12px; }
+  .pg-checklist .panel-foot button { font-size: 14px; padding: 10px 8px; }
+  .pg-empty { padding: 18px 12px 22px; }
+
+  .pg-list-tab { position: fixed; left: 10px; right: 10px; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 7; padding: 4px; border-radius: 16px; }
+  .pg-tab-open { flex: 1; height: 46px; justify-content: flex-start; padding: 0 10px; font-size: 14.5px; font-weight: 600; color: var(--strong); }
+  .pg-list-tab .icon { width: 46px; height: 46px; border-radius: 12px; background: var(--primary); color: var(--primary-fg); }
+  .pg-list-tab .icon:hover:not(:disabled) { background: var(--primary-hover); }
+
+  .public-studio .pg-card { max-height: 60dvh; padding: 8px 18px calc(12px + env(safe-area-inset-bottom)); }
+  .public-studio .pg-draft { max-height: 62dvh; }
+  .pg-card-head .icon { width: 40px; height: 40px; }
+  .pg-title { font-size: 20px; }
+  .pg-card .latin { font-size: 13px; }
+  .pg-card .card-scroll { gap: 12px; padding-top: 8px; }
+  .pg-card .card-actions { padding-top: 10px; }
+  .public-studio button.wide { min-height: 46px; font-size: 14px; }
+  .pg-pins button { min-height: 46px; font-size: 14px; }
+  .pg-vote > span { font-size: 13.5px; }
+  .pg-vote button { min-height: 40px; padding: 0 12px; font-size: 13px; }
+  .pg-comments > summary { font-size: 13.5px !important; padding: 6px 0; }
+  .pg-step h3 { font-size: 15px; }
+  .pg-step p { font-size: 13.5px; }
+  .pg-step .field { font-size: 12px; }
+  .pg-step button.outline, .pg-step button.primary { min-height: 42px; font-size: 13px; }
+  /* While placing, the sheet shrinks to the first step so the model is free to tap. */
+  .pg-draft.placing .pg-step.later, .pg-draft.placing .card-actions { display: none; }
+  .pg-draft.placing .card-scroll { padding-bottom: 0; }
+
+  .pg-caption { bottom: calc(var(--sheet) + 2px); max-width: calc(100vw - 24px); white-space: normal; font-size: 13.5px; }
+  .is-placing .pg-caption:not(.refused) { display: none; }  /* the sheet already says what to do */
+  .public-studio .toast { bottom: calc(var(--sheet) + 6px); max-width: calc(100vw - 24px); }
+
+  .public-studio .pg-finder { left: 8px; right: 8px; top: calc(8px + env(safe-area-inset-top)); width: auto; max-height: calc(100dvh - 16px); }
+  .pg-finder .search-results button { min-height: 52px; }
+  .pg-dialog { width: calc(100vw - 24px); padding: 18px; }
+  .pg-dialog-actions button { min-height: 44px; }
+  .coach-card { width: min(300px, calc(100vw - 24px)); }
+  .coach-card p:not(.coach-count) { font-size: 14px; }
+  .coach-next, .coach-skip { min-height: 38px; }
 }

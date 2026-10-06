@@ -66,7 +66,7 @@ export function Admin({ atlas, onClose, onOpen }: { atlas: Atlas; onClose(): voi
                       onClick={() => void act({ title: 'Hide this pin?', body: 'It disappears from the Playground and is unpublished if needed.', confirm: 'Hide', danger: true },
                         () => rpc('pg_moderate', { p_proposal: p.id, p_action: 'hide' }))}>Hide</button>
               <button className="ghost" disabled={busy || !targetPart || target === p.mesh_id} title={targetPart ? `Move to ${targetPart.name}` : 'Choose a target structure below first'}
-                      onClick={() => void act({ title: `Move to ${targetPart?.name}?`, body: 'Every pin for this landmark is hidden and unpublished. Someone has to place it again on the new structure.', confirm: 'Move', danger: true },
+                      onClick={() => void act({ title: `Move to ${targetPart?.name}?`, body: 'Every pin for this feature is hidden and unpublished. Someone has to place it again on the new structure.', confirm: 'Move', danger: true },
                         () => rpc('pg_move_landmark', { p_landmark: p.landmark_id, p_mesh: target }))}>Move</button>
             </div>
           </article>

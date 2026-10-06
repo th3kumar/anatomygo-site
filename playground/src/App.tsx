@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { MousePointerClick, Search, X } from 'lucide-react'
 import { loadAtlas, loadMesh, neighbours, type Atlas, type LoadedMesh } from './api'
@@ -16,7 +16,8 @@ import { LandmarkCard } from './LandmarkCard'
 import { DraftCard } from './DraftCard'
 import { StructureFinder } from './StructureFinder'
 import { AskHost, ask } from './ui/ask'
-import { Hint, Tour, type CoachStep } from './ui/Spotlight'
+import { Hint, Tour, touch, type CoachStep } from './ui/Spotlight'
+import { isPhone, usePhone } from './ui/media'
 import { markSeen, seen } from './ui/hints'
 import { sentence } from './ui/systems'
 
@@ -66,11 +67,13 @@ export function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
-  const [finder, setFinder] = useState<{ query?: string; note?: string } | null>(null)
+  const [finder, setFinder] = useState<{ query?: string; note?: string; group?: string[] } | null>(null)
   const [dialog, setDialog] = useState<'auth' | 'name' | 'admin' | null>(null)
   const [touring, setTouring] = useState(false)
   const [, setHintRevision] = useState(0)
-  const [listOpen, setListOpen] = useState(true)
+  const phone = usePhone()
+  // On a phone the list starts as a bar under the model; on a desktop it is open beside it.
+  const [listOpen, setListOpen] = useState(() => !isPhone())
   const [toggles, setToggles] = useState<Toggles>({ neighbours: false, labels: false, hidden: false, reverse: false })
   const [insets, setInsets] = useState({ left: 330, right: 100, top: 120, bottom: 72 })
 
@@ -107,7 +110,7 @@ export function App() {
       const direct = a.parts.find((p) => p.id === requested)
       const group = a.concepts.find((c) => c.id === requested)
       if (direct) setMeshId(direct.id)
-      else setFinder(group ? { query: group.name, note: 'This part comes in more than one piece. Pick one.' } : {})
+      else setFinder(group ? { query: group.name, note: 'This comes in more than one piece. Pick one.', group: group.elements } : {})
     }).catch(tell)
     return () => { live = false }
   }, [])
@@ -160,7 +163,7 @@ export function App() {
   // The first visit starts the short tour once the structure is on screen.
   useEffect(() => {
     if (!host || loading || draft) return
-    try { if (!localStorage.getItem(INTRO)) { setListOpen(true); setTouring(true) } } catch { /* private mode: no tour */ }
+    try { if (!localStorage.getItem(INTRO)) startTour() } catch { /* private mode: no tour */ }
   }, [host?.meta.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Draft safety ───────────────────────────────────────────────────────────
@@ -190,6 +193,7 @@ export function App() {
   async function selectLandmark(id: string, proposal: string | null = null) {
     if (draft && !(await leaveDraft())) return
     setDraft(null); setPlacing(false); setSelected(id); setProposalId(proposal)
+    if (phone) setListOpen(false)
   }
 
   async function startDraft(fresh = false) {
@@ -206,6 +210,7 @@ export function App() {
     setDraft(next)
     setPlacing(!next.anchor)
     if (fresh) { setSelected(null); setProposalId(null) }
+    if (phone) setListOpen(false)
   }
 
   async function cancelDraft() {
@@ -217,6 +222,8 @@ export function App() {
     if (busy) return
     updateDraft({ anchor: { triangle: p.triangle, u: p.u, v: p.v } })
     setPlacedNow(true)
+    // On a phone the sheet grows once the pin is down, so bring the pin into the space left above it.
+    if (phone) setTimeout(() => viewer.current?.focusPin('draft'), 120)
     setPlacing(false)
     setRefused('')
   }
@@ -301,8 +308,13 @@ export function App() {
   useLayoutEffect(() => {
     const measure = () => {
       let next
-      if (innerWidth < 800) next = { left: 0, right: 56, top: 110, bottom: cardOpen ? Math.min(innerHeight * 0.44, 400) : 90 }
-      else {
+      if (innerWidth < 800) {
+        // Phone: the model sits between the header and whichever sheet is up, left of the rail.
+        const head = document.querySelector('.pg-identity')?.getBoundingClientRect()
+        const rail = document.querySelector('.view-rail')?.getBoundingClientRect()
+        const sheet = document.querySelector('.pg-card, .pg-checklist, .pg-list-tab')?.getBoundingClientRect()
+        next = { left: 8, right: rail ? Math.round(innerWidth - rail.left) + 4 : 56, top: Math.round(head?.bottom ?? 90) + 8, bottom: sheet ? Math.round(innerHeight - sheet.top) + 8 : 24 }
+      } else {
         const list = document.querySelector('.pg-checklist')?.getBoundingClientRect()
         const card = document.querySelector('.pg-card')?.getBoundingClientRect()
         const rail = document.querySelector('.view-rail')?.getBoundingClientRect()
@@ -312,20 +324,32 @@ export function App() {
       setInsets((prev) => (prev.left === next.left && prev.right === next.right && prev.top === next.top && prev.bottom === next.bottom ? prev : next))
     }
     measure()
+    // Sheets change height as they fill, so watch them as well as the window.
+    const watch = new ResizeObserver(measure)
+    document.querySelectorAll('.pg-card, .pg-checklist, .pg-list-tab, .pg-identity').forEach((el) => watch.observe(el))
     addEventListener('resize', measure)
-    return () => removeEventListener('resize', measure)
-  }, [listOpen, cardOpen, !!host, items.length === 0, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { watch.disconnect(); removeEventListener('resize', measure) }
+  }, [listOpen, cardOpen, phone, placing, !!host, items.length === 0, loading, !!chosen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Guidance ───────────────────────────────────────────────────────────────
   const quiet = !!finder || !!dialog || !host || loading
+  const tap = touch ? 'Tap' : 'Click'
   const steps: CoachStep[] = [
-    ...(items.length ? [{ target: '[data-coach="list"]', side: 'right' as const, title: 'Pick a landmark', body: 'Click a name to see its pin on the model.' }] : []),
-    { target: '[data-coach="rail"]', side: 'left', title: 'Turn the model', body: 'Drag to turn it and scroll to zoom. These buttons jump to a view.' },
-    { target: '[data-coach="add"]', side: 'right', title: items.length ? 'Add what’s missing' : 'Add the first one', body: 'Place a pin, give it a name and save. Others can vote on it.' },
+    ...(items.length ? [phone
+      ? { target: '[data-coach="list"] .pg-tab-open', side: 'top' as const, title: 'Parts & features', body: 'Tap here for the list. Each one has a pin on the model.' }
+      : { target: '[data-coach="list"]', side: 'right' as const, title: 'Pick a feature', body: `${tap} a name to see its pin on the model.` }] : []),
+    { target: '[data-coach="rail"]', side: 'left', title: 'Turn the model', body: touch ? 'Drag to turn it, pinch to zoom. Or tap a view here.' : 'Drag to turn it and scroll to zoom. These buttons jump to a view.' },
+    { target: '[data-coach="add"]', side: phone ? 'top' : 'right', title: items.length ? 'Add what’s missing' : 'Add the first one',
+      body: phone ? 'Tap + to pin a part or feature that isn’t listed. Others can vote on it.' : 'Pin a part or feature that isn’t listed. Others can vote on it.' },
   ]
+  function startTour() {
+    setListOpen(!phone)
+    if (phone && !draft) { setSelected(null); setProposalId(null) }
+    setTouring(true)
+  }
   const endTour = useCallback(() => { setTouring(false); try { localStorage.setItem(INTRO, '1') } catch { /* private mode */ } }, [])
   const hint = touring || quiet || placing ? null
-    : draft?.anchor && placedNow && !busy && !seen('save') ? 'save'
+    : draft?.anchor && placedNow && !busy && !phone && !seen('save') ? 'save'
     : !draft && chosen && chosen.author_id !== me && !seen('vote') ? 'vote' : null
   const doneHint = (id: string) => { markSeen(id); setHintRevision((n) => n + 1) }
 
@@ -333,7 +357,7 @@ export function App() {
   const backHref = meshId ? `/?structure=${encodeURIComponent(meshId)}&isolate=1` : '/'
 
   return (
-    <main className={`studio public-studio ${cardOpen ? 'has-inspector' : ''}`}>
+    <main className={`studio public-studio ${cardOpen ? 'has-inspector' : ''} ${placing ? 'is-placing' : ''}`} style={{ '--sheet': `${insets.bottom}px` } as CSSProperties}>
       <div className="stage">
         {host && webgl && (
           <Viewer key={host.meta.id} ref={viewer} host={host} context={context} pins={pins}
@@ -346,17 +370,17 @@ export function App() {
         )}
       </div>
 
-      <Header structure={part} landmarks={items.length} published={published} backHref={backHref} onBack={back}
-              onFind={() => setFinder({})} onTour={() => { setListOpen(true); setTouring(true) }}
+      <Header structure={part} features={items.length} published={published} phone={phone} backHref={backHref} onBack={back}
+              onFind={() => setFinder({})} onTour={startTour}
               account={session ? { name: profile, admin: isAdmin } : null}
               onSignIn={() => setDialog('auth')} onRename={() => setDialog('name')} onAdmin={() => setDialog('admin')}
               onSignOut={() => void run(async () => { await cloud!.auth.signOut(); setToast('Signed out.') })} />
 
-      {meshId && (
-        <Checklist items={items} pins={pinCounts} selected={selected} loading={loading} disabled={!host || busy}
+      {meshId && !(phone && cardOpen) && (
+        <Checklist items={items} pins={pinCounts} selected={selected} loading={loading} disabled={!host || busy} phone={phone}
                    open={listOpen} onOpen={setListOpen} onSelect={(id) => void selectLandmark(id)} onAdd={() => void startDraft(true)} />
       )}
-      {host && <Controls onFit={fit} toggles={toggles} onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))} />}
+      {host && <Controls compact={phone} onFit={fit} toggles={toggles} onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))} />}
 
       {draft ? (
         <DraftCard draft={draft} placing={placing} busy={busy} signedIn={!!session}
@@ -372,10 +396,10 @@ export function App() {
       )}
 
       {placing && (
-        <div className={`pg-caption glass ${refused ? 'refused' : ''}`} role="status" style={{ left: innerWidth < 800 ? '50%' : (insets.left + innerWidth - insets.right) / 2 }}>
+        <div className={`pg-caption glass ${refused ? 'refused' : ''}`} role="status" style={{ left: phone ? '50%' : (insets.left + innerWidth - insets.right) / 2 }}>
           <MousePointerClick size={15} />
-          <span>{refused || (draft?.anchor ? 'Drag the pin, or click a new spot' : 'Click the model where it sits')}</span>
-          <kbd>Esc</kbd>
+          <span>{refused || (draft?.anchor ? `Drag the pin, or ${tap.toLowerCase()} a new spot` : `${tap} the model where it sits`)}</span>
+          {!touch && <kbd>Esc</kbd>}
         </div>
       )}
 
@@ -386,7 +410,7 @@ export function App() {
       {atlas && !meshId && !finder && (
         <div className="centre-card glass pg-start">
           <h2>Pick a structure</h2>
-          <p>Choose a bone, muscle or organ to see its landmarks, or add your own.</p>
+          <p>Choose a bone, muscle or organ to see its parts & features, or add your own.</p>
           <button className="primary" onClick={() => setFinder({})}><Search size={15} />Find a structure</button>
         </div>
       )}
@@ -401,7 +425,7 @@ export function App() {
       {toast && !error && <div className="toast glass" role="status">{toast}</div>}
 
       {finder && atlas && (
-        <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note}
+        <StructureFinder atlas={atlas} counts={counts} current={meshId} initialQuery={finder.query} note={finder.note} group={finder.group}
                          onChoose={(id) => void chooseStructure(id)} onClose={() => setFinder(null)} />
       )}
       {dialog === 'auth' && (
@@ -436,8 +460,8 @@ export function App() {
       )}
 
       {touring && !quiet && <Tour steps={steps} onDone={endTour} />}
-      {hint === 'vote' && <Hint target='[data-hint="vote"]' side="left" onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
-      {hint === 'save' && <Hint target='[data-hint="save"]' side="left" onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
+      {hint === 'vote' && <Hint target='[data-hint="vote"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('vote')}>Is the pin in the right spot? Your vote helps decide what gets published.</Hint>}
+      {hint === 'save' && <Hint target='[data-hint="save"]' side={phone ? 'top' : 'left'} onDone={() => doneHint('save')}>{draft?.label.trim() ? 'Looks right? Save it.' : 'Looks right? Give it a name, then save.'}</Hint>}
       <AskHost />
     </main>
   )

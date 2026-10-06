@@ -1,13 +1,14 @@
-import { ArrowLeft, HelpCircle, LogOut, Monitor, Moon, PenLine, Search, Shield, Sun, UserRound } from 'lucide-react'
+import { ArrowLeft, HelpCircle, LogIn, LogOut, Monitor, Moon, MoreHorizontal, PenLine, Search, Shield, Sun, UserRound } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { setAppearance, useAppearance, type Appearance } from './theme'
-import { Menu } from './ui/Menu'
+import { Menu, type MenuEntry } from './ui/Menu'
 import { sentence, systemColor, systemName } from './ui/systems'
 
 interface Props {
   structure: { name: string; system: string } | null
-  landmarks: number
+  features: number
   published: number
+  phone: boolean
   backHref: string
   onBack(e: MouseEvent): void
   onFind(): void
@@ -22,10 +23,21 @@ interface Props {
 const appearances: { id: Appearance; label: string; icon: typeof Sun }[] = [
   { id: 'system', label: 'Match my device', icon: Monitor }, { id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon },
 ]
+export const featureCount = (n: number) => (n === 1 ? '1 part or feature' : `${n} parts & features`)
 
 export function Header(p: Props) {
   const { choice, dark } = useAppearance()
   const Current = choice === 'system' ? Monitor : dark ? Moon : Sun
+  const appearanceItems: MenuEntry[] = appearances.map((a) => ({ label: a.label, icon: <a.icon size={15} />, checked: choice === a.id, onSelect: () => setAppearance(a.id) }))
+  const accountItems: MenuEntry[] = p.account ? [
+    { label: p.account.name ? 'Change public name' : 'Choose a public name', icon: <PenLine size={15} />, onSelect: p.onRename },
+    ...(p.account.admin ? [{ label: 'Review queue', icon: <Shield size={15} />, onSelect: p.onAdmin }] : []),
+    'divider',
+    { label: 'Sign out', icon: <LogOut size={15} />, onSelect: p.onSignOut },
+  ] : [{ label: 'Sign in', icon: <LogIn size={15} />, onSelect: p.onSignIn }]
+  const initial = p.account?.name.trim()[0]?.toUpperCase()
+  const accountTrigger = initial ? <span aria-hidden>{initial}</span> : <UserRound size={17} />
+
   return (
     <>
       <header className="identity pg-identity">
@@ -34,34 +46,34 @@ export function Header(p: Props) {
           <span aria-hidden>/</span>
           <span>Playground</span>
         </nav>
-        <h1>{p.structure ? sentence(p.structure.name) : 'Playground'}</h1>
+        <h1 title={p.structure ? sentence(p.structure.name) : undefined}>{p.structure ? sentence(p.structure.name) : 'Playground'}</h1>
         {p.structure && (
           <p className="identity-meta">
             <i className="system-dot" style={{ background: systemColor(p.structure.system) }} />
             {systemName(p.structure.system)}
-            <span>·</span>{p.landmarks === 1 ? '1 landmark' : `${p.landmarks} landmarks`}
+            <span>·</span>{featureCount(p.features)}
             {p.published > 0 && <><span>·</span>{p.published} published</>}
           </p>
         )}
       </header>
-      <div className="top-actions">
-        <button onClick={p.onFind} aria-keyshortcuts="/"><Search size={15} />Find a structure<kbd>/</kbd></button>
-        <button className="square" aria-label="How it works" title="How it works" onClick={p.onTour}><HelpCircle size={17} /></button>
-        <Menu label="Appearance" heading="Appearance" trigger={<Current size={17} />}
-              items={appearances.map((a) => ({ label: a.label, icon: <a.icon size={15} />, checked: choice === a.id, onSelect: () => setAppearance(a.id) }))} />
-        {p.account ? (
-          <Menu label="Your account" className="square avatar" heading={p.account.name || 'Signed in'}
-                trigger={p.account.name ? <span aria-hidden>{p.account.name.trim()[0]?.toUpperCase()}</span> : <UserRound size={17} />}
-                items={[
-                  { label: p.account.name ? 'Change public name' : 'Choose a public name', icon: <PenLine size={15} />, onSelect: p.onRename },
-                  ...(p.account.admin ? [{ label: 'Review queue', icon: <Shield size={15} />, onSelect: p.onAdmin }] : []),
-                  'divider',
-                  { label: 'Sign out', icon: <LogOut size={15} />, onSelect: p.onSignOut },
-                ]} />
-        ) : (
-          <button onClick={p.onSignIn}>Sign in</button>
-        )}
-      </div>
+      {p.phone ? (
+        // Phones: search plus one menu, so the title keeps its room.
+        <div className="top-actions">
+          <button className="square" aria-label="Find a structure" onClick={p.onFind}><Search size={17} /></button>
+          <Menu label={p.account ? 'Your account and settings' : 'Menu'} className={`square ${initial ? 'avatar' : ''}`} heading={p.account?.name || undefined}
+                trigger={p.account ? accountTrigger : <MoreHorizontal size={18} />}
+                items={[{ label: 'How it works', icon: <HelpCircle size={15} />, onSelect: p.onTour }, { heading: 'Appearance' }, ...appearanceItems, 'divider', ...accountItems]} />
+        </div>
+      ) : (
+        <div className="top-actions">
+          <button onClick={p.onFind} aria-keyshortcuts="/"><Search size={15} />Find a structure<kbd>/</kbd></button>
+          <button className="square" aria-label="How it works" title="How it works" onClick={p.onTour}><HelpCircle size={17} /></button>
+          <Menu label="Appearance" heading="Appearance" trigger={<Current size={17} />} items={appearanceItems} />
+          {p.account
+            ? <Menu label="Your account" className={`square ${initial ? 'avatar' : ''}`} heading={p.account.name || 'Signed in'} trigger={accountTrigger} items={accountItems} />
+            : <button onClick={p.onSignIn}>Sign in</button>}
+        </div>
+      )}
     </>
   )
 }

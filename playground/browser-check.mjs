@@ -40,8 +40,8 @@ await page.getByRole('combobox',{name:'Search structures'}).fill('FJ1252');
 await page.locator('.pg-finder [role=option]').first().click();
 await page.waitForFunction(()=>document.querySelector('.pg-identity h1')?.textContent==='Gingiva of upper jaw');
 await loaded();
-await page.getByText('No landmarks here yet.',{exact:true}).waitFor();
-await page.getByRole('button',{name:'Add the first landmark',exact:true}).click();
+await page.getByText('Nothing pinned here yet.',{exact:true}).waitFor();
+await page.getByRole('button',{name:'Add the first feature',exact:true}).click();
 await page.getByLabel('Name',{exact:true}).fill('Unplaced sample');
 assert(await page.getByRole('button',{name:'Save pin',exact:true}).isDisabled());
 // Exercise the production surface picker on a previously empty structure, without saving.
@@ -56,13 +56,24 @@ await page.getByRole('button',{name:'Cancel',exact:true}).click();
 await page.getByRole('dialog',{name:'Discard your pin?'}).getByRole('button',{name:'Discard',exact:true}).click();
 assert.equal(await page.locator('.pg-draft').count(),0);
 
-await page.setViewportSize({width:390,height:844});
-await page.goto('http://127.0.0.1:3018/playground/?structure=FJ3366');
-await loaded();await page.locator('.pg-list .item').filter({hasText:/\d pins?$/}).first().click();
-await page.screenshot({path:'../.local/screenshots/playground-mobile.png'});
-await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:'../.local/screenshots/playground-mobile-dark.png'});
-assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-assert.equal(await page.getByRole('button',{name:'Open on device',exact:true}).count(),0);
+// Phone: a fresh visitor on a touch screen.
+const phone=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+const mobile=await phone.newPage();mobile.on('pageerror',e=>errors.push(e.message));
+const mobileLoaded=()=>mobile.waitForFunction(()=>document.querySelector('.viewer canvas')&&!document.querySelector('.stage-loading'),null,{timeout:60000});
+const inView=sel=>mobile.locator(sel).first().evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight});
+await mobile.goto('http://127.0.0.1:3018/playground/?structure=FJ3366');await mobileLoaded();
+for(let step=1;step<=3;step++){await mobile.locator('.coach-card').waitFor();assert(await inView('.coach-card'),`tour card ${step} stays on screen`);await mobile.locator('.coach-next').tap();await mobile.waitForTimeout(500);}
+assert.equal(await mobile.locator('.coach-layer').count(),0,'the tour ends on a phone');
+assert.equal(await mobile.locator('.pg-checklist').count(),0,'the list starts as a bar so the model is visible');
+await mobile.locator('.pg-tab-open').tap();
+await mobile.locator('.pg-list .item').filter({hasText:/\d pins?$/}).first().tap();
+await mobile.locator('.pg-card').waitFor();
+assert.equal(await mobile.locator('.pg-checklist, .pg-list-tab').count(),0,'one sheet at a time');
+assert(await mobile.evaluate(()=>document.querySelector('.pg-card').getBoundingClientRect().top>innerHeight*.35),'the model keeps the top of the screen');
+await mobile.screenshot({path:'../.local/screenshots/playground-mobile.png'});
+await mobile.emulateMedia({colorScheme:'dark'});await mobile.screenshot({path:'../.local/screenshots/playground-mobile-dark.png'});
+assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+assert.equal(await mobile.getByRole('button',{name:'Open on device',exact:true}).count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS: live catalogue, one-time tour, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
+console.log('PASS: live catalogue, one-time tour, phone tour and sheets, imported pins, tooltip layering, sign-in gate, draft recovery, in-app discard, structure finder, empty structure, surface placement. No database mutations.');
 } finally { await browser.close(); }

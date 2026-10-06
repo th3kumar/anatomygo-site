@@ -25,7 +25,7 @@ interface Props {
 const author = (p: Proposal) => p.pg_profiles?.display_name ?? 'Starter pin'
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
-/** A landmark as students see it, with its pins, a quick vote and the conversation about the chosen pin. */
+/** A part or feature as students see it, with its pins, a quick vote and the conversation about the chosen pin. */
 export function LandmarkCard(p: Props) {
   const pin = p.chosen
   const published = !!pin && pin.id === p.landmark.published_proposal
@@ -60,7 +60,7 @@ export function LandmarkCard(p: Props) {
         </span>
         <div className="row">
           {actions.length > 0 && <Menu label="More options" className="icon" trigger={<MoreHorizontal size={17} />} items={actions} />}
-          <button className="icon" aria-label="Close landmark" title="Close" onClick={p.onClose}><X size={17} /></button>
+          <button className="icon" aria-label="Close" title="Close" onClick={p.onClose}><X size={17} /></button>
         </div>
       </header>
       <h2 className="pg-title">{title}</h2>
@@ -71,7 +71,7 @@ export function LandmarkCard(p: Props) {
           <section className="pg-section">
             {p.pins.length > 1 ? (
               <>
-                <h3>{p.pins.length} pins for this landmark</h3>
+                <h3>{p.pins.length} pins for this feature</h3>
                 <p className="note">Pick one to see it on the model.</p>
                 <ul className="pg-pins">
                   {p.pins.map((x) => (
@@ -107,7 +107,7 @@ export function LandmarkCard(p: Props) {
       <footer className="card-actions">
         {pin
           ? <button className="outline wide" disabled={p.busy} onClick={p.onSuggest}><MapPin size={15} />Suggest a better spot</button>
-          : <button className="primary wide" data-coach="place" disabled={p.busy} onClick={p.onSuggest}><MapPin size={15} />Place this landmark</button>}
+          : <button className="primary wide" data-coach="place" disabled={p.busy} onClick={p.onSuggest}><MapPin size={15} />Pin this feature</button>}
       </footer>
     </aside>
   )
