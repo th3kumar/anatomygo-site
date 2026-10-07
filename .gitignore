@@ -49,3 +49,4 @@ public/models/
 public/playground-seed.json
 .local/
 supabase/.temp/
+__pycache__/

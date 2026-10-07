@@ -20,12 +20,14 @@ select pg_temp.assert_true(not public.pg_is_admin(),'anonymous is not admin');
 select pg_temp.assert_denied($q$select public.pg_submit(gen_random_uuid(),'test_landmark','test_mesh','Pin','','Biology',repeat('0',64),0,.2,.3)$q$,'permission denied');
 select pg_temp.assert_denied($q$insert into public.pg_votes values(gen_random_uuid(),gen_random_uuid(),1)$q$,'permission denied');
 select pg_temp.assert_denied($q$select * from playground_private.unmapped_imports$q$,'permission denied');
+select pg_temp.assert_denied($q$select * from playground_private.imports$q$,'permission denied');
 reset role;
 set local role authenticated;
 set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000001';
 select public.pg_set_profile('Contributor One');
 select pg_temp.assert_denied($q$update public.pg_landmarks set published_proposal=null$q$,'permission denied');
 select pg_temp.assert_denied($q$insert into playground_private.admins values(auth.uid())$q$,'permission denied');
+select pg_temp.assert_denied($q$select provenance from playground_private.imports$q$,'permission denied');
 select pg_temp.assert_denied($q$select public.pg_admin_queue()$q$,'Admin access required');
 select pg_temp.assert_denied($q$select public.pg_submit(gen_random_uuid(),'test_landmark','test_mesh','Pin','','Biology',repeat('0',64),1,.2,.3)$q$,'geometry');
 select pg_temp.assert_denied($q$select public.pg_submit(gen_random_uuid(),'test_landmark','test_mesh','Pin','','Biology',repeat('1',64),0,.2,.3)$q$,'geometry');
@@ -83,4 +85,4 @@ set local request.jwt.claims='{"is_anonymous":true}';
 select pg_temp.assert_denied($q$select public.pg_set_profile('Guest')$q$,'Sign in');
 reset role;
 rollback;
-\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication and mapping'
+\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication, mapping and private import records'

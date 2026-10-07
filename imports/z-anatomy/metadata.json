@@ -1,0 +1,904 @@
+{
+ "schema": 1,
+ "note": "Curated text for Z-Anatomy candidate pins. Descriptions are original AnatomyGo writing, checked against the listed references; Z-Anatomy's own definitions (largely from Wikipedia) were not copied. A feature is metadata-ready when it has a Latin name and a description. Existing landmark text is preferred at import when present and suitable.",
+ "sources": {
+  "z_anatomy": {
+   "name": "Z-Anatomy",
+   "repository": "https://github.com/Z-Anatomy/Models-of-human-anatomy",
+   "revision": "54dc1e215976dd3767b0f0db8781c735e0d96c73",
+   "file": "Z-Anatomy.zip: Z-Anatomy/Startup.blend",
+   "zip_sha256": "e029688545627bd0214b269e1063143abb580aad72b2c2445d6d8a9a0d9da736",
+   "sha256": "9f08a17ea0115fed80b2a73ecdf0a1bc2ab2f6956f37c593ce23d513ea35afcd",
+   "license": "CC BY-SA 4.0",
+   "attribution": "Z-Anatomy – The libre 3D atlas of anatomy (CC BY-SA 4.0); BodyParts3D, The Database Center for Life Science (CC BY-SA 2.1 Japan)",
+   "used": "Annotation line endpoints and host structure names only"
+  },
+  "ta2": {
+   "name": "Terminologia Anatomica 2 English/Latin table distributed by Z-Anatomy",
+   "url": "https://github.com/Z-Anatomy/Models-of-human-anatomy/blob/master/TA2.csv",
+   "commit": "ba601dcd58059ae2d8502fc712e0743efaaf6c02",
+   "sha256": "0f9092a328b27dcd15d696d9f9a4087deb229a1aad21b75876657622de835974",
+   "license": "Distributed in the Z-Anatomy repository under CC BY-SA 4.0; terms from FIPAT Terminologia Anatomica, 2nd ed."
+  },
+  "grays1918": {
+   "name": "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray",
+   "text": "https://archive.org/stream/anatomyofhumanbo1918gray/anatomyofhumanbo1918gray_djvu.txt",
+   "sha256": "0ca038cbbe822c8cecdfd18d8fe310c8724d4c98f782939b0c194bee082a36b8",
+   "note": "1918 terminology differs in places (e.g. its 'acromial angle'); modern terms were checked against the extra references listed per feature."
+  }
+ },
+ "features": {
+  "Arytenoid cartilage|Colliculus of arytenoid cartilage": {
+   "latin": "Colliculus cartilaginis arytenoideae",
+   "latin_source": "TA2 990 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small rounded rise on the front surface of the arytenoid cartilage, at the upper end of its arcuate crest.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx; Myology: cricoarytenoid muscles"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Arytenoid cartilage|Muscular process": {
+   "latin": "Processus muscularis",
+   "latin_source": "TA2 987 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The short projection at the outer corner of the base of the arytenoid. The posterior and lateral cricoarytenoid muscles pull on it to open or close the vocal folds.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx; Myology: cricoarytenoid muscles"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Arytenoid cartilage|Vocal process": {
+   "latin": "Processus vocalis",
+   "latin_source": "TA2 986 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The forward-pointing projection at the front of the base of the arytenoid. The vocal ligament, inside the vocal fold, attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx; Myology: cricoarytenoid muscles"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Body of sternum|Sternal angle": {
+   "latin": "Angulus sterni",
+   "latin_source": "TA2 1133 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The ridge where the manubrium joins the body of the sternum, easily felt on the chest. It lies level with the joints of the second rib cartilages, which helps when counting ribs.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sternum"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Anterior process of calcaneus": {
+   "latin": "Processus anterior calcanei",
+   "latin_source": "TA2 1483 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The forward projection at the front of the calcaneus, next to its joint with the cuboid. The bifurcate ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus",
+    "https://radiopaedia.org/articles/bifurcate-ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Calcaneal tubercle": {
+   "latin": "Tuberculum calcanei",
+   "latin_source": "TA2 1472 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small rounded bump toward the front of the underside of the calcaneus. The short plantar ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Calcaneal tuberosity": {
+   "latin": "Tuber calcanei",
+   "latin_source": "TA2 1469 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The large rounded back part of the calcaneus that forms the heel. The calcaneal (Achilles) tendon inserts on its back surface.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Lateral process of calcaneal tuberosity": {
+   "latin": "Processus lateralis tuberis calcanei",
+   "latin_source": "TA2 1471 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The smaller projection on the outer side of the underside of the heel. Abductor digiti minimi starts partly from it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Medial process of calcaneal tuberosity": {
+   "latin": "Processus medialis tuberis calcanei",
+   "latin_source": "TA2 1470 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The larger projection on the inner side of the underside of the heel. Abductor hallucis, flexor digitorum brevis and the plantar aponeurosis attach to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Calcaneus|Sustentaculum tali": {
+   "latin": "Sustentaculum tali",
+   "latin_source": "TA2 1473 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A shelf projecting from the inner side of the calcaneus that supports the talus. The tendon of flexor hallucis longus runs in a groove beneath it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Calcaneus; Syndesmology: plantar ligaments; Myology: tendo calcaneus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Clavicle|Conoid tubercle": {
+   "latin": "Tuberculum conoideum",
+   "latin_source": "TA2 1177 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the underside of the clavicle near its outer end. The conoid ligament, part of the coracoclavicular ligament, attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Clavicle"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Clavicle|Tuberosity for coracoclavicular ligament": {
+   "latin": "Tuberositas ligamenti coracoclavicularis",
+   "latin_source": "TA2 1176 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The roughened area on the underside of the outer clavicle, made up of the conoid tubercle and the trapezoid line. The coracoclavicular ligament binds the clavicle to the coracoid process here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Clavicle"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Cuboid bone|Tuberosity of cuboid bone": {
+   "latin": "Tuberositas ossis cuboidei",
+   "latin_source": "TA2 1491 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A ridge on the underside of the cuboid, just behind the groove for the fibularis longus tendon. The long plantar ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Syndesmology: The Long Plantar Ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Frontal bone|Frontal eminence": {
+   "latin": "Eminentia frontalis",
+   "latin_source": "TA2 523 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A rounded prominence on each side of the forehead, about 3 cm above the upper edge of the orbit. It is usually more pronounced in children.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Frontal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Frontal bone|Glabella": {
+   "latin": "Glabella",
+   "latin_source": "TA2 525 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The smooth, slightly raised area between the eyebrows, above the root of the nose. It is a standard reference point for measuring the skull.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Frontal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Frontal bone|Nasal spine of frontal bone": {
+   "latin": "Spina nasalis ossis frontalis",
+   "latin_source": "TA2 539 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small downward projection in the middle of the nasal part of the frontal bone. It sits behind the nasal bones and forms a small part of the nasal septum.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Frontal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Frontal bone|Zygomatic process of frontal bone": {
+   "latin": "Processus zygomaticus ossis frontalis",
+   "latin_source": "TA2 534 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The strong projection at the outer end of the brow. It joins the zygomatic bone and forms the upper outer corner of the orbit.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Frontal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Acetabular notch": {
+   "latin": "Incisura acetabuli",
+   "latin_source": "TA2 1311 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The gap in the lower rim of the acetabulum. The transverse acetabular ligament bridges this notch.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Anterior inferior iliac spine": {
+   "latin": "Spina iliaca anterior inferior",
+   "latin_source": "TA2 1328 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A rounded projection on the front edge of the ilium, below the anterior superior iliac spine and just above the hip socket. The straight head of rectus femoris attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Anterior obturator tubercle": {
+   "latin": "Tuberculum obturatorium anterius",
+   "latin_source": "TA2 1356 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the pubis at the front edge of the obturator foramen. It borders the obturator groove, through which the obturator nerve and vessels leave the pelvis.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Anterior superior iliac spine": {
+   "latin": "Spina iliaca anterior superior",
+   "latin_source": "TA2 1327 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The prominent front end of the iliac crest, easily felt at the front of the hip. The sartorius muscle and the outer end of the inguinal ligament attach here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Greater sciatic notch": {
+   "latin": "Incisura ischiadica major",
+   "latin_source": "TA2 1315 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A deep indentation along the back of the hip bone, above the ischial spine. It helps form the greater sciatic foramen.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Iliac tubercle": {
+   "latin": "Tuberculum iliacum",
+   "latin_source": "TA2 1324 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A thickening on the outer lip of the iliac crest, a short distance behind the anterior superior iliac spine.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Iliac tuberosity": {
+   "latin": "Tuberositas iliaca",
+   "latin_source": "TA2 1338 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The rough area on the inner, back part of the ilium, above and behind its joint surface for the sacrum. It anchors strong sacroiliac ligaments.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Iliopubic eminence": {
+   "latin": "Eminentia iliopubica",
+   "latin_source": "TA2 1352 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A raised area where the ilium meets the superior ramus of the pubis. It marks the junction of these two parts of the hip bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Ischial spine": {
+   "latin": "Spina ischiadica",
+   "latin_source": "TA2 1343 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A pointed projection between the greater and lesser sciatic notches. The sacrospinous ligament attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Ischial tuberosity": {
+   "latin": "Tuber ischiadicum",
+   "latin_source": "TA2 1342 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The rough lower part of the ischium that bears weight when sitting. It also provides attachment for the hamstring muscles.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone",
+    "https://en.wikipedia.org/wiki/Hip_bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Lesser sciatic notch": {
+   "latin": "Incisura ischiadica minor",
+   "latin_source": "TA2 1344 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The curved indentation below the ischial spine and above the ischial tuberosity. It helps form the lesser sciatic foramen.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Posterior inferior iliac spine": {
+   "latin": "Spina iliaca posterior inferior",
+   "latin_source": "TA2 1330 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A projection on the back edge of the ilium, below the posterior superior iliac spine. It marks the upper end of the greater sciatic notch, near the lower part of the sacroiliac joint.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Posterior superior iliac spine": {
+   "latin": "Spina iliaca posterior superior",
+   "latin_source": "TA2 1329 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The bony prominence at the back end of the iliac crest. It lies near the sacroiliac joint and the lower-back dimples.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Hip bone|Pubic tubercle": {
+   "latin": "Tuberculum pubicum",
+   "latin_source": "TA2 1348 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small bony prominence on the upper part of the pubis. The medial end of the inguinal ligament attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Hip Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Humerus|Deltoid tuberosity": {
+   "latin": "Tuberositas deltoidea",
+   "latin_source": "TA2 1193 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A rough, raised area on the outer side of the humeral shaft, about halfway down. The deltoid muscle inserts here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Humerus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Humerus|Greater tubercle": {
+   "latin": "Tuberculum majus",
+   "latin_source": "TA2 1184 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The large projection on the outer side of the upper humerus. Supraspinatus, infraspinatus and teres minor attach to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Humerus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Humerus|Lateral epicondyle of humerus": {
+   "latin": "Epicondylus lateralis humeri",
+   "latin_source": "TA2 1209 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The smaller projection on the outer side of the lower humerus. The forearm extensor muscles share a tendon that starts here, and the radial collateral ligament of the elbow attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Humerus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Humerus|Lesser tubercle": {
+   "latin": "Tuberculum minus",
+   "latin_source": "TA2 1185 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A smaller projection on the front of the upper humerus, on the inner side of the intertubercular groove. Subscapularis attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Humerus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Humerus|Medial epicondyle of humerus": {
+   "latin": "Epicondylus medialis humeri",
+   "latin_source": "TA2 1207 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The prominent projection on the inner side of the lower humerus. The forearm flexor muscles share a tendon that starts here, and the ulnar nerve runs in a groove behind it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Humerus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Genion": {
+   "latin": "Genion",
+   "latin_source": "TA2 844 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A measuring point at the tip of the mental spines, on the inner surface of the chin.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible",
+    "https://www.imaios.com/en/e-anatomy/anatomical-structures/genion-1536898944",
+    "https://en.wikipedia.org/wiki/Mental_spine"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Gnathion": {
+   "latin": "Gnathion",
+   "latin_source": "TA2 839 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A measuring point on the midline of the chin, halfway between its most forward and its lowest points.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible",
+    "https://en.wikipedia.org/wiki/Cephalometric_analysis"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Inferior mental spine": {
+   "latin": "Spina mentalis inferior",
+   "latin_source": "TA2 843 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection in the midline of the inner surface of the chin, below the superior mental spine. The geniohyoid muscle attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Mental protuberance": {
+   "latin": "Protuberantia mentalis",
+   "latin_source": "TA2 840 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The triangular prominence at the front of the chin in the midline. It gives the chin its shape.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Mental tubercle": {
+   "latin": "Tuberculum mentale",
+   "latin_source": "TA2 841 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small raised point at each lower corner of the mental protuberance. Together with the protuberance it shapes the chin.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Mandible|Superior mental spine": {
+   "latin": "Spina mentalis superior",
+   "latin_source": "TA2 842 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection in the midline of the inner surface of the chin. The genioglossus muscle of the tongue attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Mandible"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Occipital bone|External occipital protuberance": {
+   "latin": "Protuberantia occipitalis externa",
+   "latin_source": "TA2 568 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The bump in the middle of the back of the skull, felt where the neck meets the head. The trapezius and the ligamentum nuchae attach around it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Occipital Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Occipital bone|Internal occipital protuberance": {
+   "latin": "Protuberantia occipitalis interna",
+   "latin_source": "TA2 575 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A projection at the centre of the inner surface of the occipital bone, where the ridges of the cruciform eminence cross.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Occipital Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Occipital bone|Intrajugular process of occipital bone": {
+   "latin": "Processus intrajugularis ossis occipitalis",
+   "latin_source": "TA2 564 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the edge of the occipital bone's jugular notch. It partly divides the jugular foramen.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Occipital Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Occipital bone|Jugular process": {
+   "latin": "Processus jugularis",
+   "latin_source": "TA2 563 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A projection beside the occipital condyle that forms the back edge of the jugular foramen. The rectus capitis lateralis muscle attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Occipital Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Occipital bone|Pharyngeal tubercle": {
+   "latin": "Tuberculum pharyngeum",
+   "latin_source": "TA2 555 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the underside of the occipital bone, in front of the foramen magnum. The fibrous midline seam of the pharynx attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Occipital Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Parietal bone|Frontal angle of parietal bone": {
+   "latin": "Angulus frontalis ossis parietalis",
+   "latin_source": "TA2 515 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The front upper corner of the parietal bone, at bregma, where it meets the frontal bone and the opposite parietal bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Parietal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Parietal bone|Mastoid angle of parietal bone": {
+   "latin": "Angulus mastoideus ossis parietalis",
+   "latin_source": "TA2 518 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The back lower corner of the parietal bone, at asterion, where it meets the occipital bone and the mastoid part of the temporal bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Parietal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Parietal bone|Occipital angle of parietal bone": {
+   "latin": "Angulus occipitalis ossis parietalis",
+   "latin_source": "TA2 516 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The back upper corner of the parietal bone, at lambda, where it meets the occipital bone and the opposite parietal bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Parietal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Parietal bone|Parietal eminence": {
+   "latin": "Eminentia parietalis",
+   "latin_source": "TA2 510 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The most rounded part of the outer surface of the parietal bone. It marks the point where the bone starts to form before birth.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Parietal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Parietal bone|Sphenoidal angle of parietal bone": {
+   "latin": "Angulus sphenoideus ossis parietalis",
+   "latin_source": "TA2 517 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The front lower corner of the parietal bone, at pterion, where it meets the frontal bone and the greater wing of the sphenoid. A branch of the middle meningeal artery runs in a groove on its inner surface.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Parietal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Radius|Dorsal radial tubercle": {
+   "latin": "Tuberculum dorsale radii",
+   "latin_source": "TA2 1226 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small ridge on the back of the lower radius, also called Lister's tubercle. The tendon of extensor pollicis longus turns around it on its way to the thumb.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Radius; surface anatomy of the wrist"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Radius|Pronator tuberosity": {
+   "latin": "Tuberositas pronatoria",
+   "latin_source": "TA2 1222 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A rough area halfway down the outer surface of the radius. Pronator teres inserts here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Radius; surface anatomy of the wrist"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Radius|Radial styloid process": {
+   "latin": "Processus styloideus radii",
+   "latin_source": "TA2 1225 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The pointed lower end of the radius on the thumb side of the wrist, easily felt under the skin. Brachioradialis inserts near its base.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Radius; surface anatomy of the wrist"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Radius|Radial tuberosity": {
+   "latin": "Tuberositas radii",
+   "latin_source": "TA2 1216 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "An oval, roughened projection just below the neck of the radius. The tendon of biceps brachii inserts here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Radius; surface anatomy of the wrist"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Acromial angle": {
+   "latin": "Angulus acromii",
+   "latin_source": "TA2 1154 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The corner where the outer border of the acromion turns into the spine of the scapula. It can be felt as a bony point at the back of the shoulder.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii",
+    "https://en.wikipedia.org/wiki/Angulus_acromialis",
+    "https://www.imaios.com/en/e-anatomy/anatomical-structures/acromial-angle-1537018464"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Acromion": {
+   "latin": "Acromion",
+   "latin_source": "TA2 1152 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The flat projection at the outer end of the scapular spine, forming the point of the shoulder. It joins the clavicle and gives attachment to the deltoid and trapezius muscles.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Coracoid process": {
+   "latin": "Processus coracoideus",
+   "latin_source": "TA2 1159 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A hook-like projection from the upper edge of the scapula that points forward below the clavicle. Pectoralis minor, coracobrachialis and the short head of biceps brachii attach to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Deltoid tubercle": {
+   "latin": "Tuberculum deltoideum",
+   "latin_source": "TA2 1148 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small prominence on the lower lip of the scapular spine, toward its inner end. It marks the inner end of the deltoid muscle's attachment along the spine.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii",
+    "https://en.wikipedia.org/wiki/Deltoid_tubercle_of_spine_of_scapula"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Inferior angle of scapula": {
+   "latin": "Angulus inferior scapulae",
+   "latin_source": "TA2 1167 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The lowest point of the scapula, where its medial and lateral borders meet. It usually lies level with the spine of the seventh thoracic vertebra, and teres major attaches to its back surface.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Infraglenoid tubercle": {
+   "latin": "Tuberculum infraglenoideum",
+   "latin_source": "TA2 1164 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A roughened area just below the glenoid cavity. The long head of triceps brachii attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Scapular notch": {
+   "latin": "Incisura scapulae",
+   "latin_source": "TA2 1158 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A notch in the upper border of the scapula, next to the base of the coracoid process. The suprascapular nerve passes through it, beneath the superior transverse scapular ligament.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Spinoglenoid notch": {
+   "latin": "Incisura spinoglenoidea",
+   "latin_source": "TA2 1149 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The notch between the outer edge of the scapular spine and the back of the glenoid. The suprascapular nerve and vessels pass through it from the supraspinous to the infraspinous fossa.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Superior angle of scapula": {
+   "latin": "Angulus superior scapulae",
+   "latin_source": "TA2 1156 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The upper inner corner of the scapula, where the superior and medial borders meet. Levator scapulae attaches along the border just below it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Scapula|Supraglenoid tubercle": {
+   "latin": "Tuberculum supraglenoideum",
+   "latin_source": "TA2 1163 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection just above the glenoid cavity. The long head of biceps brachii attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Scapula; Myology: Trapezius, Levator scapulae, Biceps brachii"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sixth rib|Angle of rib": {
+   "latin": "Angulus costae",
+   "latin_source": "TA2 1127 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The point near the back of the rib where its shaft bends forward and twists. A tendon of the iliocostalis muscle attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ribs"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sixth rib|Tubercle of rib": {
+   "latin": "Tuberculum costae",
+   "latin_source": "TA2 1125 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small knob at the back of the rib, where the neck meets the shaft. Its joint surface meets the transverse process of the matching vertebra.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ribs"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Anterior clinoid process": {
+   "latin": "Processus clinoideus anterior",
+   "latin_source": "TA2 607 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The backward-pointing projection at the inner end of each lesser wing of the sphenoid. The tentorium cerebelli attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Posterior clinoid process": {
+   "latin": "Processus clinoideus posterior",
+   "latin_source": "TA2 595 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection at each upper corner of the dorsum sellae, behind the pituitary fossa. The tentorium cerebelli attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Pterygoid hamulus": {
+   "latin": "Hamulus pterygoideus",
+   "latin_source": "TA2 637 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small hook at the lower end of the medial pterygoid plate. The tendon of tensor veli palatini turns around it on the way to the soft palate.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Pterygoid notch": {
+   "latin": "Incisura pterygoidea",
+   "latin_source": "TA2 631 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The gap between the lower ends of the medial and lateral pterygoid plates. The pyramidal process of the palatine bone fits into it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Pterygospinous process": {
+   "latin": "Processus pterygospinosus",
+   "latin_source": "TA2 640 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the back edge of the lateral pterygoid plate. The pterygospinous ligament stretches from it to the spine of the sphenoid.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Sphenoidal lingula": {
+   "latin": "Lingula sphenoidea",
+   "latin_source": "TA2 597 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small ridge of bone at the outer edge of the carotid groove, in the angle between the body and the greater wing of the sphenoid.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Spine of sphenoid bone": {
+   "latin": "Spina ossis sphenoidei",
+   "latin_source": "TA2 626 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small downward-pointing projection at the back of each greater wing of the sphenoid. The sphenomandibular ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Tuberculum sellae": {
+   "latin": "Tuberculum sellae",
+   "latin_source": "TA2 590 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The small rise in front of the pituitary fossa on the upper surface of the sphenoid body. It marks the front edge of the seat for the pituitary gland.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Sphenoid bone|Vaginal process of sphenoid bone": {
+   "latin": "Processus vaginalis ossis sphenoidei",
+   "latin_source": "TA2 634 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A thin plate that runs inward from the base of the medial pterygoid plate, under the body of the sphenoid. It meets the vomer and the palatine bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Sphenoid Bone; Syndesmology: sphenomandibular ligament"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Talus|Lateral process of talus": {
+   "latin": "Processus lateralis ossis tali",
+   "latin_source": "TA2 1461 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A wedge-shaped projection on the outer side of the talus, below its joint surface for the lateral malleolus. The lateral talocalcaneal ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Talus; Syndesmology: talocalcaneal and deltoid ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Talus|Lateral tubercle": {
+   "latin": "Tuberculum laterale",
+   "latin_source": "TA2 1465 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The outer of the two tubercles on the posterior process of the talus. The posterior talofibular ligament attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Talus; Syndesmology: talocalcaneal and deltoid ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Talus|Medial tubercle": {
+   "latin": "Tuberculum mediale",
+   "latin_source": "TA2 1466 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The inner of the two tubercles on the posterior process of the talus. Part of the deltoid ligament of the ankle attaches to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Talus; Syndesmology: talocalcaneal and deltoid ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Talus|Posterior process of talus": {
+   "latin": "Processus posterior ossis tali",
+   "latin_source": "TA2 1463 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The projection at the back of the talus, formed by its lateral and medial tubercles. The tendon of flexor hallucis longus runs in the groove between them.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Talus; Syndesmology: talocalcaneal and deltoid ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Temporal bone|Apex of petrous part": {
+   "latin": "Apex partis petrosae",
+   "latin_source": "TA2 650 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The inner tip of the petrous part of the temporal bone, which points toward the sphenoid. It forms an edge of the foramen lacerum.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Temporal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Temporal bone|Mastoid process": {
+   "latin": "Processus mastoideus",
+   "latin_source": "TA2 644 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The rounded projection behind the ear, felt just behind the earlobe. Sternocleidomastoid attaches to it, and it contains small air cells.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Temporal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Temporal bone|Styloid process of temporal bone": {
+   "latin": "Processus styloideus ossis temporalis",
+   "latin_source": "TA2 683 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A slender, pointed projection below the ear that points down and forward. Three muscles, including stylohyoid, and two ligaments attach to it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Temporal Bone"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Third metacarpal bone|Styloid process of third metacarpal bone": {
+   "latin": "Processus styloideus ossis tertii metacarpi",
+   "latin_source": "TA2 1270 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the back of the base of the third metacarpal, on its thumb side. Extensor carpi radialis brevis inserts beside it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Metacarpus"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Inferior horn of thyroid cartilage": {
+   "latin": "Cornu inferius cartilaginis thyreoideae",
+   "latin_source": "TA2 976 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The short downward projection at the back lower corner of each thyroid lamina. It forms a small joint with the cricoid cartilage.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Inferior thyroid notch": {
+   "latin": "Incisura thyreoidea inferior",
+   "latin_source": "TA2 970 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A shallow notch in the middle of the lower border of the thyroid cartilage.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Inferior thyroid tubercle": {
+   "latin": "Tuberculum thyreoideum inferius",
+   "latin_source": "TA2 973 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the lower border of each thyroid lamina, at the lower end of the oblique line.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Laryngeal prominence": {
+   "latin": "Prominentia laryngea",
+   "latin_source": "TA2 968 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The forward-projecting angle where the two thyroid laminae meet, felt in the neck as the Adam's apple. It is usually more prominent in men.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Superior horn of thyroid cartilage": {
+   "latin": "Cornu superius cartilaginis thyreoideae",
+   "latin_source": "TA2 975 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The long upward projection at the back upper corner of each thyroid lamina. The lateral thyrohyoid ligament connects it to the hyoid bone.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Superior thyroid notch": {
+   "latin": "Incisura thyreoidea superior",
+   "latin_source": "TA2 969 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The V-shaped notch in the middle of the upper border of the thyroid cartilage, just above the laryngeal prominence.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Thyroid cartilage|Superior thyroid tubercle": {
+   "latin": "Tuberculum thyreoideum superius",
+   "latin_source": "TA2 972 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small projection on the outer surface of each thyroid lamina, at the upper end of the oblique line.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Splanchnology: The Cartilages of the Larynx"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Ulna|Coronoid process of ulna": {
+   "latin": "Processus coronoideus ulnae",
+   "latin_source": "TA2 1232 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A projection at the front of the upper ulna, forming the lower part of the trochlear notch. It fits into the coronoid fossa of the humerus when the elbow bends.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ulna; Syndesmology: elbow ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Ulna|Olecranon": {
+   "latin": "Olecranon",
+   "latin_source": "TA2 1231 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "The large curved projection at the upper end of the ulna that forms the point of the elbow. Triceps brachii inserts on it.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ulna; Syndesmology: elbow ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Ulna|Sublime tubercle": {
+   "latin": "Tuberculum sublime",
+   "latin_source": "TA2 1236 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A small tubercle on the inner edge of the coronoid process. The anterior band of the ulnar collateral ligament of the elbow attaches here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ulna; Syndesmology: elbow ligaments"
+   ],
+   "checked": "2026-10-06"
+  },
+  "Ulna|Tuberosity of ulna": {
+   "latin": "Tuberositas ulnae",
+   "latin_source": "TA2 1233 (Z-Anatomy TA2.csv, exact English match)",
+   "description": "A rough area just below the coronoid process on the front of the ulna. Brachialis inserts here.",
+   "references": [
+    "Gray H. Anatomy of the Human Body, 20th ed. (1918), public domain; archive.org/details/anatomyofhumanbo1918gray — Osteology: The Ulna; Syndesmology: elbow ligaments"
+   ],
+   "checked": "2026-10-06"
+  }
+ }
+}

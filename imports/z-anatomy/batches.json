@@ -1,0 +1,14 @@
+{
+ "note": "Import order. Each batch stays within the importer's limit of 40 proposals. Hosts blocked by the geometry gates (femur, tibia, fibula, sacrum) or by ambiguous targets (cricoid cartilage, hyoid bone) are not batched; see ledger.json.",
+ "batches": [
+  {"name": "pilot-right-hip", "structures": ["FJ3152"],
+   "features": ["Anterior superior iliac spine", "Posterior superior iliac spine", "Greater sciatic notch", "Ischial spine", "Ischial tuberosity", "Pubic tubercle"]},
+  {"name": "right-hip", "structures": ["FJ3152"]},
+  {"name": "left-hip", "structures": ["FJ3288"]},
+  {"name": "scapulae", "structures": ["FJ3384", "FJ3279"]},
+  {"name": "upper-limb", "structures": ["FJ3368", "FJ3262", "FJ3349", "FJ3277", "FJ3391", "FJ3286", "FJ3362", "FJ3237", "FJ3354", "FJ3246"]},
+  {"name": "foot", "structures": ["FJ3360", "FJ3256", "FJ3385", "FJ3280", "FJ3364", "FJ3258"]},
+  {"name": "skull", "structures": ["FJ3200", "FJ3380", "FJ3309", "FJ3386", "FJ3281", "FJ3394", "FJ3289"]},
+  {"name": "thorax-larynx", "structures": ["FJ3178", "FJ3344", "FJ3233", "FJ2808", "FJ2792", "FJ2775"]}
+ ]
+}
