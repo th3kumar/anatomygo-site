@@ -1,0 +1,690 @@
+{
+ "source": "z-anatomy",
+ "generated_at": "2026-10-06T16:54:06+00:00",
+ "imported_counts_from": "offline snapshot: public/playground-seed.json (not live)",
+ "definitions": {
+  "discovered": "Source annotations on a host whose name matches an AnatomyGo structure",
+  "matched": "Host resolved to exactly one target structure with consistent side",
+  "extracted": "Point-like feature with a resolved endpoint and a surface anchor passing the geometric gates",
+  "blocked": "Not importable now; see reasons (geometry, attachment type, endpoint, metadata)",
+  "metadata_ready": "Extracted, with a Latin name and a checked biology description",
+  "imported": "Proposal recorded in playground_private.imports (database), or null when not connected"
+ },
+ "totals": {
+  "discovered": 755,
+  "matched": 748,
+  "extracted": 154,
+  "blocked": 601,
+  "metadata_ready": 154,
+  "imported": null
+ },
+ "reasons": {
+  "unsupported_region": 250,
+  "incompatible_geometry": 170,
+  "unsupported_curve": 133,
+  "unsupported_opening": 20,
+  "inconstant_structure": 8,
+  "ambiguous_target_match": 7,
+  "endpoint_unresolved": 5,
+  "unsupported_multiple": 5,
+  "projection_too_far": 2,
+  "nonstandard_term": 1
+ },
+ "batches_applied": [],
+ "next_batch": "pilot-right-hip",
+ "structures": {
+  "FJ2775": {
+   "name": "Left arytenoid cartilage",
+   "source_host": "Arytenoid cartilage.l",
+   "discovered": 11,
+   "matched": 11,
+   "extracted": 2,
+   "blocked": 9,
+   "metadata_ready": 2,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 7,
+    "endpoint_unresolved": 1,
+    "unsupported_curve": 1
+   }
+  },
+  "FJ2792": {
+   "name": "Right arytenoid cartilage",
+   "source_host": "Arytenoid cartilage.r",
+   "discovered": 12,
+   "matched": 12,
+   "extracted": 3,
+   "blocked": 9,
+   "metadata_ready": 3,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 7,
+    "endpoint_unresolved": 1,
+    "unsupported_curve": 1
+   }
+  },
+  "FJ2808": {
+   "name": "Thyroid cartilage",
+   "source_host": "Thyroid cartilage",
+   "discovered": 9,
+   "matched": 9,
+   "extracted": 7,
+   "blocked": 2,
+   "metadata_ready": 7,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 1,
+    "unsupported_curve": 1
+   }
+  },
+  "FJ3152": {
+   "name": "Right hip bone",
+   "source_host": "Hip bone.r",
+   "discovered": 51,
+   "matched": 51,
+   "extracted": 14,
+   "blocked": 37,
+   "metadata_ready": 14,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 1,
+    "unsupported_region": 20,
+    "unsupported_curve": 13,
+    "unsupported_opening": 3
+   }
+  },
+  "FJ3178": {
+   "name": "Body of sternum",
+   "source_host": "Body of sternum",
+   "discovered": 2,
+   "matched": 2,
+   "extracted": 1,
+   "blocked": 1,
+   "metadata_ready": 1,
+   "imported": null,
+   "reasons": {
+    "unsupported_multiple": 1
+   }
+  },
+  "FJ3200": {
+   "name": "Frontal bone",
+   "source_host": "Frontal bone",
+   "discovered": 26,
+   "matched": 26,
+   "extracted": 4,
+   "blocked": 22,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 1,
+    "unsupported_region": 12,
+    "unsupported_opening": 2,
+    "unsupported_curve": 6,
+    "nonstandard_term": 1
+   }
+  },
+  "FJ3233": {
+   "name": "Left sixth rib",
+   "source_host": "Sixth rib.l",
+   "discovered": 11,
+   "matched": 11,
+   "extracted": 2,
+   "blocked": 9,
+   "metadata_ready": 2,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 5,
+    "unsupported_multiple": 1,
+    "unsupported_curve": 3
+   }
+  },
+  "FJ3237": {
+   "name": "Left clavicle",
+   "source_host": "Clavicle.l",
+   "discovered": 10,
+   "matched": 10,
+   "extracted": 2,
+   "blocked": 8,
+   "metadata_ready": 2,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 6,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3246": {
+   "name": "Left third metacarpal bone",
+   "source_host": "Third metacarpal bone.l",
+   "discovered": 4,
+   "matched": 4,
+   "extracted": 1,
+   "blocked": 3,
+   "metadata_ready": 1,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 3
+   }
+  },
+  "FJ3247": {
+   "name": "Left third metatarsal bone",
+   "source_host": "Third metatarsal bone.l",
+   "discovered": 3,
+   "matched": 3,
+   "extracted": 0,
+   "blocked": 3,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 3
+   }
+  },
+  "FJ3256": {
+   "name": "Left calcaneus",
+   "source_host": "Calcaneus.l",
+   "discovered": 10,
+   "matched": 10,
+   "extracted": 6,
+   "blocked": 4,
+   "metadata_ready": 6,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 1,
+    "unsupported_curve": 2,
+    "unsupported_opening": 1
+   }
+  },
+  "FJ3258": {
+   "name": "Left cuboid bone",
+   "source_host": "Cuboid bone.l",
+   "discovered": 2,
+   "matched": 2,
+   "extracted": 1,
+   "blocked": 1,
+   "metadata_ready": 1,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 1
+   }
+  },
+  "FJ3259": {
+   "name": "Left femur",
+   "source_host": "Femur.l",
+   "discovered": 28,
+   "matched": 28,
+   "extracted": 0,
+   "blocked": 28,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 28
+   }
+  },
+  "FJ3260": {
+   "name": "Left fibula",
+   "source_host": "Fibula.l",
+   "discovered": 18,
+   "matched": 18,
+   "extracted": 0,
+   "blocked": 18,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 18
+   }
+  },
+  "FJ3262": {
+   "name": "Left humerus",
+   "source_host": "Humerus.l",
+   "discovered": 28,
+   "matched": 28,
+   "extracted": 5,
+   "blocked": 23,
+   "metadata_ready": 5,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 13,
+    "unsupported_curve": 10
+   }
+  },
+  "FJ3269": {
+   "name": "Left maxilla",
+   "source_host": "Maxilla.l",
+   "discovered": 1,
+   "matched": 1,
+   "extracted": 0,
+   "blocked": 1,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 1
+   }
+  },
+  "FJ3277": {
+   "name": "Left radius",
+   "source_host": "Radius.l",
+   "discovered": 19,
+   "matched": 19,
+   "extracted": 4,
+   "blocked": 15,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 4,
+    "unsupported_region": 10,
+    "unsupported_multiple": 1
+   }
+  },
+  "FJ3279": {
+   "name": "Left scapula",
+   "source_host": "Scapula.l",
+   "discovered": 24,
+   "matched": 24,
+   "extracted": 10,
+   "blocked": 14,
+   "metadata_ready": 10,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 10,
+    "unsupported_curve": 4
+   }
+  },
+  "FJ3280": {
+   "name": "Left talus",
+   "source_host": "Talus.l",
+   "discovered": 18,
+   "matched": 18,
+   "extracted": 4,
+   "blocked": 14,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 12,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3281": {
+   "name": "Left temporal bone",
+   "source_host": "Temporal bone.l",
+   "discovered": 12,
+   "matched": 12,
+   "extracted": 3,
+   "blocked": 9,
+   "metadata_ready": 3,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 6,
+    "endpoint_unresolved": 1,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3282": {
+   "name": "Left tibia",
+   "source_host": "Tibia.l",
+   "discovered": 29,
+   "matched": 29,
+   "extracted": 0,
+   "blocked": 29,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 29
+   }
+  },
+  "FJ3286": {
+   "name": "Left ulna",
+   "source_host": "Ulna.l",
+   "discovered": 16,
+   "matched": 16,
+   "extracted": 4,
+   "blocked": 12,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 4,
+    "unsupported_region": 7,
+    "projection_too_far": 1
+   }
+  },
+  "FJ3288": {
+   "name": "Left hip bone",
+   "source_host": "Hip bone.l",
+   "discovered": 51,
+   "matched": 51,
+   "extracted": 14,
+   "blocked": 37,
+   "metadata_ready": 14,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 1,
+    "unsupported_region": 20,
+    "unsupported_curve": 13,
+    "unsupported_opening": 3
+   }
+  },
+  "FJ3289": {
+   "name": "Mandible",
+   "source_host": "Mandible",
+   "discovered": 15,
+   "matched": 15,
+   "extracted": 6,
+   "blocked": 9,
+   "metadata_ready": 6,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 1,
+    "unsupported_region": 4,
+    "unsupported_curve": 3,
+    "unsupported_opening": 1
+   }
+  },
+  "FJ3309": {
+   "name": "Occipital bone",
+   "source_host": "Occipital bone",
+   "discovered": 28,
+   "matched": 28,
+   "extracted": 5,
+   "blocked": 23,
+   "metadata_ready": 5,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 3,
+    "unsupported_region": 8,
+    "unsupported_opening": 3,
+    "unsupported_curve": 8,
+    "endpoint_unresolved": 1
+   }
+  },
+  "FJ3344": {
+   "name": "Right sixth rib",
+   "source_host": "Sixth rib.r",
+   "discovered": 11,
+   "matched": 11,
+   "extracted": 2,
+   "blocked": 9,
+   "metadata_ready": 2,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 5,
+    "unsupported_multiple": 1,
+    "unsupported_curve": 3
+   }
+  },
+  "FJ3349": {
+   "name": "Right radius",
+   "source_host": "Radius.r",
+   "discovered": 19,
+   "matched": 19,
+   "extracted": 4,
+   "blocked": 15,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 4,
+    "unsupported_region": 10,
+    "unsupported_multiple": 1
+   }
+  },
+  "FJ3354": {
+   "name": "Right third metacarpal bone",
+   "source_host": "Third metacarpal bone.r",
+   "discovered": 4,
+   "matched": 4,
+   "extracted": 1,
+   "blocked": 3,
+   "metadata_ready": 1,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 3
+   }
+  },
+  "FJ3355": {
+   "name": "Right third metatarsal bone",
+   "source_host": "Third metatarsal bone.r",
+   "discovered": 3,
+   "matched": 3,
+   "extracted": 0,
+   "blocked": 3,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 3
+   }
+  },
+  "FJ3360": {
+   "name": "Right calcaneus",
+   "source_host": "Calcaneus.r",
+   "discovered": 10,
+   "matched": 10,
+   "extracted": 6,
+   "blocked": 4,
+   "metadata_ready": 6,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 1,
+    "unsupported_curve": 2,
+    "unsupported_opening": 1
+   }
+  },
+  "FJ3362": {
+   "name": "Right clavicle",
+   "source_host": "Clavicle.r",
+   "discovered": 10,
+   "matched": 10,
+   "extracted": 2,
+   "blocked": 8,
+   "metadata_ready": 2,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 6,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3364": {
+   "name": "Right cuboid bone",
+   "source_host": "Cuboid bone.r",
+   "discovered": 2,
+   "matched": 2,
+   "extracted": 1,
+   "blocked": 1,
+   "metadata_ready": 1,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 1
+   }
+  },
+  "FJ3365": {
+   "name": "Right femur",
+   "source_host": "Femur.r",
+   "discovered": 28,
+   "matched": 28,
+   "extracted": 0,
+   "blocked": 28,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 28
+   }
+  },
+  "FJ3366": {
+   "name": "Right fibula",
+   "source_host": "Fibula.r",
+   "discovered": 18,
+   "matched": 18,
+   "extracted": 0,
+   "blocked": 18,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 18
+   }
+  },
+  "FJ3368": {
+   "name": "Right humerus",
+   "source_host": "Humerus.r",
+   "discovered": 28,
+   "matched": 28,
+   "extracted": 5,
+   "blocked": 23,
+   "metadata_ready": 5,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 13,
+    "unsupported_curve": 10
+   }
+  },
+  "FJ3375": {
+   "name": "Right maxilla",
+   "source_host": "Maxilla.r",
+   "discovered": 1,
+   "matched": 1,
+   "extracted": 0,
+   "blocked": 1,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 1
+   }
+  },
+  "FJ3380": {
+   "name": "Right parietal bone",
+   "source_host": "Parietal bone.r",
+   "discovered": 15,
+   "matched": 15,
+   "extracted": 5,
+   "blocked": 10,
+   "metadata_ready": 5,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 2,
+    "unsupported_curve": 7,
+    "unsupported_opening": 1
+   }
+  },
+  "FJ3384": {
+   "name": "Right scapula",
+   "source_host": "Scapula.r",
+   "discovered": 24,
+   "matched": 24,
+   "extracted": 10,
+   "blocked": 14,
+   "metadata_ready": 10,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 10,
+    "unsupported_curve": 4
+   }
+  },
+  "FJ3385": {
+   "name": "Right talus",
+   "source_host": "Talus.r",
+   "discovered": 18,
+   "matched": 18,
+   "extracted": 4,
+   "blocked": 14,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 12,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3386": {
+   "name": "Right temporal bone",
+   "source_host": "Temporal bone.r",
+   "discovered": 12,
+   "matched": 12,
+   "extracted": 3,
+   "blocked": 9,
+   "metadata_ready": 3,
+   "imported": null,
+   "reasons": {
+    "unsupported_region": 6,
+    "endpoint_unresolved": 1,
+    "unsupported_curve": 2
+   }
+  },
+  "FJ3387": {
+   "name": "Right tibia",
+   "source_host": "Tibia.r",
+   "discovered": 29,
+   "matched": 29,
+   "extracted": 0,
+   "blocked": 29,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 29
+   }
+  },
+  "FJ3391": {
+   "name": "Right ulna",
+   "source_host": "Ulna.r",
+   "discovered": 16,
+   "matched": 16,
+   "extracted": 4,
+   "blocked": 12,
+   "metadata_ready": 4,
+   "imported": null,
+   "reasons": {
+    "unsupported_curve": 4,
+    "unsupported_region": 7,
+    "projection_too_far": 1
+   }
+  },
+  "FJ3393": {
+   "name": "Sacrum",
+   "source_host": "Sacrum",
+   "discovered": 20,
+   "matched": 20,
+   "extracted": 0,
+   "blocked": 20,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "incompatible_geometry": 20
+   }
+  },
+  "FJ3394": {
+   "name": "Sphenoid bone",
+   "source_host": "Sphenoid bone",
+   "discovered": 42,
+   "matched": 42,
+   "extracted": 9,
+   "blocked": 33,
+   "metadata_ready": 9,
+   "imported": null,
+   "reasons": {
+    "inconstant_structure": 1,
+    "unsupported_region": 17,
+    "unsupported_curve": 10,
+    "unsupported_opening": 5
+   }
+  },
+  "unmatched:Cricoid cartilage": {
+   "name": null,
+   "source_host": "Cricoid cartilage",
+   "discovered": 4,
+   "matched": 0,
+   "extracted": 0,
+   "blocked": 4,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "ambiguous_target_match": 4
+   }
+  },
+  "unmatched:Hyoid bone": {
+   "name": null,
+   "source_host": "Hyoid bone",
+   "discovered": 3,
+   "matched": 0,
+   "extracted": 0,
+   "blocked": 3,
+   "metadata_ready": 0,
+   "imported": null,
+   "reasons": {
+    "ambiguous_target_match": 3
+   }
+  }
+ }
+}
