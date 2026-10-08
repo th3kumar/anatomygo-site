@@ -83,3 +83,7 @@ python3 -m http.server 3018 --bind 127.0.0.1 --directory dist
 Open **http://localhost:3018**. Configure `playground/.env.local` from the example to connect Supabase. Serve only `dist/`; never expose the source repository or local data folder. Setup and launch status: [Playground rollout](docs/playground-rollout.md).
 
 Preserve `CNAME`, `.nojekyll`, `.well-known/assetlinks.json`, `/v/`, model files and attribution when deploying. Existing shared links depend on them.
+
+### Search engines
+
+`public/robots.txt` and `public/sitemap.xml` list the pages that search engines may index; add new public pages to the sitemap. The home page ships its header and a one-line description as plain HTML (`web/index.html`), so crawlers that don't run JavaScript still see what the page is. Keep that text in step with `app/page.tsx`. `/v/` and the 404 page are `noindex`. Link previews use `og-home.png` and `og-playground.png`, which are 1200×630 screenshots of the app.
