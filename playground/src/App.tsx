@@ -392,7 +392,7 @@ export function App() {
   function vote(value: number) {
     if (!chosen) return
     const next = allScores[chosen.id]?.mine === value ? 0 : value
-    track('vote_cast', { value: next === 1 ? 'up' : next === -1 ? 'down' : 'clear', practice: chosen.id === PRACTICE_PIN ? 1 : 0 })
+    track('vote_cast', { vote: next === 1 ? 'up' : next === -1 ? 'down' : 'clear', practice: chosen.id === PRACTICE_PIN ? 1 : 0 })
     if (chosen.id === PRACTICE_PIN) { setPracticeVote(next); return }
     markSeen('vote')
     if (!requireUser('vote')) return
