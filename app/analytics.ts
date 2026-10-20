@@ -3,7 +3,8 @@
  * gtag.js needs only that ID, which keeps the Firebase SDK, and the API key it requires, out of the site.
  *
  * Same rule as the Android app: nothing a person writes or reads out of a link is sent. Events carry
- * fixed names, atlas IDs, flags and bucketed counts, never search text or pin text. Shared pins sit in
+ * fixed names, atlas IDs, flags and bucketed counts, never search text or pin text. Loading events add the browser's own
+ * coarse hints (memory class, network type) and download sizes, to explain slow or failed loads. Shared pins sit in
  * the URL fragment of /v/, so every hit reports a page address the caller has already cleaned.
  *
  * Collection is on by default and can be turned off in About; the choice is kept in localStorage. It runs
@@ -38,9 +39,13 @@ function load(){
  document.head.appendChild(script);
 }
 
-export function track(name:string,params:Params={}){
+/** Sends an event. `beacon` is for the moment a page is hidden or closed, so the hit survives it.
+ * GA4 reads an event parameter called `source` as a traffic source and overwrote where visits came from,
+ * so the UI place an action starts from is sent as `ui_source` (from 21 Oct 2026; older data says `source`). */
+export function track(name:string,{source,...params}:Params={},{beacon=false}:{beacon?:boolean}={}){
  if(!started||!statsEnabled())return;
- gtag('event',name,debug?{...params,debug_mode:true}:params);
+ if(source!==undefined)params.ui_source=source;
+ gtag('event',name,{...params,...(beacon?{transport_type:'beacon'}:{}),...(debug?{debug_mode:true}:{})});
 }
 
 export function setStatsEnabled(on:boolean){
@@ -55,6 +60,29 @@ export function setStatsEnabled(on:boolean){
 
 /** Ranges instead of exact counts, as in the app's Events.bucket(). */
 export function bucket(count:number){return count<=0?'0':count===1?'1':count<=5?'2_5':count<=20?'6_20':count<=100?'21_100':count<=500?'101_500':'500_plus';}
+
+/** Ranges of seconds, for waits and visit lengths. */
+export function secondsBucket(s:number){return s<5?'0_4':s<15?'5_14':s<30?'15_29':s<60?'30_59':s<180?'60_179':'180_plus';}
+
+/** Load progress in quarters, so an interrupted download says roughly how far it got. */
+export function progressBucket(p:number){return p<=0?'0':p<25?'1_24':p<50?'25_49':p<75?'50_74':p<100?'75_99':'100';}
+
+/** Coarse device hints that explain slow or failed loads: memory class and network type, both from the browser's own
+ * rounded values (Chrome and Edge only; Safari and Firefox report 'unknown'). */
+export function deviceHints(){
+ const nav=navigator as Navigator&{deviceMemory?:number;connection?:{effectiveType?:string}};
+ const m=nav.deviceMemory;
+ return {memory:m===undefined?'unknown':m<=2?'2_or_less':m<=4?'4':'8_plus',net:nav.connection?.effectiveType??'unknown'};
+}
+
+/** What the model download cost this visit, from Resource Timing: kilobytes over the network and whether the browser
+ * cache served the files ('all', 'part' or 'none'). A file counts as cached when its body did not cross the network:
+ * read straight from the cache (0 bytes) or confirmed unchanged by the server (headers only). Same-origin, so readable. */
+export function modelTransfer(){
+ const files=(performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(e=>/\/models\/body-\d+\.bin/.test(e.name));
+ const bytes=files.reduce((sum,e)=>sum+e.transferSize,0),cached=files.filter(e=>e.decodedBodySize>0&&e.transferSize<e.encodedBodySize).length;
+ return {transfer_kb:Math.round(bytes/1024),cache:!files.length?'unknown':cached===files.length?'all':cached?'part':'none'};
+}
 
 /** The shape of a query, never the query, as in the app's Events.queryKind(). */
 export function queryKind(query:string){

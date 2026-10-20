@@ -24,11 +24,21 @@ import sys
 from datetime import date, timedelta
 
 MEASUREMENT_ID = "G-RFXTMB69WH"
-# Event parameters worth breaking down by (GA4 allows 50 event-scoped custom dimensions; the site sends about 50).
+# Event parameters worth breaking down by. GA4 allows 50 event-scoped custom dimensions; these are 47.
+# `source` stays for data before 21 Oct 2026: GA4 read it as a traffic source, so the site now sends `ui_source`.
 DIMENSIONS = ["source", "structure_id", "system_id", "practice", "step", "index", "start", "seconds", "kind", "result",
               "entry", "via", "first_visit", "device", "pins", "published", "features", "count", "query_kind", "result_count",
-              "found", "isolated", "reason", "method", "stage", "tip", "hint", "quiz", "pin_count", "platform"]
-METRICS = [("duration_ms", "Atlas load time", "MILLISECONDS")]
+              "found", "isolated", "reason", "method", "stage", "tip", "hint", "quiz", "pin_count", "platform",
+              # analytics v2, 21 Oct 2026
+              "ui_source", "view", "preset", "mode", "visible", "setting", "on", "vote",
+              "progress", "cache", "memory", "net", "fps", "depth", "systems", "explode_max", "searches"]
+METRICS = [("duration_ms", "Atlas load time", "MILLISECONDS"),
+           ("load_ms", "Atlas load time while visible", "MILLISECONDS"),
+           ("transfer_kb", "Model kilobytes downloaded", "STANDARD"),
+           ("frame_ms", "Median frame time while moving", "MILLISECONDS"),
+           ("render_ms", "Median CPU time to draw a frame", "MILLISECONDS")]
+# The property also holds the Android app's events; every report here is about the website only.
+WEB = "web"
 
 
 def admin():
@@ -82,26 +92,50 @@ FUNNELS = [
     ("Explorer: from the model to the Playground", "deviceCategory",
      [step("atlas_ready"), step("structure_selected"), step("structure_isolated"), step("playground_opened")]),
     ("Homepage pins: offered → shown → opened → sent to vote", None,
-     [step("home_pins_offered"), step("home_pins_shown"), step("home_pin_selected"), step("playground_opened", source="home_pin")]),
+     [step("home_pins_offered"), step("home_pins_shown"), step("home_pin_selected"), step("playground_opened", ui_source="home_pin")]),
     ("Playground: first contribution (practice excluded)", "deviceCategory",
      [step("playground_view"), step("feature_opened"), step("draft_started", practice=0), step("pin_placed", practice=0),
       step("sign_in_prompted"), step("sign_in_completed"), step("pin_saved")]),
     ("Shared links: opened → revealed → explored", None,
      [step("share_link_opened"), step("shared_pin_revealed"), step("structure_selected")]),
+    ("Loading: arrived → model ready → first structure", "operatingSystem",
+     [step("first_visit"), step("atlas_ready"), step("structure_selected")]),
 ]
 
 # (title, dimensions, metrics, event names to keep or None, row limit)
+# UI places come as `customEvent:source` before 21 Oct 2026 and `customEvent:ui_source` after it.
 REPORTS = [
     ("All events", ["eventName"], ["eventCount", "totalUsers"], None, 100),
     ("Practice run (coach marks were on until 7 Oct)", ["eventName", "customEvent:source", "customEvent:step"], ["eventCount", "totalUsers"],
      ["practice_started", "practice_step", "practice_completed", "practice_skipped", "practice_offer_shown", "practice_offer_accepted"], 60),
-    ("How people reach the Playground", ["eventName", "customEvent:source", "customEvent:entry"], ["eventCount", "totalUsers"],
-     ["playground_opened", "playground_view"], 40),
+    ("How people reach the Playground", ["eventName", "customEvent:source", "customEvent:ui_source", "customEvent:entry"],
+     ["eventCount", "totalUsers"], ["playground_opened", "playground_view"], 40),
     ("Most opened structures", ["customEvent:structure_id"], ["eventCount", "totalUsers"], ["structure_selected"], 30),
     ("Search shapes", ["customEvent:query_kind"], ["eventCount"], ["search_performed"], 20),
     ("Devices and load time", ["deviceCategory"], ["totalUsers", "newUsers", "averageCustomEvent:duration_ms"], ["atlas_ready"], 10),
     ("Where visits come from", ["sessionSource", "sessionMedium"], ["sessions", "totalUsers"], None, 25),
     ("Countries", ["country"], ["totalUsers", "newUsers"], None, 15),
+    ("How each person first arrived", ["firstUserSource", "firstUserMedium"],
+     ["totalUsers", "engagementRate", "averageSessionDuration"], None, 25),
+    # analytics v2, from 21 Oct 2026
+    ("Model load: cache, download and time while visible", ["deviceCategory", "customEvent:cache"],
+     ["eventCount", "totalUsers", "averageCustomEvent:load_ms", "customEvent:transfer_kb"], ["atlas_ready"], 20),
+    ("Model load by memory class and network", ["customEvent:memory", "customEvent:net"],
+     ["eventCount", "averageCustomEvent:load_ms"], ["atlas_ready"], 20),
+    ("Loads left before finishing (interrupted: page hidden; restarted: the tab loaded again)",
+     ["eventName", "operatingSystem", "customEvent:progress"], ["eventCount", "totalUsers"],
+     ["atlas_load_interrupted", "atlas_load_restarted"], 40),
+    ("Model data served per month (kilobytes, from people who allow statistics)", ["yearMonth"],
+     ["customEvent:transfer_kb", "eventCount"], ["atlas_ready"], 12),
+    ("Smoothness while the model moves", ["deviceCategory", "customEvent:fps"],
+     ["eventCount", "averageCustomEvent:frame_ms", "averageCustomEvent:render_ms"], ["render_perf"], 30),
+    ("Visit depth (distinct structures opened) and isolating", ["customEvent:depth", "customEvent:isolated"],
+     ["eventCount", "totalUsers"], ["visit_summary"], 30),
+    ("Visit depth by how people first arrived", ["firstUserSource", "customEvent:depth"], ["totalUsers"], ["visit_summary"], 50),
+    ("Searches that found nothing", ["customEvent:query_kind", "customEvent:count"], ["eventCount", "totalUsers"],
+     ["search_no_result"], 20),
+    ("Camera views, presets and appearance", ["eventName", "customEvent:view", "customEvent:preset", "customEvent:mode"],
+     ["eventCount", "totalUsers"], ["camera_view", "preset_applied", "appearance_changed"], 40),
 ]
 
 
@@ -114,16 +148,20 @@ def table(headers, rows):
 def run_reports(prop, start, end):
     from google.analytics.data_v1beta import BetaAnalyticsDataClient
     from google.analytics.data_v1beta.types import (Cohort, CohortSpec, CohortsRange, DateRange, Dimension, Filter,
-                                                    FilterExpression, Metric, OrderBy, RunReportRequest)
-    data, parts = BetaAnalyticsDataClient(), [f"# AnatomyGo usage, {start} to {end}\n", f"Property {prop}, stream {MEASUREMENT_ID}.\n"]
+                                                    FilterExpression, FilterExpressionList, Metric, OrderBy, RunReportRequest)
+    data, parts = BetaAnalyticsDataClient(), [f"# AnatomyGo usage, {start} to {end}\n",
+                                              f"Property {prop}, stream {MEASUREMENT_ID}, website only (platform = web).\n"]
+    web = FilterExpression(filter=Filter(field_name="platform", string_filter=Filter.StringFilter(value=WEB)))
     parts += run_funnels(prop, start, end)
     for title, dims, metrics, events, limit in REPORTS:
         try:
             req = RunReportRequest(property=f"properties/{prop}", date_ranges=[DateRange(start_date=start, end_date=end)],
                                    dimensions=[Dimension(name=d) for d in dims], metrics=[Metric(name=m) for m in metrics],
-                                   order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name=metrics[0]), desc=True)], limit=limit)
+                                   order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name=metrics[0]), desc=True)], limit=limit,
+                                   dimension_filter=web)
             if events:
-                req.dimension_filter = FilterExpression(filter=Filter(field_name="eventName", in_list_filter=Filter.InListFilter(values=events)))
+                req.dimension_filter = FilterExpression(and_group=FilterExpressionList(expressions=[web, FilterExpression(
+                    filter=Filter(field_name="eventName", in_list_filter=Filter.InListFilter(values=events)))]))
             res = data.run_report(req)
             rows = [[v.value for v in r.dimension_values] + [v.value for v in r.metric_values] for r in res.rows]
             parts.append(f"## {title}\n\n" + (table(dims + metrics, rows) if rows else "_No data._") + "\n")
@@ -134,7 +172,7 @@ def run_reports(prop, start, end):
         first = date.fromisoformat(start)
         weeks = [first + timedelta(days=7 * i) for i in range(4) if first + timedelta(days=7 * i) <= date.today()]
         res = data.run_report(RunReportRequest(property=f"properties/{prop}", dimensions=[Dimension(name="cohort"), Dimension(name="cohortNthWeek")],
-                                               metrics=[Metric(name="cohortActiveUsers")], cohort_spec=CohortSpec(
+                                               metrics=[Metric(name="cohortActiveUsers")], dimension_filter=web, cohort_spec=CohortSpec(
             cohorts=[Cohort(name=f"from {w}", dimension="firstSessionDate", date_range=DateRange(start_date=str(w), end_date=str(w + timedelta(days=6)))) for w in weeks],
             cohorts_range=CohortsRange(granularity=CohortsRange.Granularity.WEEKLY, start_offset=0, end_offset=3))))
         rows = sorted([[v.value for v in r.dimension_values] + [v.value for v in r.metric_values] for r in res.rows])
@@ -146,14 +184,21 @@ def run_reports(prop, start, end):
 
 def run_funnels(prop, start, end):
     from google.analytics.data_v1alpha import AlphaAnalyticsDataClient
-    from google.analytics.data_v1alpha.types import (DateRange, Dimension, Funnel, FunnelBreakdown, FunnelEventFilter,
-                                                     FunnelFilterExpression, FunnelParameterFilter,
+    from google.analytics.data_v1alpha.types import (DateRange, Dimension, Filter, FilterExpression, Funnel, FunnelBreakdown,
+                                                     FunnelEventFilter, FunnelFilterExpression, FunnelParameterFilter,
                                                      FunnelParameterFilterExpression, FunnelParameterFilterExpressionList,
                                                      FunnelStep, NumericFilter, NumericValue, RunFunnelReportRequest,
                                                      StringFilter)
     client, parts = AlphaAnalyticsDataClient(), []
+    web = FilterExpression(filter=Filter(field_name="platform", string_filter=StringFilter(value=WEB)))
 
     def condition(name, value):
+        if name == "ui_source":  # the same parameter was called `source` before 21 Oct 2026
+            return FunnelParameterFilterExpression(or_group=FunnelParameterFilterExpressionList(
+                expressions=[exact("source", value), exact("ui_source", value)]))
+        return exact(name, value)
+
+    def exact(name, value):
         if isinstance(value, int):
             f = FunnelParameterFilter(event_parameter_name=name, numeric_filter=NumericFilter(
                 operation=NumericFilter.Operation.EQUAL, value=NumericValue(int64_value=value)))
@@ -174,7 +219,7 @@ def run_funnels(prop, start, end):
                 label = event + "".join(f" ({k}={v})" for k, v in params.items())
                 funnel_steps.append(FunnelStep(name=label, filter_expression=FunnelFilterExpression(funnel_event_filter=event_filter)))
             req = RunFunnelReportRequest(property=f"properties/{prop}", date_ranges=[DateRange(start_date=start, end_date=end)],
-                                         funnel=Funnel(is_open_funnel=True, steps=funnel_steps))
+                                         funnel=Funnel(is_open_funnel=True, steps=funnel_steps), dimension_filter=web)
             if breakdown:
                 req.funnel_breakdown = FunnelBreakdown(breakdown_dimension=Dimension(name=breakdown), limit=5)
             sub = client.run_funnel_report(req).funnel_table

@@ -14,10 +14,11 @@ import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './ligh
 // Dark ("Graphite Soft") draws on a transparent canvas over the page's stage gradient, with a platform ring and a
 // contact shadow instead of the floor.
 const STAGE={light:{clear:'#f2f3f3',alpha:1,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#1d1f23',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
-interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
-export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,pins,selectedPin,onPinSelect}:Props){
+interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void}
+export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,pins,selectedPin,onPinSelect}:Props){
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
  const published=useRef(pins),selectedPinRef=useRef(selectedPin),pickPin=useRef(onPinSelect);published.current=pins;selectedPinRef.current=selectedPin;pickPin.current=onPinSelect;
+ const perf=useRef(onPerf);perf.current=onPerf;
  latest.current=state;select.current=onSelect;lamp.current=light;shade.current=dark;
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
@@ -113,8 +114,11 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   };
   renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('pointercancel',cancel);
   const clock=new T.Clock();let lastExtent=-1;
+  // Smoothness, measured once per visit after loading: frames drawn on consecutive ticks (the model moving), however slow,
+  // so a struggling phone still reports, and the time to draw each.
+  let tick=0,lastDrawnTick=-2,lastDrawn=0,perfSent=false;const gaps:number[]=[],costs:number[]=[];const median=(a:number[])=>[...a].sort((x,y)=>x-y)[a.length>>1];
   const animate=()=>{
-   if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),s=latest.current;
+   if(disposed)return;frame=requestAnimationFrame(animate);tick++;const dt=Math.min(clock.getDelta(),.05),s=latest.current;
    // Theme first: the stage visibility below depends on it, and a frame drawn in between would stay on screen.
    if(shade.current!==staged)stage(shade.current);
    const changed=lastState?.visible!==s.visible||lastState?.selected!==s.selected||lastState?.isolate!==s.isolate;
@@ -149,7 +153,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    const pinHost=s.isolate&&s.selected.length===1?pickers[atlas.parts.findIndex(p=>p.id===s.selected[0])]:undefined;
    publishedLayer.group.visible=!!pinHost&&published.current.length>0;publishedLayer.set(published.current,pinHost?.geometry??null);
    if(dirty&&pinHost)publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current);
-   if(dirty){placeLights();renderer.render(scene,camera);targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
+   if(dirty){placeLights();const drawStart=performance.now();renderer.render(scene,camera);
+    if(ready&&!perfSent){if(lastDrawnTick===tick-1){gaps.push(drawStart-lastDrawn);costs.push(performance.now()-drawStart);}lastDrawn=drawStart;lastDrawnTick=tick;if(gaps.length>=60){perfSent=true;perf.current?.({frameMs:median(gaps),renderMs:median(costs)});}}
+    targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
 
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
