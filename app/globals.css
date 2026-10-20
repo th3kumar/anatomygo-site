@@ -117,8 +117,29 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
 @media(max-width:767px){.playground-entry{width:44px;min-width:44px;height:44px;padding:0;justify-content:center}.playground-entry .new-tag{position:absolute;top:8px;right:8px;width:8px;height:8px;padding:0;font-size:0;border:0;background:#458a85;border-radius:50%}
  .detail-actions{display:grid!important;grid-template-columns:1fr 1fr;column-gap:6px}.detail-actions .secondary-action,.detail-actions .pins-offer{grid-column:1/-1}.detail-actions .primary-action{padding:0 10px;font-size:12px;gap:7px}.detail-actions .primary-action svg:last-child{display:none}}
 @media(min-width:1280px){.detail-sheet{bottom:54px!important}}  /* wide screens: the sheet clears the dock, so it can use the height */
-@media(max-width:767px){.top-actions button[aria-label="About this atlas"]{display:none}}  /* phones: "Source & credits" in the footer opens the same sheet */
 @media(max-width:400px){h1 .edition{display:none}}
 /* About: a short summary, one credits line, the statistics switch. */
 .about-copy .about-credits{font-size:12.5px;line-height:1.6;color:#7c8793}.about-copy .about-credits a{display:inline;margin:0;min-height:0;font-size:inherit;text-decoration:underline;text-underline-offset:2px}
 .stats-choice{border-top:1px solid #18253612;padding-top:14px;margin-top:20px!important}.stats-choice small{display:block;font-size:12px;color:#7c8793;margin-top:2px;font-weight:400}
+/* The Android app on Google Play: a badge on About until it's opened, and the app card at the top of About.
+   The badge pops in, sends out four slow rings, then rests as a plain dot. Reduced motion keeps only the dot. */
+.top-actions .about-button{position:relative}.top-actions .app-dot{display:block}  /* phones hide the top bar's span labels */
+.app-dot{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#458a85;box-shadow:0 0 0 2px #fbfcfc;pointer-events:none;animation:app-dot-in .45s cubic-bezier(.34,1.56,.64,1) both}
+.app-dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:#458a85;opacity:0;animation:app-dot-ring 2.6s cubic-bezier(0,0,.2,1) .5s 4}
+@keyframes app-dot-in{from{transform:scale(0)}to{transform:scale(1)}}
+@keyframes app-dot-ring{0%{transform:scale(1);opacity:.5}70%,100%{transform:scale(3.2);opacity:0}}
+.app-card{display:flex;flex-direction:column;gap:14px;margin:22px 0 4px;padding:16px;border-radius:14px;background:#458a850d;border:1px solid #458a852e}
+.app-card.is-fresh{animation:app-card-in 1.6s ease-out .25s both}
+@keyframes app-card-in{0%{box-shadow:0 0 0 0 #458a8500}25%{box-shadow:0 0 0 5px #458a8533}100%{box-shadow:0 0 0 12px #458a8500}}
+.app-card-head{display:flex;align-items:center;gap:13px}.app-card-head img{flex:none;width:48px;height:48px;border-radius:12px;box-shadow:0 1px 3px #18253626}
+.app-card h3{display:flex;align-items:center;gap:8px;margin:0;font-size:14px;font-weight:600;color:#26313c}
+.app-card-head p{margin:3px 0 0;font-size:12.5px;line-height:1.5;color:#667481}
+.app-card .app-card-cta{justify-content:center;gap:8px;font-size:13px;text-decoration:none;min-height:46px}
+.app-card-qr{display:flex;align-items:center;gap:16px}.app-card-qr img{flex:none;width:104px;height:104px;padding:8px;border-radius:10px;background:#fff;border:1px solid #18253614}
+.app-card-qr div{display:flex;flex-direction:column;gap:3px;font-size:12px;line-height:1.5;color:#667481}.app-card-qr strong{font-size:13px;font-weight:600;color:#26313c}
+.app-card-qr a{display:inline-flex;align-items:center;gap:3px;margin-top:6px;font-weight:600;color:#2f6f6a;text-decoration:none}.app-card-qr a:hover{text-decoration:underline}
+.app-card-note{margin:0;font-size:12.5px;color:#667481}
+@media(max-width:767px){.app-card{margin-top:18px}.top-actions .app-dot{top:9px;right:9px}}
+/* Phones narrower than 380px can't fit a fourth button beside the title, so About stays in the footer and the badge goes with it. */
+.studio-footer .app-dot{display:none;position:relative;top:auto;right:auto;width:7px;height:7px;box-shadow:none}
+@media(max-width:379px){.top-actions .about-button{display:none}.studio-footer .app-dot{display:block}}
