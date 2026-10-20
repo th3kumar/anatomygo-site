@@ -120,3 +120,8 @@
 @media(max-width:767px){.dark .playground-entry .new-tag{background:#6fb08f}}
 .dark .about-copy .about-credits{color:#8c9197}.dark .stats-choice{border-top-color:#ffffff10}.dark .stats-choice small{color:#8c9197}
 .dark .pins-offer{color:#c9ced4;background:#6fb08f14;border-color:#6fb08f40}.dark .pins-offer svg,.dark .pins-offer button,.dark .pin-check{color:#8fd0ae}.dark .pin-chip{color:#9aa1a8;border-color:#9aa1a855}
+.dark .app-dot,.dark .app-dot::after{background:#6fb08f}.dark .top-actions .app-dot{box-shadow:0 0 0 2px #26292e}
+.dark .app-card{background:#6fb08f0d;border-color:#6fb08f33}.dark .app-card h3,.dark .app-card-qr strong{color:#e6e8eb}.dark .app-card-head p,.dark .app-card-qr div,.dark .app-card-note{color:#a4a9b0}
+.dark .app-card-qr a{color:#8fd0ae}.dark .app-card-qr img{border-color:transparent}.dark .app-card-head img{box-shadow:0 0 0 1px #ffffff14}
+@keyframes app-card-in-dark{0%{box-shadow:0 0 0 0 #6fb08f00}25%{box-shadow:0 0 0 5px #6fb08f33}100%{box-shadow:0 0 0 12px #6fb08f00}}.dark .app-card.is-fresh{animation-name:app-card-in-dark}
+

@@ -5,7 +5,7 @@
  * is only ever inserted with textContent.
  */
 import {startAnalytics,track,bucket,statsEnabled,setStatsEnabled} from '../../app/analytics';
-import {PLAY_PUBLIC,playUrl} from '../../app/play';
+import {PLAY_PUBLIC,playUrl,platform} from '../../app/play';
 
 const PACKAGE='com.anatomygo';
 const PLAY=playUrl('share_view');
@@ -131,14 +131,13 @@ function showStats(){
 
 (async()=>{
  const p=payload();
- const ua=navigator.userAgent,android=/Android/i.test(ua),apple=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
- const platform=android?'android':apple?'ios':'other';
+ const android=platform==='android';
  const play=$<HTMLAnchorElement>('play'),explore=$<HTMLAnchorElement>('explore');
  play.href=PLAY;
  play.addEventListener('click',()=>track('play_clicked',{source:'share_page'}));
  explore.addEventListener('click',()=>track('view_in_3d_clicked',{platform}));
- // Play and Open in AnatomyGo only make sense on Android. Until the public launch the Play listing is visible
- // only to testers, so the browser view leads everywhere and Open in AnatomyGo serves testers who have the app.
+ // Play and Open in AnatomyGo only make sense on Android. With PLAY_PUBLIC off (as before the public launch) the
+ // browser view leads everywhere and Open in AnatomyGo serves testers who already have the app.
  const install=android&&PLAY_PUBLIC;
  play.hidden=!install;
  $('after').hidden=!install;
@@ -153,7 +152,7 @@ function showStats(){
   $('open').hidden=false;
   $('open').addEventListener('click',()=>{
    track('open_in_app_clicked');
-   // Without the app, Android goes to the fallback: Play once it's public, the browser view until then.
+   // Without the app, Android goes to the fallback: Play, or the browser view while PLAY_PUBLIC is off.
    const fallback=PLAY_PUBLIC?PLAY:explore.href;
    location.href=`intent://${location.host}/v/?d=${encodeURIComponent(p)}#Intent;scheme=https;package=${PACKAGE};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
   });
