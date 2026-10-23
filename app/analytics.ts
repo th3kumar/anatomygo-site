@@ -79,7 +79,7 @@ export function deviceHints(){
  * cache served the files ('all', 'part' or 'none'). A file counts as cached when its body did not cross the network:
  * read straight from the cache (0 bytes) or confirmed unchanged by the server (headers only). Same-origin, so readable. */
 export function modelTransfer(){
- const files=(performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(e=>/\/models\/body-\d+\.bin/.test(e.name));
+ const files=(performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(e=>/\/models\/(body-\d+|stream\/s-\d+)\.bin/.test(e.name));
  const bytes=files.reduce((sum,e)=>sum+e.transferSize,0),cached=files.filter(e=>e.decodedBodySize>0&&e.transferSize<e.encodedBodySize).length;
  return {transfer_kb:Math.round(bytes/1024),cache:!files.length?'unknown':cached===files.length?'all':cached?'part':'none'};
 }

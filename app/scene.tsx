@@ -7,6 +7,7 @@ import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.j
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {createExplosionLayout} from './explosion-layout';
 import {decodeModelResponse} from './model-download';
+import {loadStreamChunk,matchesAtlas,preloadStream,type PartData,type Tier} from './model-stream';
 import {PointerTap} from './pointer-tap';
 import {SYSTEMS,type Atlas,type SceneState} from './anatomy';
 import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './lighting';
@@ -14,11 +15,13 @@ import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './ligh
 // Dark ("Graphite Soft") draws on a transparent canvas over the page's stage gradient, with a platform ring and a
 // contact shadow instead of the floor.
 const STAGE={light:{clear:'#f2f3f3',alpha:1,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#1d1f23',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
-interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void}
-export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,pins,selectedPin,onPinSelect}:Props){
+/** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
+export interface LoadingTap {result:'ignored'|'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'}
+interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
+export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect}:Props){
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
  const published=useRef(pins),selectedPinRef=useRef(selectedPin),pickPin=useRef(onPinSelect);published.current=pins;selectedPinRef.current=selectedPin;pickPin.current=onPinSelect;
- const perf=useRef(onPerf);perf.current=onPerf;
+ const perf=useRef(onPerf),milestone=useRef(onMilestone),first=useRef(priority??[]),loadingTap=useRef(onLoadingTap);loadingTap.current=onLoadingTap;perf.current=onPerf;milestone.current=onMilestone;first.current=priority??[];
  latest.current=state;select.current=onSelect;lamp.current=light;shade.current=dark;
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
@@ -76,23 +79,46 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    };materials.push(m);return m;
   };
   const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)]));
-  let loaded=0;
-  const loadChunk=async(ci:number)=>{
-   const chunk=atlas.chunks[ci],compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';const response=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal});const buffer=await decodeModelResponse(response,chunk.bytes,compressed);if(disposed)return;
+  // Parts arrive outside-in from the stream copy when this browser can use it (model-stream.ts), otherwise, or for
+  // anything the stream fails to deliver, from the canonical chunks. Taps work once the outer body is in (`interactive`);
+  // `ready` still means every part is in, as before.
+  const added=new Uint8Array(atlas.parts.length),partIndex=new Map(atlas.parts.map((p,i)=>[p.id,i]));let interactive=false,viewShown=false,shown=0;
+  const addParts=(list:PartData[])=>{
    const groups=new Map<string,T.BufferGeometry[]>();
-   atlas.parts.forEach((p,i)=>{
-    if(p.chunk!==ci)return;
-    const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(new Float32Array(buffer,p.positions,p.vertexCount*3),3));
+   for(const {index:i,positions,normals,indices} of list){
+    if(added[i])continue;added[i]=1;const p=atlas.parts[i];
+    const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(positions,3));
     // GPU normalized signed-short normals keep the complete atlas compact in memory.
-    g.setAttribute('normal',new T.BufferAttribute(new Int16Array(buffer,p.normals,p.vertexCount*3),3,true));g.setIndex(new T.BufferAttribute(new Uint32Array(buffer,p.indices,p.indexCount),1));
-    g.boundingBox=bounds[i].clone();g.computeBoundingSphere();const pick=new T.Mesh(g);pick.matrixAutoUpdate=false;pickers[i]=pick;geometries.push(g);
+    g.setAttribute('normal',new T.BufferAttribute(normals,3,true));g.setIndex(new T.BufferAttribute(indices,1));
+    g.boundingBox=bounds[i].clone();g.computeBoundingSphere();const pick=new T.Mesh(g);pick.matrixAutoUpdate=false;pick.position.set(data[i*4],data[i*4+1],data[i*4+2]);pick.updateMatrix();pick.updateMatrixWorld(true);pickers[i]=pick;geometries.push(g);
     g.setAttribute('partIndex',new T.BufferAttribute(new Float32Array(p.vertexCount).fill(i),1));
     const list=groups.get(p.system)??[];list.push(g);groups.set(p.system,list);
-   });
+   }
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);});
-   lastState=null;loaded++;onProgress(Math.round(loaded/atlas.chunks.length*100));dirty=true;
+   lastState=null;dirty=true;retryTap();
   };
-  (async()=>{try{let cursor=0;await Promise.all(Array.from({length:3},async()=>{while(cursor<atlas.chunks.length){const i=cursor++;await loadChunk(i);}}));if(!disposed){ready=true;dirty=true;}}catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();
+  const report=(n:number)=>{n=Math.max(shown,Math.min(99,Math.floor(n)));if(n!==shown){shown=n;onProgress(n);}};
+  const reached=(outer:boolean,view:boolean)=>{if(outer&&!interactive){interactive=true;milestone.current?.('outer');}if(view&&!viewShown){viewShown=true;milestone.current?.('view');}};
+  const loadCanonical=async(ci:number)=>{
+   const chunk=atlas.chunks[ci],compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';const response=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal});const buffer=await decodeModelResponse(response,chunk.bytes,compressed);if(disposed)return;
+   addParts(atlas.parts.flatMap((p,index)=>p.chunk===ci?[{index,positions:new Float32Array(buffer,p.positions,p.vertexCount*3),normals:new Int16Array(buffer,p.normals,p.vertexCount*3),indices:new Uint32Array(buffer,p.indices,p.indexCount)}]:[]));
+  };
+  const loadStream=async()=>{
+   const stream=await preloadStream();if(!stream||disposed||!matchesAtlas(stream,atlas))return;
+   const m=stream,total=m.chunks.reduce((a,c)=>a+c.gzipBytes,0),taken=new Uint8Array(m.chunks.length),left:Record<Tier,number>={outer:0,inner:0,hidden:0};let bytes=0;
+   m.chunks.forEach(c=>left[c.tier]++);
+   // Next: a chunk holding a linked or selected structure that hasn't arrived (a shared link, a search during loading), else the next one outside-in.
+   let failed=false;
+   const next=()=>{if(failed)return -1;for(const id of [...first.current,...latest.current.selected]){const i=partIndex.get(id);if(i!==undefined&&!added[i]&&!taken[m.parts[i][0]])return m.parts[i][0];}return taken.indexOf(0);};
+   try{await Promise.all(Array.from({length:2},async()=>{for(let c=next();c>=0&&!disposed;c=next()){taken[c]=1;const parts=await loadStreamChunk(m,atlas,c,abort.signal).catch(e=>{failed=true;throw e;});if(disposed)return;addParts(parts);left[m.chunks[c].tier]--;bytes+=m.chunks[c].gzipBytes;reached(!left.outer,!left.outer&&!left.inner);report(bytes/total*100);}}));}
+   catch(e){if(disposed||(e instanceof DOMException&&e.name==='AbortError'))return;console.warn('Stream model failed; loading the remaining parts from the canonical files.',e);}
+  };
+  (async()=>{try{
+   await loadStream();if(disposed)return;
+   const missing=[...new Set(atlas.parts.flatMap((p,i)=>added[i]?[]:[p.chunk]))];let cursor=0,count=0;
+   await Promise.all(Array.from({length:3},async()=>{while(cursor<missing.length&&!disposed){const ci=missing[cursor++];await loadCanonical(ci);count++;report(count/missing.length*100);}}));
+   if(!disposed){reached(true,true);ready=true;dirty=true;onProgress(100);}
+  }catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();
   const fit=(view:string,extent=0)=>{
    const aspect=camera.aspect,mobile=el.clientWidth<768,normalDistance=mobile?Math.max(4.5,1.8*el.clientHeight/Math.max(160,el.clientHeight-350)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))):4;
    const reservedHeight=mobile?350:270;const availableAspect=Math.max(.35,(el.clientWidth-(mobile?40:340))/Math.max(160,el.clientHeight-reservedHeight));const atlasDistance=Math.max(packingHeight,packingWidth/availableAspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*(el.clientHeight/Math.max(160,el.clientHeight-reservedHeight))*1.08;
@@ -105,12 +131,22 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const down=(e:PointerEvent)=>{hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
   const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);if(e.buttons||amount<.5||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
   const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
-  const up=(e:PointerEvent)=>{
-   const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap||!ready)return;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
+  // A tap held because a part that might be in front of the hit is still on its way; tried again when parts arrive,
+  // and dropped if the camera has moved since.
+  let pendingTap:{ray:T.Ray;x:number;y:number;touch:boolean;camera:T.Matrix4;at:number}|null=null;const offset=new T.Vector3();
+  const resolveTap=(x:number,y:number,touch:boolean,at=performance.now()):'held'|'answered'|'missed'=>{
    let nearest=Infinity,found=-1;const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
    pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;}});
-   const pinHit=publishedLayer.hit(raycaster);if(pinHit&&pinHit.distance<=nearest){pickPin.current(pinHit.object.userData.pinId);return;}
-   if(found<0&&amount>.45)found=findTarget(e.clientX-rect.left,e.clientY-rect.top,e.pointerType==='touch'?24:16);if(found>=0){hover.hidden=true;select.current(atlas.parts[found].id);}
+   if(!ready)for(let i=0;i<atlas.parts.length;i++){if(added[i]||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))continue;worldBox.copy(bounds[i]).translate(offset.set(data[i*4],data[i*4+1],data[i*4+2]));if(raycaster.ray.intersectBox(worldBox,hitPoint)&&hitPoint.distanceTo(raycaster.ray.origin)<nearest){pendingTap={ray:raycaster.ray.clone(),x,y,touch,camera:camera.matrixWorld.clone(),at};return 'held';}}
+   const pinHit=publishedLayer.hit(raycaster);if(pinHit&&pinHit.distance<=nearest){pickPin.current(pinHit.object.userData.pinId);return 'answered';}
+   if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;select.current(atlas.parts[found].id);return 'answered';}
+   return 'missed';
+  };
+  function retryTap(){if(!pendingTap)return;const t=pendingTap;pendingTap=null;const waitMs=performance.now()-t.at;if(!t.camera.equals(camera.matrixWorld)){loadingTap.current?.({result:'dropped',reason:'moved',waitMs});return;}raycaster.ray.copy(t.ray);if(resolveTap(t.x,t.y,t.touch,t.at)!=='held')loadingTap.current?.({result:'resolved',waitMs});}
+  const up=(e:PointerEvent)=>{
+   const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap)return;if(!interactive){loadingTap.current?.({result:'ignored'});return;}
+   if(pendingTap){loadingTap.current?.({result:'dropped',reason:'replaced',waitMs:performance.now()-pendingTap.at});pendingTap=null;}const loading=!ready;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
+   const result=resolveTap(e.clientX-rect.left,e.clientY-rect.top,e.pointerType==='touch');if(loading)loadingTap.current?.({result});
   };
   renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('pointercancel',cancel);
   const clock=new T.Clock();let lastExtent=-1;

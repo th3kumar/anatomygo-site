@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Visibility pass</title>
+<script type="module">
+// Finds the order in which the model's parts can be seen from outside. Each part is drawn in its own flat ID colour
+// from 24 directions around the body (8 around × 3 heights) with the default systems on. Parts with visible pixels
+// form layer 0; they are then removed and the pass repeats, so layer 1 is what you see once layer 0 is peeled away,
+// and so on. Parts that are off by default (the body surface) are not drawn and get layer -1.
+import * as THREE from '/node_modules/three/build/three.module.js';
+const SIZE = 1024, DISTANCE = 4, TARGET = new THREE.Vector3(0, .85, 0), MIN_PIXELS = 4, MAX_LAYERS = 12;
+const HIDDEN_BY_DEFAULT = new Set(['integumentary']);
+const atlas = await (await fetch('/models/atlas.json')).json();
+const bins = await Promise.all(atlas.chunks.map(async c => (await fetch(c.url)).arrayBuffer()));
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setSize(SIZE, SIZE);
+const target = new THREE.WebGLRenderTarget(SIZE, SIZE);
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(34, 1, .005, 100);
+const material = id => new THREE.RawShaderMaterial({
+  side: THREE.DoubleSide,
+  uniforms: { id: { value: new THREE.Vector3(((id + 1) & 255) / 255, (((id + 1) >> 8) & 255) / 255, (((id + 1) >> 16) & 255) / 255) } },
+  vertexShader: 'precision highp float;uniform mat4 modelViewMatrix,projectionMatrix;attribute vec3 position;void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: 'precision highp float;uniform vec3 id;void main(){gl_FragColor=vec4(id,1.);}',
+});
+const meshes = atlas.parts.map((p, i) => {
+  if (HIDDEN_BY_DEFAULT.has(p.system)) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(bins[p.chunk], p.positions, p.vertexCount * 3), 3));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(bins[p.chunk], p.indices, p.indexCount), 1));
+  const m = new THREE.Mesh(g, material(i)); m.frustumCulled = false; scene.add(m); return m;
+});
+const views = [];
+for (const pitch of [-20, 0, 30]) for (let yaw = 0; yaw < 360; yaw += 45) {
+  const y = THREE.MathUtils.degToRad(yaw), x = THREE.MathUtils.degToRad(pitch);
+  views.push(new THREE.Vector3(Math.sin(y) * Math.cos(x), Math.sin(x), Math.cos(y) * Math.cos(x)));
+}
+const pixels = new Uint8Array(SIZE * SIZE * 4);
+function visibleCounts() {
+  const counts = new Map();
+  for (const dir of views) {
+    camera.position.copy(TARGET).addScaledVector(dir, DISTANCE); camera.lookAt(TARGET); camera.updateMatrixWorld();
+    renderer.setRenderTarget(target); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.render(scene, camera);
+    renderer.readRenderTargetPixels(target, 0, 0, SIZE, SIZE, pixels);
+    for (let i = 0; i < pixels.length; i += 4) {
+      const id = pixels[i] | (pixels[i + 1] << 8) | (pixels[i + 2] << 16);
+      if (id) counts.set(id - 1, (counts.get(id - 1) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+const layerOf = new Array(atlas.parts.length).fill(null), pixelsOf = new Array(atlas.parts.length).fill(0);
+atlas.parts.forEach((p, i) => { if (!meshes[i]) layerOf[i] = -1; });
+for (let layer = 0; layer < MAX_LAYERS; layer++) {
+  const counts = visibleCounts();
+  let found = 0;
+  for (const [i, n] of counts) if (n >= MIN_PIXELS && layerOf[i] === null) { layerOf[i] = layer; pixelsOf[i] = n; meshes[i].visible = false; found++; }
+  if (!found) break;
+}
+// Whatever is never seen from outside (fully enclosed, or below the pixel threshold) goes after the last layer.
+const last = Math.max(...layerOf.filter(l => l !== null)) + 1;
+layerOf.forEach((l, i) => { if (l === null) layerOf[i] = last; });
+window.__result = { parts: atlas.parts.map((p, i) => ({ id: p.id, layer: layerOf[i], pixels: pixelsOf[i] })), views: views.length, size: SIZE, minPixels: MIN_PIXELS, renderer: renderer.getContext().getParameter(renderer.getContext().VERSION) };
+document.title = 'done';
+</script>
