@@ -5,7 +5,7 @@ import type {Atlas} from './anatomy';
 /** The streaming copy of the model (scripts/build-stream.mjs): the canonical parts re-packed from the outside in and
  * compressed with meshoptimizer's lossless codecs. Every part decodes to exactly the canonical bytes; the build checks it. */
 export type Tier='outer'|'inner'|'hidden';
-export interface StreamManifest {version:1;geometry:string;atlas:string;encoder:string;chunks:{url:string;gzip:string;bytes:number;gzipBytes:number;tier:Tier}[];parts:[chunk:number,offset:number,positions:number,normals:number,indices:number][]}
+export interface StreamManifest {version:1;geometry:string;atlas:string;atlasFingerprint:string;encoder:string;chunks:{url:string;gzip:string;bytes:number;gzipBytes:number;tier:Tier}[];parts:[chunk:number,offset:number,positions:number,normals:number,indices:number][]}
 export interface PartData {index:number;positions:Float32Array;normals:Int16Array;indices:Uint32Array}
 
 let manifest:Promise<StreamManifest|null>|undefined;
@@ -19,8 +19,10 @@ export function preloadStream(){
  })().catch(e=>{console.warn('Stream model unavailable; loading the canonical files.',e);return null;});
 }
 
-/** Checks that a manifest was built for this catalogue: same part count, every part placed. */
-export function matchesAtlas(m:StreamManifest,atlas:Atlas){return m.parts.length===atlas.parts.length&&m.parts.every(p=>Array.isArray(p)&&p.length===5);}
+function fnv1a(s:string){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return(h>>>0).toString(16).padStart(8,'0');}
+
+/** Checks that a manifest was built for this catalogue: same part count, every part placed, and matching fingerprint. */
+export function matchesAtlas(m:StreamManifest,atlas:Atlas){return m.parts.length===atlas.parts.length&&m.parts.every(p=>Array.isArray(p)&&p.length===5)&&m.atlasFingerprint===fnv1a(atlas.parts.map(p=>`${p.id},${p.vertexCount},${p.indexCount}`).join(';'));}
 
 /** Downloads one stream chunk and decodes its parts into the same arrays the canonical chunks give. */
 export async function loadStreamChunk(m:StreamManifest,atlas:Atlas,chunk:number,signal:AbortSignal):Promise<PartData[]>{

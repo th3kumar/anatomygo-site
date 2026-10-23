@@ -13,6 +13,7 @@ import { MeshoptDecoder } from 'meshoptimizer/decoder';
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const models = path.join(root, 'models'), out = path.join(root, 'public/models/stream');
 const sha = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
+const fnv1a = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, '0'); };
 const FIRST_CHUNK = 320 * 1024, CHUNK = 1024 * 1024; // encoded bytes; a small first chunk puts pixels on screen sooner
 
 // G1: the canonical files are exactly the ones the anchors and digests were made from.
@@ -89,7 +90,8 @@ for (let i = 0; i < atlas.parts.length; i++) {
   if (digest !== manifest.meshes[p.id]?.digest) throw new Error(`Stream copy of ${p.id} (${p.name}) does not decode to the canonical mesh.`);
   checked++;
 }
-const stream = { version: 1, geometry: manifest.geometry, atlas: sha(atlasBytes), encoder: `meshoptimizer@${version}`, inputs, chunks, parts };
+const atlasFingerprint = fnv1a(atlas.parts.map(p => `${p.id},${p.vertexCount},${p.indexCount}`).join(';'));
+const stream = { version: 1, geometry: manifest.geometry, atlas: sha(atlasBytes), atlasFingerprint, encoder: `meshoptimizer@${version}`, inputs, chunks, parts };
 fs.writeFileSync(existing, JSON.stringify(stream));
 const mb = x => (x / 1048576).toFixed(1) + ' MB', sum = t => chunks.filter(c => !t || c.tier === t).reduce((a, c) => a + c.gzipBytes, 0);
 console.log(`stream: ${chunks.length} chunks, ${mb(sum())} gzip (outer ${mb(sum('outer'))}, inner ${mb(sum('inner'))}, hidden ${mb(sum('hidden'))}); ${checked}/${atlas.parts.length} parts decode byte-identical`);
