@@ -100,6 +100,9 @@ FUNNELS = [
      [step("share_link_opened"), step("shared_pin_revealed"), step("structure_selected")]),
     ("Loading: arrived → model ready → first structure", "operatingSystem",
      [step("first_visit"), step("atlas_ready"), step("structure_selected")]),
+    # faster first load, from its release: the outer body arrives first and taps work from then on
+    ("Loading, outside-in: arrived → outer body in → first structure → everything loaded", "deviceCategory",
+     [step("first_visit"), step("atlas_outer_ready"), step("structure_selected"), step("atlas_ready")]),
 ]
 
 # (title, dimensions, metrics, event names to keep or None, row limit)
@@ -136,6 +139,12 @@ REPORTS = [
      ["search_no_result"], 20),
     ("Camera views, presets and appearance", ["eventName", "customEvent:view", "customEvent:preset", "customEvent:mode"],
      ["eventCount", "totalUsers"], ["camera_view", "preset_applied", "appearance_changed"], 40),
+    # faster first load
+    ("Outer body in vs everything loaded (time while visible)", ["eventName", "deviceCategory"],
+     ["eventCount", "totalUsers", "averageCustomEvent:load_ms", "customEvent:transfer_kb"], ["atlas_outer_ready", "atlas_ready"], 20),
+    ("Taps before the model finished loading: ignored (before the outer body), answered, missed, held → resolved or dropped",
+     ["customEvent:result", "customEvent:reason", "customEvent:progress"], ["eventCount", "totalUsers"], ["loading_tap"], 40),
+    ("How long held taps waited", ["customEvent:result", "customEvent:seconds"], ["eventCount"], ["loading_tap"], 30),
 ]
 
 

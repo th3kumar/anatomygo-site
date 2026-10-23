@@ -84,6 +84,16 @@ Open **http://localhost:3018**. Configure `playground/.env.local` from the examp
 
 Preserve `CNAME`, `.nojekyll`, `.well-known/assetlinks.json`, `/v/`, model files and attribution when deploying. Existing shared links depend on them.
 
+### How the model loads
+
+The files in `models/` are the canonical model. Pin anchors, mesh digests, the Playground and the importers all rely on their exact bytes. The build leaves them untouched and writes a streaming copy for the viewer to `public/models/stream/` (`scripts/build-stream.mjs`, run by `prepare-assets.mjs`). The copy holds the same parts, packed outside-in in the order of `models/load-order.json` and compressed with meshoptimizer's lossless codecs. The build decodes every part again and fails unless it matches the canonical digest. If the stream can't be used, the viewer loads the canonical files as before. That happens without WebAssembly, or if `'wasm-unsafe-eval'` is ever dropped from the page's Content-Security-Policy.
+
+If the model changes on purpose:
+- Regenerate the load order with `node scripts/visibility-pass.mjs <devtools-port>`. It needs a Chrome running with `--remote-debugging-port`.
+- Update `scripts/canonical-models.json`, together with a new geometry fingerprint.
+
+The build refuses to run until both match.
+
 ### Search engines
 
 `public/robots.txt` and `public/sitemap.xml` list the pages that search engines may index; add new public pages to the sitemap. The home page ships its header and a one-line description as plain HTML (`web/index.html`), so crawlers that don't run JavaScript still see what the page is. Keep that text in step with `app/page.tsx`. `/v/` and the 404 page are `noindex`. Link previews use `og-home.png` and `og-playground.png`, which are 1200×630 screenshots of the app.
