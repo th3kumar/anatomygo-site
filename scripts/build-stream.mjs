@@ -34,7 +34,7 @@ const self = sha(fs.readFileSync(new URL(import.meta.url)));
 const inputs = sha(JSON.stringify([canonical, order, version, self]));
 const existing = path.join(out, 'stream.json');
 const current = fs.existsSync(existing) ? JSON.parse(fs.readFileSync(existing)) : null;
-if (current?.inputs === inputs && current.chunks.every((c, n) => fs.existsSync(path.join(out, `s-${n}.bin.gz`)))) console.log('stream: up to date');
+if (current?.inputs === inputs && current.chunks.every(c => fs.existsSync(path.join(out, path.basename(c.gzip))))) console.log('stream: up to date');
 else await build();
 
 async function build() {
@@ -53,8 +53,10 @@ let pending = [], size = 0, current = null;
 const flush = () => {
   if (!pending.length) return;
   const n = chunks.length, data = Buffer.concat(pending), gz = zlib.gzipSync(data, { level: 9 });
-  fs.writeFileSync(path.join(out, `s-${n}.bin.gz`), gz);
-  chunks.push({ url: `/models/stream/s-${n}.bin`, gzip: `/models/stream/s-${n}.bin.gz`, bytes: data.length, gzipBytes: gz.length, tier: current });
+  // Named by content, so a name always means the same bytes: the viewer can keep chunks without asking the server again.
+  const name = `s-${n}-${sha(gz).slice(0, 12)}`;
+  fs.writeFileSync(path.join(out, `${name}.bin.gz`), gz);
+  chunks.push({ url: `/models/stream/${name}.bin`, gzip: `/models/stream/${name}.bin.gz`, bytes: data.length, gzipBytes: gz.length, tier: current });
   pending = []; size = 0;
 };
 for (const [id, layer] of order.parts) {
@@ -76,7 +78,7 @@ flush();
 
 // G2: decode every part from the files just written, with the decoder the viewer ships, and compare its SHA-256 with
 // the canonical digest the Playground and Supabase use.
-const written = chunks.map((c, n) => zlib.gunzipSync(fs.readFileSync(path.join(out, `s-${n}.bin.gz`))));
+const written = chunks.map(c => zlib.gunzipSync(fs.readFileSync(path.join(out, path.basename(c.gzip)))));
 let checked = 0;
 for (let i = 0; i < atlas.parts.length; i++) {
   const p = atlas.parts[i], [c, offset, lp, ln, li] = parts[i], b = written[c], n = p.vertexCount;

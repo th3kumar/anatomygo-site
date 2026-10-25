@@ -24,14 +24,16 @@ import sys
 from datetime import date, timedelta
 
 MEASUREMENT_ID = "G-RFXTMB69WH"
-# Event parameters worth breaking down by. GA4 allows 50 event-scoped custom dimensions; these are 47.
+# Event parameters worth breaking down by. GA4 allows 50 event-scoped custom dimensions; these are 49.
 # `source` stays for data before 21 Oct 2026: GA4 read it as a traffic source, so the site now sends `ui_source`.
 DIMENSIONS = ["source", "structure_id", "system_id", "practice", "step", "index", "start", "seconds", "kind", "result",
               "entry", "via", "first_visit", "device", "pins", "published", "features", "count", "query_kind", "result_count",
               "found", "isolated", "reason", "method", "stage", "tip", "hint", "quiz", "pin_count", "platform",
               # analytics v2, 21 Oct 2026
               "ui_source", "view", "preset", "mode", "visible", "setting", "on", "vote",
-              "progress", "cache", "memory", "net", "fps", "depth", "systems", "explode_max", "searches"]
+              "progress", "cache", "memory", "net", "fps", "depth", "systems", "explode_max", "searches",
+              # search words, 26 Oct 2026 (search-terms.ts): vocabulary words with "?" for others; cleaned text of failed searches
+              "search_terms", "search_text"]
 METRICS = [("duration_ms", "Atlas load time", "MILLISECONDS"),
            ("load_ms", "Atlas load time while visible", "MILLISECONDS"),
            ("transfer_kb", "Model kilobytes downloaded", "STANDARD"),
@@ -142,9 +144,15 @@ REPORTS = [
     # faster first load
     ("Outer body in vs everything loaded (time while visible)", ["eventName", "deviceCategory"],
      ["eventCount", "totalUsers", "averageCustomEvent:load_ms", "customEvent:transfer_kb"], ["atlas_outer_ready", "atlas_ready"], 20),
-    ("Taps before the model finished loading: ignored (before the outer body), answered, missed, held → resolved or dropped",
+    ("Taps before the model finished loading: answered, missed, held → resolved or dropped (moved, replaced, timeout)",
      ["customEvent:result", "customEvent:reason", "customEvent:progress"], ["eventCount", "totalUsers"], ["loading_tap"], 40),
     ("How long held taps waited", ["customEvent:result", "customEvent:seconds"], ["eventCount"], ["loading_tap"], 30),
+    ("Visits by how far the model had loaded when they ended (outer body only / everything)", ["customEvent:stage", "customEvent:depth"],
+     ["eventCount", "totalUsers"], ["visit_summary"], 30),
+    # search words, from 26 Oct 2026
+    ("What searches find nothing (cleaned text)", ["customEvent:search_text"], ["eventCount", "totalUsers"], ["search_no_result"], 60),
+    ("Search words by outcome (picked a result, gave up, found nothing)", ["eventName", "customEvent:search_terms"], ["eventCount", "totalUsers"],
+     ["search_performed", "search_abandoned", "search_no_result"], 80),
 ]
 
 

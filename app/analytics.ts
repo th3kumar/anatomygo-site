@@ -2,8 +2,10 @@
  * belongs to the anatomygo.in web app in the Firebase project anatomy-go-app, so the data appears there too.
  * gtag.js needs only that ID, which keeps the Firebase SDK, and the API key it requires, out of the site.
  *
- * Same rule as the Android app: nothing a person writes or reads out of a link is sent. Events carry
- * fixed names, atlas IDs, flags and bucketed counts, never search text or pin text. Loading events add the browser's own
+ * Nothing a person writes or reads out of a link is sent, with one exception for search (search-terms.ts): a search
+ * sends its anatomy-vocabulary words, any other word replaced by "?", and a search that finds nothing sends its text,
+ * cleaned to lowercase letters. The About sheet says so. Otherwise events carry fixed names, atlas IDs, flags and
+ * bucketed counts, never pin text. (The Android app sends no search text at all.) Loading events add the browser's own
  * coarse hints (memory class, network type) and download sizes, to explain slow or failed loads. Shared pins sit in
  * the URL fragment of /v/, so every hit reports a page address the caller has already cleaned.
  *
@@ -78,10 +80,11 @@ export function deviceHints(){
 /** What the model download cost this visit, from Resource Timing: kilobytes over the network and whether the browser
  * cache served the files ('all', 'part' or 'none'). A file counts as cached when its body did not cross the network:
  * read straight from the cache (0 bytes) or confirmed unchanged by the server (headers only). Same-origin, so readable. */
-export function modelTransfer(){
- const files=(performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(e=>/\/models\/(body-\d+|stream\/s-\d+)\.bin/.test(e.name));
- const bytes=files.reduce((sum,e)=>sum+e.transferSize,0),cached=files.filter(e=>e.decodedBodySize>0&&e.transferSize<e.encodedBodySize).length;
- return {transfer_kb:Math.round(bytes/1024),cache:!files.length?'unknown':cached===files.length?'all':cached?'part':'none'};
+export function modelTransfer(stored=0){
+ const files=(performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(e=>/\/models\/(body-\d+|stream\/s-\d+(-[0-9a-f]+)?)\.bin/.test(e.name));
+ // `stored`: stream chunks read from the viewer's own Cache Storage, which leave no Resource Timing entry.
+ const bytes=files.reduce((sum,e)=>sum+e.transferSize,0),cached=stored+files.filter(e=>e.decodedBodySize>0&&e.transferSize<e.encodedBodySize).length,total=files.length+stored;
+ return {transfer_kb:Math.round(bytes/1024),cache:!total?'unknown':cached===total?'all':cached?'part':'none'};
 }
 
 /** The shape of a query, never the query, as in the app's Events.queryKind(). */
