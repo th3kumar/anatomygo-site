@@ -21,7 +21,7 @@ import LightPad from './light-pad';
 import {DEFAULT_LIGHT,isDefaultLight,type Light} from './lighting';
 import {setAppearance,useAppearance,type Appearance} from './theme';
 import {DropdownMenu,DropdownMenuContent,DropdownMenuRadioGroup,DropdownMenuRadioItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
-import {DEFAULT_VISIBLE,SYSTEMS,EXPLANATIONS,explanation,type Atlas,type Concept,type SceneState,type SystemId,type View} from './anatomy';
+import {DEFAULT_VISIBLE,PANEL_ORDER,SYSTEMS,EXPLANATIONS,explanation,type Atlas,type Concept,type SceneState,type SystemId,type View} from './anatomy';
 // Touch screens pinch and tap; mice scroll and click.
 const coarse=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],isolate:false,view:'three-quarter',rotate:false,reset:0};
@@ -59,7 +59,7 @@ export default function Home(){
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='/'&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();setPanel('search');setDetails(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
  const parts=useMemo(()=>new Map(atlas?.parts.map(p=>[p.id,p])),[atlas]);
  const counts=useMemo(()=>Object.fromEntries(SYSTEMS.map(s=>[s.id,atlas?.parts.filter(p=>p.system===s.id).length??0])),[atlas]);
- const activeSystems=SYSTEMS.filter(s=>counts[s.id]>0);
+ const activeSystems=PANEL_ORDER.map(id=>SYSTEMS.find(s=>s.id===id)!).filter(s=>counts[s.id]>0);
  const selectedParts=state.selected.map(id=>parts.get(id)).filter(p=>!!p),selected=selectedParts[0],system=SYSTEMS.find(s=>s.id===selected?.system);
  // Pins on an isolated single piece: published ones, then one community pin per remaining feature (marked as not yet reviewed).
  const shown=useStructurePins(state.isolate&&selectedParts.length===1?selected.id:null);
