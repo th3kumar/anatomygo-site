@@ -1,107 +1,64 @@
+<div align="center">
+
+<img src="public/app-icon.png" width="88" alt="AnatomyGo app icon">
+
 # AnatomyGo
 
-**Explore the body. Understand the connections. Keep your curiosity moving.**
+**Explore the human body in 3D, for free, in your browser or on Android.**
 
-AnatomyGo is building an interactive 3D biology learning ecosystem, starting with human anatomy. We want students, educators, and curious minds to explore complex structures at their own pace—through tools that feel natural to use and are easy to access.
+[![Website](https://img.shields.io/badge/web-anatomygo.in-458a85)](https://anatomygo.in) [![Google Play](https://img.shields.io/badge/Google_Play-AnatomyGo-263b48?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.anatomygo) [![Open Collective](https://img.shields.io/badge/Open_Collective-support_us-7fadf2?logo=opencollective&logoColor=white)](https://opencollective.com/anatomygo)
 
-**[Explore anatomygo.in](https://anatomygo.in)** · **[Share feedback](https://github.com/th3kumar/anatomygo-site/issues)**
+<img src="public/og-home.png" width="820" alt="The AnatomyGo explorer: a 3D human body with the Systems panel open">
 
-## Start with curiosity
+</div>
 
-A diagram can name a structure. Exploring it in 3D helps you see where it sits, what surrounds it, and how the pieces fit together.
+## What you can do
 
-Our longer-term vision connects interactive models, personal study tools, and shared learning across biology. Human anatomy is our starting point. Broader biology experiences are a direction we hope to grow into, not features we already offer.
+- **Explore 2,234 pieces in 15 systems.** Rotate, zoom and tap any structure to see what it is.
+- **Search, isolate and explode** the body to see where each part sits and what surrounds it.
+- **Open shared views** with study pins, and reveal answers quiz-style.
+- **Pin parts and features** in the [Playground](https://anatomygo.in/playground/), and vote on other people's pins.
 
-One principle guides that growth: **learning should stay simple, even as the tools become more capable.** New features should earn their place without crowding the view or interrupting exploration.
+No account is needed. It works on phones, tablets and computers.
 
-## Explore on the web today
+## Get AnatomyGo
 
-Visit **[anatomygo.in](https://anatomygo.in)** to start exploring in your browser, without an account or an app installation.
+- 🌐 **Web:** [anatomygo.in](https://anatomygo.in), in any modern browser, including iPhone and iPad.
+- 🤖 **Android:** [Google Play](https://play.google.com/store/apps/details?id=com.anatomygo). The same atlas as an app, fully offline, with no account.
 
-- Rotate, zoom, and select anatomy directly in 3D.
-- Explore **15 anatomical systems**, **2,234 individual meshes**, and **3,432 named anatomical concepts**.
-- Search for a structure, isolate it, or spread visible pieces apart for a clearer look.
-- Choose light or dark appearance and move the light to examine surface detail.
-- Open views shared from AnatomyGo, read shared study pins, and reveal answers in quiz mode. The web page can open the selected structure in the 3D explorer; shared pins are currently listed separately from that 3D view.
+<a href="https://play.google.com/store/apps/details?id=com.anatomygo"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="64" alt="Get it on Google Play"></a>
 
-The current model is BodyParts3D's adult male reference anatomy. Coverage varies by structure; it does not represent every anatomical feature or human variation. Individual meshes and anatomical concepts are different: one concept can group several pieces.
+<details>
+<summary>See the Android app in action</summary>
 
-## Android is coming soon
+<img src="docs/media/anatomygo-android-preview.gif" width="320" alt="AnatomyGo on Android: rotating the model and isolating a muscle">
 
-Our native Android app is in development and testing, with a public launch planned. It brings the same emphasis on direct, comfortable exploration to your phone, with offline anatomy after the initial model download, personal study pins, and tools for sharing what you are learning.
+</details>
 
-### A look at the app in progress
+## Support AnatomyGo
 
-![AnatomyGo Android development demo: rotating the anatomy model and isolating a muscle structure](docs/media/anatomygo-android-preview.gif)
+AnatomyGo is free and made by a small team. If it helps you learn or teach, you can support it on Open Collective, where every contribution and expense is public.
 
-*Development recording from September 21, 2026. The interface continues to evolve; this is a preview, not a public release announcement.*
+<a href="https://opencollective.com/anatomygo/donate"><img src="https://opencollective.com/anatomygo/donate/button.png?color=blue" width="260" alt="Donate to AnatomyGo on Open Collective"></a>
 
-While Android prepares for launch, the website is available on phones, tablets, and computers—including iPhones.
+## Feedback and contributing
 
-## Built on shared work
+- Use **Feedback** in the site's About panel, or [open an issue](https://github.com/th3kumar/anatomygo-site/issues).
+- If you spot an anatomy name or coverage error, please include a reference.
+- For larger changes, open an issue first. The project is maintained by [@th3kumar](https://github.com/th3kumar).
 
-AnatomyGo builds on [Human Atlas](https://github.com/ashemag/human-atlas), an MIT-licensed React and Three.js anatomy explorer, and the [BodyParts3D](https://dbarchive.biosciencedbc.jp/en/bodyparts3d/) anatomy dataset from the Database Center for Life Science.
-
-We credit those foundations openly. AnatomyGo's website work includes a mobile-app sharing flow and landing page, shared-pin answer reveal, movable lighting, light/dark appearance, and interaction fixes adapted from upstream work. The native Android app is developed separately.
-
-### Repository and source status
-
-This branch includes editable React/Three.js viewer source and the web-only **Playground**, consolidated from the local customised Human Atlas checkout. The existing static deployment remains at the repository root during migration; new builds go to `dist/`.
-
-Playground uses Supabase for signed-in contributions, votes, comments and admin-selected pin revisions. See the [rollout and operating guide](docs/playground-rollout.md) for setup, validation, data migration and remaining launch gates. The live website has not been replaced by this branch.
-
-- **Upstream application:** [MIT license notice](human-atlas-license.txt).
-- **Anatomy data:** CC BY 4.0, with sources and adaptations in [ATTRIBUTION.md](ATTRIBUTION.md).
-- **Android source:** maintained separately; Playground is web-only.
-
-## Help shape AnatomyGo
-
-The project is maintained by [@th3kumar](https://github.com/th3kumar). Feedback and proposals are welcome through [GitHub Issues](https://github.com/th3kumar/anatomygo-site/issues); the maintainer reviews changes and coordinates releases.
-
-You can help by:
-
-- Trying the viewer and describing anything that feels confusing or difficult.
-- Reporting bugs with your device/browser, steps to reproduce, and expected behaviour.
-- Identifying anatomical naming or coverage problems, with a reference where possible.
-- Suggesting improvements to accessibility, learning workflows, or documentation.
-- Submitting documentation corrections through a pull request.
-
-Please discuss larger changes in an issue first. Edit the application source and rebuild; do not edit generated bundles directly. Keep discussion respectful and focused on helping people learn.
-
-## Build and preview locally
-
-Use Node.js 22.13 or newer:
+## Run it locally
 
 ```sh
-npm ci
-npm --prefix playground ci
-npm run check
-npm run build
-python3 -m http.server 3018 --bind 127.0.0.1 --directory dist
+npm ci && npm --prefix playground ci
+npm run check && npm run build
+python3 -m http.server 3018 --bind 127.0.0.1 --directory dist   # open http://localhost:3018
 ```
 
-Open **http://localhost:3018**. Configure `playground/.env.local` from the example to connect Supabase. Serve only `dist/`; never expose the source repository or local data folder. Setup and launch status: [Playground rollout](docs/playground-rollout.md).
+You need Node.js 22.13 or newer. Maintainer notes (how the model loads, Playground, feedback, deployment) are in [docs/maintaining.md](docs/maintaining.md).
 
-Preserve `CNAME`, `.nojekyll`, `.well-known/assetlinks.json`, `/v/`, model files and attribution when deploying. Existing shared links depend on them.
+## Credits and license
 
-### How the model loads
-
-The files in `models/` are the canonical model. Pin anchors, mesh digests, the Playground and the importers all rely on their exact bytes. The build leaves them untouched and writes a streaming copy for the viewer to `public/models/stream/` (`scripts/build-stream.mjs`, run by `prepare-assets.mjs`). The copy holds the same parts, packed outside-in in the order of `models/load-order.json` and compressed with meshoptimizer's lossless codecs. The build decodes every part again and fails unless it matches the canonical digest. Chunk files are named by a hash of their content (`s-<n>-<hash>.bin.gz`), so a name always means the same bytes. The viewer therefore keeps them in the browser's Cache Storage and reuses them on later visits without asking the server. GitHub Pages' `max-age=600` would otherwise make every visit more than ten minutes later re-check all of them, one round trip each. A stored chunk that fails to decode is deleted and downloaded again, and chunks from older builds are pruned. If the stream can't be used, the viewer loads the canonical files as before. That happens without WebAssembly, or if `'wasm-unsafe-eval'` is ever dropped from the page's Content-Security-Policy.
-
-If the model changes on purpose:
-- Regenerate the load order with `node scripts/visibility-pass.mjs <devtools-port>`. It needs a Chrome running with `--remote-debugging-port`.
-- Update `scripts/canonical-models.json`, together with a new geometry fingerprint.
-
-The build refuses to run until both match.
-
-### Feedback
-
-After three minutes of use, a small card asks visitors, once per device, for a few words of feedback and an optional
-email (`app/feedback.tsx`). About offers the same form any time. Messages go to the private table
-`site_private.feedback` through `site_feedback_submit` (migration `202610260001_site_feedback.sql`). The public API can
-add to it but never read it, so read it in the Supabase dashboard (Table Editor, schema `site_private`). Analytics only
-record that feedback was sent, never its text.
-
-### Search engines
-
-`public/robots.txt` and `public/sitemap.xml` list the pages that search engines may index; add new public pages to the sitemap. The home page ships its header and a one-line description as plain HTML (`web/index.html`), so crawlers that don't run JavaScript still see what the page is. Keep that text in step with `app/page.tsx`. `/v/` and the 404 page are `noindex`. Link previews use `og-home.png` and `og-playground.png`, which are 1200×630 screenshots of the app.
+- **Viewer:** based on [Human Atlas](https://github.com/ashemag/human-atlas), under the MIT license ([LICENSE](LICENSE), [notice](human-atlas-license.txt)).
+- **Anatomy:** [BodyParts3D](https://dbarchive.biosciencedbc.jp/en/bodyparts3d/) © DBCLS, under CC BY 4.0. Sources and changes are listed in [ATTRIBUTION.md](ATTRIBUTION.md).
+- AnatomyGo is made for learning. It is not a tool for diagnosis or surgery.
