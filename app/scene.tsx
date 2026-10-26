@@ -7,7 +7,7 @@ import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.j
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {createExplosionLayout} from './explosion-layout';
 import {decodeModelResponse} from './model-download';
-import {loadStreamChunk,matchesAtlas,preloadStream,type PartData,type Tier} from './model-stream';
+import {loadStreamChunk,matchesAtlas,preloadStream,pruneStore,type PartData,type Tier} from './model-stream';
 import {PointerTap} from './pointer-tap';
 import {SYSTEMS,type Atlas,type SceneState} from './anatomy';
 import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './lighting';
@@ -16,7 +16,7 @@ import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './ligh
 // contact shadow instead of the floor.
 const STAGE={light:{clear:'#f2f3f3',alpha:1,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#1d1f23',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
 /** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
-export interface LoadingTap {result:'ignored'|'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'}
+export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
 interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
 export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect}:Props){
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
@@ -80,9 +80,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   };
   const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)]));
   // Parts arrive outside-in from the stream copy when this browser can use it (model-stream.ts), otherwise, or for
-  // anything the stream fails to deliver, from the canonical chunks. Taps work once the outer body is in (`interactive`);
+  // anything the stream fails to deliver, from the canonical chunks. Taps work from the first moment (a tap that a missing part might sit in front of is held, below); `outerIn` marks the outer body;
   // `ready` still means every part is in, as before.
-  const added=new Uint8Array(atlas.parts.length),partIndex=new Map(atlas.parts.map((p,i)=>[p.id,i]));let interactive=false,viewShown=false,shown=0;
+  const added=new Uint8Array(atlas.parts.length),partIndex=new Map(atlas.parts.map((p,i)=>[p.id,i]));let outerIn=false,viewShown=false,shown=0;
   const addParts=(list:PartData[])=>{
    const groups=new Map<string,T.BufferGeometry[]>();
    for(const {index:i,positions,normals,indices} of list){
@@ -98,14 +98,14 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    lastState=null;dirty=true;retryTap();
   };
   const report=(n:number)=>{n=Math.max(shown,Math.min(99,Math.floor(n)));if(n!==shown){shown=n;onProgress(n);}};
-  const reached=(outer:boolean,view:boolean)=>{if(outer&&!interactive){interactive=true;milestone.current?.('outer');}if(view&&!viewShown){viewShown=true;milestone.current?.('view');}};
+  const reached=(outer:boolean,view:boolean)=>{if(outer&&!outerIn){outerIn=true;milestone.current?.('outer');}if(view&&!viewShown){viewShown=true;milestone.current?.('view');}};
   const loadCanonical=async(ci:number)=>{
    const chunk=atlas.chunks[ci],compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';const response=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal});const buffer=await decodeModelResponse(response,chunk.bytes,compressed);if(disposed)return;
    addParts(atlas.parts.flatMap((p,index)=>p.chunk===ci?[{index,positions:new Float32Array(buffer,p.positions,p.vertexCount*3),normals:new Int16Array(buffer,p.normals,p.vertexCount*3),indices:new Uint32Array(buffer,p.indices,p.indexCount)}]:[]));
   };
   const loadStream=async()=>{
    const stream=await preloadStream();if(!stream||disposed||!matchesAtlas(stream,atlas))return;
-   const m=stream,total=m.chunks.reduce((a,c)=>a+c.gzipBytes,0),taken=new Uint8Array(m.chunks.length),left:Record<Tier,number>={outer:0,inner:0,hidden:0};let bytes=0;
+   const m=stream;void pruneStore(m);const total=m.chunks.reduce((a,c)=>a+c.gzipBytes,0),taken=new Uint8Array(m.chunks.length),left:Record<Tier,number>={outer:0,inner:0,hidden:0};let bytes=0;
    m.chunks.forEach(c=>left[c.tier]++);
    // Next: a chunk holding a linked or selected structure that hasn't arrived (a shared link, a search during loading), else the next one outside-in.
    let failed=false;
@@ -132,7 +132,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);if(e.buttons||amount<.5||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
   const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
   // A tap held because a part that might be in front of the hit is still on its way; tried again when parts arrive,
-  // and dropped if the camera has moved since.
+  // and dropped if the camera has moved since or it has waited longer than HOLD_MS (a late selection would surprise).
+  const HOLD_MS=3000;
   let pendingTap:{ray:T.Ray;x:number;y:number;touch:boolean;camera:T.Matrix4;at:number}|null=null;const offset=new T.Vector3();
   const resolveTap=(x:number,y:number,touch:boolean,at=performance.now()):'held'|'answered'|'missed'=>{
    let nearest=Infinity,found=-1;const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
@@ -142,9 +143,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;select.current(atlas.parts[found].id);return 'answered';}
    return 'missed';
   };
-  function retryTap(){if(!pendingTap)return;const t=pendingTap;pendingTap=null;const waitMs=performance.now()-t.at;if(!t.camera.equals(camera.matrixWorld)){loadingTap.current?.({result:'dropped',reason:'moved',waitMs});return;}raycaster.ray.copy(t.ray);if(resolveTap(t.x,t.y,t.touch,t.at)!=='held')loadingTap.current?.({result:'resolved',waitMs});}
+  function retryTap(){if(!pendingTap)return;const t=pendingTap;pendingTap=null;const waitMs=performance.now()-t.at;if(waitMs>HOLD_MS){loadingTap.current?.({result:'dropped',reason:'timeout',waitMs});return;}if(!t.camera.equals(camera.matrixWorld)){loadingTap.current?.({result:'dropped',reason:'moved',waitMs});return;}raycaster.ray.copy(t.ray);if(resolveTap(t.x,t.y,t.touch,t.at)!=='held')loadingTap.current?.({result:'resolved',waitMs});}
   const up=(e:PointerEvent)=>{
-   const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap)return;if(!interactive){loadingTap.current?.({result:'ignored'});return;}
+   const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap)return;
    if(pendingTap){loadingTap.current?.({result:'dropped',reason:'replaced',waitMs:performance.now()-pendingTap.at});pendingTap=null;}const loading=!ready;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
    const result=resolveTap(e.clientX-rect.left,e.clientY-rect.top,e.pointerType==='touch');if(loading)loadingTap.current?.({result});
   };
