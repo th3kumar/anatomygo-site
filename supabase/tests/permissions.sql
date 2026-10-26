@@ -84,5 +84,29 @@ set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000001';
 set local request.jwt.claims='{"is_anonymous":true}';
 select pg_temp.assert_denied($q$select public.pg_set_profile('Guest')$q$,'Sign in');
 reset role;
+-- Website feedback: anyone can send, nobody can read through the API, input is validated, repeats are stored once.
+set local role anon;
+select public.site_feedback_submit('The model is great, but search for lungs found nothing.','','prompt','{"device":"mobile","minutes":3}');
+select public.site_feedback_submit('The model is great, but search for lungs found nothing.','','prompt','{"device":"mobile","minutes":3}');
+select public.site_feedback_submit('  Please add the reproductive system for females.  ','reader@example.com','about');
+select pg_temp.assert_denied($q$select * from site_private.feedback$q$,'permission denied');
+select pg_temp.assert_denied($q$insert into site_private.feedback(message,source) values('direct','about')$q$,'permission denied');
+select pg_temp.assert_denied($q$select public.site_feedback_submit('x','','prompt')$q$,'check constraint');
+select pg_temp.assert_denied(format('select public.site_feedback_submit(%L,'''',''prompt'')',repeat('a',2001)),'check constraint');
+select pg_temp.assert_denied($q$select public.site_feedback_submit('Nice work','not-an-email','about')$q$,'check constraint');
+select pg_temp.assert_denied($q$select public.site_feedback_submit('Nice work','','popup')$q$,'check constraint');
+select pg_temp.assert_denied($q$select public.site_feedback_submit('Nice work','','about','[1,2]')$q$,'check constraint');
+reset role;
+set local role authenticated;
+select pg_temp.assert_denied($q$select * from site_private.feedback$q$,'permission denied');
+reset role;
+select pg_temp.assert_true((select count(*) from site_private.feedback)=2,'feedback stored once per message');
+select pg_temp.assert_true((select email from site_private.feedback where source='about')='reader@example.com','email kept');
+select pg_temp.assert_true((select message from site_private.feedback where source='about')='Please add the reproductive system for females.','message trimmed');
+select pg_temp.assert_true((select email is null from site_private.feedback where source='prompt'),'blank email stored as null');
+insert into site_private.feedback(message,source) select 'flood '||g,'prompt' from generate_series(1,30) g;
+set local role anon;
+select pg_temp.assert_denied($q$select public.site_feedback_submit('One more','','prompt')$q$,'Too many messages');
+reset role;
 rollback;
-\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication, mapping and private import records'
+\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication, mapping, private import records and website feedback'
