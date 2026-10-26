@@ -52,7 +52,7 @@ export function FeedbackPrompt({context,onClose}:{context:()=>FeedbackContext;on
  return createPortal(<section className="feedback-card glass" role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}>
   <button className="feedback-close" onClick={close} aria-label="Close feedback"><X size={16}/></button>
   {!sent&&<><div className="eyebrow">FEEDBACK</div><h2 id={`${id}-title`} className="feedback-title">How is AnatomyGo working for you?</h2>
-  <p className="feedback-copy">We’re building this for learners like you. A few words on what helped, what got in the way, or what you’d like to see would mean a lot.</p></>}
+  <p className="feedback-copy">We’re a small team building this for learners. Your thoughts help us improve.</p></>}
   {sent&&<h2 id={`${id}-title`} className="feedback-sr">Feedback sent</h2>}
   <FeedbackForm source="prompt" context={context} onSent={()=>{setSent(true);try{localStorage.setItem('anatomygo.feedback',JSON.stringify({state:'sent',at:new Date().toISOString().slice(0,10)}));}catch{}}} secondary={sent?{label:'Close',onClick:close}:{label:'Not now',onClick:close}}/>
  </section>,document.body);
