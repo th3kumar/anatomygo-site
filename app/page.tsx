@@ -100,6 +100,8 @@ export default function Home(){
  const feedbackContext=():FeedbackContext=>({device:innerWidth<768?'mobile':'desktop',minutes:Math.round(visibleMs()/60000),structures:visit.current.structures.size});
  const markFeedback=(state:'shown'|'dismissed'|'sent')=>{try{localStorage.setItem(FEEDBACK,JSON.stringify({state,at:new Date().toISOString().slice(0,10)}));}catch{}};
  useEffect(()=>{const input=()=>{lastInput.current=performance.now();};for(const e of ['pointerdown','wheel','keydown'])addEventListener(e,input,{capture:true,passive:true});return()=>{for(const e of ['pointerdown','wheel','keydown'])removeEventListener(e,input,{capture:true});};},[]);
+ // Local dev only (`npm run dev`, then ?feedback_preview): show the card at once to review it. Not in production builds.
+ useEffect(()=>{if(import.meta.env.DEV&&atlas&&new URLSearchParams(location.search).has('feedback_preview'))setFeedbackPrompt(true);},[atlas]);
  useEffect(()=>{if(!atlas)return;let asked=true;try{asked=!!localStorage.getItem(FEEDBACK);}catch{}if(asked)return;
   const t=setInterval(()=>{const v=visit.current,acted=lastInput.current>0||v.structures.size>0||v.systems.size>0||v.searches>0;
    if(!usable.current||!acted||!calm.current||visibleMs()<180000||performance.now()-lastInput.current<4000)return;

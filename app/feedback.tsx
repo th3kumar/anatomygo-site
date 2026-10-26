@@ -15,6 +15,8 @@ const EMAIL=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const FAILED="That didn't send. Please check your connection and try again.";
 
 async function send(message:string,email:string,source:FeedbackSource,context:FeedbackContext){
+ // Local dev preview (?feedback_preview): pretend to send, so the thank-you state can be reviewed without a database.
+ if(import.meta.env.DEV&&new URLSearchParams(location.search).has('feedback_preview')){await new Promise(r=>setTimeout(r,700));return;}
  const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!key)throw Error('Feedback is not set up on this copy of the site.');
  let r:Response;
