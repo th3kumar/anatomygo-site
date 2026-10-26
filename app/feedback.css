@@ -1,0 +1,41 @@
+/* Feedback: the pop-up card and the About form, in the explorer's glass, navy and teal. */
+/* Desktop: left of the camera-view column, as the structure sheet sits (right:95px). */
+.feedback-card{position:fixed;z-index:70;right:95px;bottom:24px;width:min(360px,calc(100vw - 24px));max-height:calc(100dvh - 48px);overflow-y:auto;border-radius:14px;padding:20px 20px 16px;animation:feedback-in .35s cubic-bezier(.2,.8,.2,1)}
+.feedback-title{font-size:19px;font-weight:400;letter-spacing:-.4px;line-height:1.25;color:#26313c;margin:10px 28px 6px 0}
+.feedback-copy{font-size:13px;line-height:1.6;color:#667481;margin:0 0 14px}
+.feedback-close{position:absolute;top:10px;right:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:9px;color:#74818e}
+.feedback-form{display:flex;flex-direction:column;gap:8px}
+.feedback-form textarea{min-height:104px;font-size:14px;line-height:1.55;resize:vertical;background:#fff;border-color:#18253622;border-radius:10px;padding:10px 12px}
+.feedback-form input{height:42px;font-size:14px;background:#fff;border-color:#18253622;border-radius:10px;padding:0 12px}
+.feedback-form textarea:focus-visible,.feedback-form input:focus-visible{border-color:#458a85;box-shadow:0 0 0 3px #458a8526}
+.feedback-form label{font-size:12px;color:#516070;margin-top:4px}
+.feedback-form label span{color:#87929d}
+.feedback-hint{font-size:11px;color:#87929d;margin:-2px 0 0}
+.feedback-hint.is-error,.feedback-error{color:#b3261e}
+.feedback-error{font-size:12px;margin:0}
+.feedback-actions{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px}
+.feedback-send{min-height:44px;padding:0 18px;border-radius:9px;background:#263b48!important;color:#fff!important;font-size:13px;font-weight:500;border:1px solid #263b48}
+.feedback-send:disabled{opacity:.4}
+.feedback-later{min-height:44px;padding:0 14px;border-radius:9px;font-size:13px;color:#65717e}
+.feedback-done{padding:6px 0 2px}
+.feedback-done strong{display:block;font-size:17px;font-weight:400;color:#26313c}
+.feedback-done p{font-size:13px;line-height:1.6;color:#667481;margin:6px 0 10px}
+.feedback-done .feedback-later{padding:0;min-height:36px}
+.feedback-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* In About: a quiet row that opens into the same form. */
+.feedback-about{border-top:1px solid #18253612;padding-top:14px;margin-top:20px}
+.feedback-about h3{font-size:13px;font-weight:400;color:#364653;margin:0}
+.feedback-about>p{font-size:12px;color:#7c8793;margin:2px 0 10px}
+.feedback-open{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;border:1px solid #263b4840;border-radius:9px;font-size:13px;color:#263b48}
+@keyframes feedback-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.feedback-card{animation:none}}
+@media(max-width:767px){.feedback-card{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom) + var(--keyboard,0px));width:auto;max-height:calc(100dvh - 24px - var(--keyboard,0px))}}
+.dark .feedback-title,.dark .feedback-done strong,.dark .feedback-about h3{color:#e6e8eb}
+.dark .feedback-copy,.dark .feedback-done p,.dark .feedback-form label{color:#a4a9b0}
+.dark .feedback-form textarea,.dark .feedback-form input{background:#ffffff0a;border-color:#ffffff1f;color:#e6e8eb}
+.dark .feedback-form textarea:focus-visible,.dark .feedback-form input:focus-visible{border-color:#6fb08f;box-shadow:0 0 0 3px #6fb08f2e}
+.dark .feedback-send{background:#e9ecef!important;color:#131518!important;border-color:#e9ecef}
+.dark .feedback-later,.dark .feedback-close,.dark .feedback-hint,.dark .feedback-about>p{color:#8c9197}
+.dark .feedback-hint.is-error,.dark .feedback-error{color:#f2a49d}
+.dark .feedback-about{border-top-color:#ffffff10}
+.dark .feedback-open{border-color:#ffffff1f;color:#e6e8eb}

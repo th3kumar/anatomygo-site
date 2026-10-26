@@ -94,6 +94,14 @@ If the model changes on purpose:
 
 The build refuses to run until both match.
 
+### Feedback
+
+After three minutes of use, a small card asks visitors, once per device, for a few words of feedback and an optional
+email (`app/feedback.tsx`). About offers the same form any time. Messages go to the private table
+`site_private.feedback` through `site_feedback_submit` (migration `202610260001_site_feedback.sql`). The public API can
+add to it but never read it, so read it in the Supabase dashboard (Table Editor, schema `site_private`). Analytics only
+record that feedback was sent, never its text.
+
 ### Search engines
 
 `public/robots.txt` and `public/sitemap.xml` list the pages that search engines may index; add new public pages to the sitemap. The home page ships its header and a one-line description as plain HTML (`web/index.html`), so crawlers that don't run JavaScript still see what the page is. Keep that text in step with `app/page.tsx`. `/v/` and the 404 page are `noindex`. Link previews use `og-home.png` and `og-playground.png`, which are 1200×630 screenshots of the app.
