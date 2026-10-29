@@ -33,7 +33,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
   camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
-  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;
+  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;let turn:{from:T.Vector3;to:T.Vector3;length:number;t:number}|null=null;controls.addEventListener('start',()=>{turn=null;});
   const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment(),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();
   scene.add(new T.HemisphereLight(0xffffff,0x6d737a,RIG.hemisphere));
   const key=new T.DirectionalLight(0xfff5e8,RIG.key);key.position.set(-2,4,3);scene.add(key);
@@ -186,8 +186,14 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    }
    controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&!s.isolate,floorOn=onStage&&!staged,contactOn=onStage&&!!staged;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=onStage;contact.visible=contactOn;markers.visible=amount>.75;controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
    if(lamp.current!==placedLight){placedLight=lamp.current;dirty=true;}
-   if(lastPins!==published.current||lastPin!==selectedPinRef.current){lastPins=published.current;lastPin=selectedPinRef.current;dirty=true;}
    const pinHost=s.isolate&&s.selected.length===1?pickers[atlas.parts.findIndex(p=>p.id===s.selected[0])]:undefined;
+   if(lastPins!==published.current||lastPin!==selectedPinRef.current){
+    // A newly selected pin on the far side (and its line or area) turns to face the camera, as in the Playground.
+    if(lastPin!==selectedPinRef.current&&selectedPinRef.current&&pinHost){publishedLayer.set(published.current,pinHost.geometry??null);publishedLayer.group.position.copy(pinHost.position);const f=publishedLayer.facing(selectedPinRef.current);
+     if(f&&f.normal.dot(camera.position.clone().sub(f.point).normalize())<.3){const offset=camera.position.clone().sub(controls.target),to=f.normal.clone();to.y=T.MathUtils.clamp(to.y,-.6,.6);turn={from:offset.clone().normalize(),to:to.normalize(),length:offset.length(),t:0};}}
+    lastPins=published.current;lastPin=selectedPinRef.current;dirty=true;}
+   if(turn){turn.t=Math.min(1,turn.t+dt/.6);const e=turn.t<.5?2*turn.t*turn.t:1-Math.pow(-2*turn.t+2,2)/2,q=new T.Quaternion().slerp(new T.Quaternion().setFromUnitVectors(turn.from,turn.to),e);
+    camera.position.copy(controls.target).addScaledVector(turn.from.clone().applyQuaternion(q),turn.length);controls.update();dirty=true;if(turn.t>=1)turn=null;}
    publishedLayer.group.visible=!!pinHost&&published.current.length>0;publishedLayer.set(published.current,pinHost?.geometry??null);
    if(dirty&&pinHost)publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current);
    if(dirty){placeLights();const drawStart=performance.now();renderer.render(scene,camera);
