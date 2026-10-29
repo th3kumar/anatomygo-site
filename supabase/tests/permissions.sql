@@ -108,5 +108,31 @@ insert into site_private.feedback(message,source) select 'flood '||g,'prompt' fr
 set local role anon;
 select pg_temp.assert_denied($q$select public.site_feedback_submit('One more','','prompt')$q$,'Too many messages');
 reset role;
+-- Feature shapes (202610290001): admins attach a line or area to a pin; it must sit on valid triangles of the current geometry.
+insert into public.pg_landmarks(id,mesh_id,label) values('shape_landmark','test_mesh','Shape landmark');
+insert into public.pg_proposals(id,landmark_id,mesh_id,author_id,label,latin_name,description,geometry,triangle,u,v,request_id,request_body)
+ values('44444444-4444-4444-4444-444444444444','shape_landmark','test_mesh',null,'Shaped pin','','Biology',repeat('0',64),0,.2,.2,gen_random_uuid(),'[]');
+select '44444444-4444-4444-4444-444444444444' as shaped \gset
+update public.pg_landmarks set published_proposal=:'shaped' where id='shape_landmark';
+update public.pg_proposals set shape='{"v":1,"role":"feature","shapes":[{"type":"line","points":[{"triangle":0,"u":0.1,"v":0.1},{"triangle":0,"u":0.5,"v":0.2}],"width":2},{"type":"oval","at":{"triangle":0,"u":0.2,"v":0.2},"rx":5,"ry":3,"angle":30}]}' where id=:'shaped';
+select pg_temp.assert_true((select x->'shape'->>'role' from jsonb_array_elements(public.pg_published_pack('test_mesh')->'pins') x where x->>'id'='shape_landmark')='feature','shape exported in the app pack');
+select pg_temp.assert_true((select jsonb_array_length(x->'shape'->'shapes') from jsonb_array_elements(public.pg_published_pack('test_mesh')->'pins') x where x->>'id'='shape_landmark')=2,'shape parts exported');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"feature","shapes":[{"type":"oval","at":{"triangle":1,"u":0.2,"v":0.2},"rx":5,"ry":3,"angle":0}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"feature","shapes":[{"type":"oval","at":{"triangle":2,"u":0.2,"v":0.2},"rx":5,"ry":3,"angle":0}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"feature","shapes":[{"type":"oval","at":{"triangle":0,"u":0.7,"v":0.7},"rx":5,"ry":3,"angle":0}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"muscle","shapes":[{"type":"oval","at":{"triangle":0,"u":0.2,"v":0.2},"rx":5,"ry":3,"angle":0}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"origin","shapes":[{"type":"oval","at":{"triangle":0,"u":0.2,"v":0.2},"rx":90,"ry":3,"angle":0}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"origin","shapes":[{"type":"line","points":[{"triangle":0,"u":0.2,"v":0.2}],"width":2}]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"origin","shapes":[]}' where id=%L$q$,:'shaped'),'does not match');
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"origin","shapes":[{"type":"line","points":[{"triangle":0,"u":"0.2","v":0.2},{"triangle":0,"u":0.3,"v":0.2}],"width":2}]}' where id=%L$q$,:'shaped'),'does not match');
+update public.pg_proposals set shape=null where id=:'shaped';
+select pg_temp.assert_true((select not (x ? 'shape') from jsonb_array_elements(public.pg_published_pack('test_mesh')->'pins') x where x->>'id'='shape_landmark'),'plain pins have no shape key');
+set local role anon;
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape='{"v":1,"role":"feature","shapes":[]}' where id=%L$q$,:'shaped'),'permission denied');
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000003';
+select pg_temp.assert_denied(format($q$update public.pg_proposals set shape=null where id=%L$q$,:'shaped'),'permission denied');
+reset role;
 rollback;
-\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication, mapping, private import records and website feedback'
+\echo 'PASS: permissions, validation, idempotency, ownership, moderation, publication, mapping, private import records, website feedback and feature shapes'

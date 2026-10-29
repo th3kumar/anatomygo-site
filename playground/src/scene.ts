@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { MAX_PRIMITIVES, SHAPE_COLOURS, SHAPE_FRAGMENT, SHAPE_VERTEX, emptyPacked, hexToRgb, packFeatureShape, type FeatureShape } from '../../lib/feature-shape'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { anchorPoint, geometryFromBuffers, windingNormal, type MeshBuffers, type Vec3 } from './geometry'
@@ -37,7 +38,7 @@ const PALETTES = {
   light: { pin: '#536875', reviewed: '#3f8a63', selected: '#1f8a7c', muted: '#a4aeb8', back: '#b8a39e', context: '#7d8892' },
 }
 
-export interface ScenePin { id: string; label: string; triangle: number; u: number; v: number; muted?: boolean; reviewed?: boolean }
+export interface ScenePin { id: string; label: string; triangle: number; u: number; v: number; muted?: boolean; reviewed?: boolean; shape?: FeatureShape | null }
 export interface CameraState { position: Vec3; target: Vec3; up: Vec3 }
 export type Mode = 'orbit' | 'place' | 'reposition'
 
@@ -69,6 +70,14 @@ export class SceneController {
   private context = new Map<string, THREE.Mesh>()
   private pins: (ScenePin & { local: THREE.Vector3; normal: THREE.Vector3 })[] = []
   private pinInput: ScenePin[] = []
+  // The selected pin's line or area, tinted by a see-through copy of the host surface (lib/feature-shape.ts).
+  private shapePacked = emptyPacked()
+  private shapeMaterial = new THREE.ShaderMaterial({ vertexShader: SHAPE_VERTEX, fragmentShader: SHAPE_FRAGMENT, transparent: true, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    uniforms: { uCount: { value: 0 }, uP0: { value: Array.from({ length: MAX_PRIMITIVES }, () => new THREE.Vector4()) },
+      uP1: { value: Array.from({ length: MAX_PRIMITIVES }, () => new THREE.Vector4()) }, uP2: { value: Array.from({ length: MAX_PRIMITIVES }, () => new THREE.Vector4()) },
+      uColour: { value: new THREE.Vector3() }, uStrength: { value: 0.55 } } })
+  private shapeOverlay: THREE.Mesh | null = null
   private palette = PALETTES.dark
   private environment: THREE.Texture
   private pinGroup = new THREE.Group()
@@ -140,6 +149,7 @@ export class SceneController {
     window.clearTimeout(this.visibilityTimer)
     this.clearHost()
     this.setContext([])
+    this.shapeMaterial.dispose()
     this.environment.dispose()
     this.controls.dispose()
     this.renderer.dispose()
@@ -159,6 +169,10 @@ export class SceneController {
       envMapIntensity: 0.04, side: THREE.BackSide }))
     front.userData.meshId = meshId
     this.hostGroup.add(front, back)
+    this.shapeOverlay = new THREE.Mesh(geometry, this.shapeMaterial)
+    this.shapeOverlay.visible = false
+    this.shapeOverlay.renderOrder = 1
+    this.hostGroup.add(this.shapeOverlay)
     const sphere = geometry.boundingSphere!
     this.root.position.copy(sphere.center).negate()
     this.host = { meshId, object: front, buffers, front, back, radius: sphere.radius }
@@ -171,6 +185,7 @@ export class SceneController {
     ;(this.host.front.material as THREE.Material).dispose()
     ;(this.host.back.material as THREE.Material).dispose()
     this.hostGroup.clear()
+    this.shapeOverlay = null
     this.host = null
   }
 
@@ -228,8 +243,25 @@ export class SceneController {
       dot.position.copy(local)
       for (const o of [needle, head, dot]) { o.userData.pinId = p.id; o.renderOrder = selected ? 6 : 5; this.pinGroup.add(o) }
     }
+    this.drawShape()
     this.scheduleVisibility(0)
     this.invalidate()
+  }
+
+  /** Tints the selected pin's line or area on the host, if it has one. */
+  private drawShape() {
+    if (!this.shapeOverlay || !this.host) return
+    const shape = this.pinInput.find((p) => p.id === this.selected)?.shape ?? null
+    const u = this.shapeMaterial.uniforms
+    packFeatureShape(this.host.buffers.positions, this.host.buffers.indices, shape, this.shapePacked)
+    for (let i = 0; i < this.shapePacked.count; i++) {
+      ;(u.uP0.value[i] as THREE.Vector4).fromArray(this.shapePacked.p0, i * 4)
+      ;(u.uP1.value[i] as THREE.Vector4).fromArray(this.shapePacked.p1, i * 4)
+      ;(u.uP2.value[i] as THREE.Vector4).fromArray(this.shapePacked.p2, i * 4)
+    }
+    u.uCount.value = this.shapePacked.count
+    if (shape) (u.uColour.value as THREE.Vector3).fromArray(hexToRgb(SHAPE_COLOURS[this.palette === PALETTES.dark ? 'dark' : 'light'][shape.role]))
+    this.shapeOverlay.visible = this.shapePacked.count > 0
   }
 
   /** Needle as in the app (1 cm), shortened on very small structures so it stays readable. */

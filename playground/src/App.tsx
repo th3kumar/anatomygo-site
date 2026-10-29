@@ -6,6 +6,7 @@ import { AUTH_CHANNEL, checklist, cloud, placements, restoreDraft, rpc, saveDraf
 import { Viewer, type ViewerHandle } from './Viewer'
 import type { PickFailure, PickResult } from './picking'
 import { SceneController, type ScenePin, type ViewName } from './scene'
+import { parseFeatureShape } from '../../lib/feature-shape'
 import { useAppearance } from './theme'
 import { Controls, views, type Toggles } from './Controls'
 import { Dialog } from './Dialog'
@@ -436,10 +437,10 @@ export function App() {
     const result: ScenePin[] = []
     for (const l of allItems) {
       const p = (l.id === selected ? chosen : null) ?? allProposals.find((x) => x.id === l.published_proposal) ?? allProposals.find((x) => x.landmark_id === l.id)
-      if (p && (!draft || draft.landmarkId !== l.id)) result.push({ id: p.id, label: p.label, triangle: p.triangle, u: p.u, v: p.v, reviewed: p.id === l.published_proposal })
+      if (p && (!draft || draft.landmarkId !== l.id)) result.push({ id: p.id, label: p.label, triangle: p.triangle, u: p.u, v: p.v, reviewed: p.id === l.published_proposal, shape: parseFeatureShape(p.shape) })
     }
     const visible = result.slice(0, 100)
-    if (chosen && !draft && !visible.some((p) => p.id === chosen.id)) visible.push({ id: chosen.id, label: chosen.label, triangle: chosen.triangle, u: chosen.u, v: chosen.v })
+    if (chosen && !draft && !visible.some((p) => p.id === chosen.id)) visible.push({ id: chosen.id, label: chosen.label, triangle: chosen.triangle, u: chosen.u, v: chosen.v, shape: parseFeatureShape(chosen.shape) })
     if (draft?.anchor) visible.push({ id: 'draft', label: draft.label || 'Your pin', ...draft.anchor })
     return visible
   }, [allItems, allProposals, chosen, draft, selected])
