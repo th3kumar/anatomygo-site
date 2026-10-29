@@ -5,7 +5,7 @@ if(key?.startsWith('sb_secret_'))throw new Error('A private Supabase key must ne
 if(key?.startsWith('eyJ')){try{if(JSON.parse(atob(key.split('.')[1])).role!=='anon')throw new Error('Only a publishable or anon key is allowed.')}catch{throw new Error('Invalid browser key configuration.')}}
 export const cloud=url&&key&&!url.includes('YOUR_PROJECT')?createClient(url,key,{auth:{flowType:'pkce',detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}}):null
 export interface Landmark { id:string;mesh_id:string;label:string;latin_name:string;description:string;published_proposal:string|null }
-export interface Proposal extends Anchor { id:string;landmark_id:string;mesh_id:string;label:string;latin_name:string;description:string;geometry:string;author_id:string|null;supersedes:string|null;status:string;created_at:string;pg_profiles?:{display_name:string}|null }
+export interface Proposal extends Anchor { id:string;landmark_id:string;mesh_id:string;label:string;latin_name:string;description:string;geometry:string;author_id:string|null;supersedes:string|null;status:string;created_at:string;shape?:unknown;pg_profiles?:{display_name:string}|null }
 export interface Comment { id:string;body:string;author_id:string;created_at:string;pg_profiles:{display_name:string}|null }
 export interface Draft { meshId:string;landmarkId:string|null;supersedes:string|null;label:string;latin:string;description:string;anchor:Anchor|null;requestId:string;geometry:string;practice?:boolean }
 export interface Vote { upvotes:number;downvotes:number;mine:number }
@@ -28,7 +28,7 @@ export async function structureCounts():Promise<Record<string,{landmarks:number;
 export async function placements(mesh:string,landmark?:string):Promise<Proposal[]> {
  if(!cloud){const r=await fetch('/playground-seed.json');if(!r.ok)return[];const seed=await r.json();return seed.proposals.filter((p:Proposal)=>p.mesh_id===mesh&&(!landmark||p.landmark_id===landmark))}
  const all:Proposal[]=[]
- for(let offset=0;;offset+=500){let q=cloud.from('pg_proposals').select('id,landmark_id,mesh_id,label,latin_name,description,geometry,triangle,u,v,author_id,supersedes,status,created_at,pg_profiles(display_name)').eq('mesh_id',mesh).eq('status','community');if(landmark)q=q.eq('landmark_id',landmark)
+ for(let offset=0;;offset+=500){let q=cloud.from('pg_proposals').select('id,landmark_id,mesh_id,label,latin_name,description,geometry,triangle,u,v,shape,author_id,supersedes,status,created_at,pg_profiles(display_name)').eq('mesh_id',mesh).eq('status','community');if(landmark)q=q.eq('landmark_id',landmark)
  const {data,error}=await q.order('created_at',{ascending:false}).order('id').range(offset,offset+499);if(error)throw new Error(error.message);all.push(...data as unknown as Proposal[]);if(data.length<500)return all
  // Fetch each selected structure only. UI renders one alternative per landmark.
  }
