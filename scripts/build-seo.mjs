@@ -2,8 +2,8 @@
 // read: llms.txt (a short guide to the site), llms-full.txt (every pinned feature in plain text), a dated sitemap, and
 // the current pin counts in dist/index.html (meta description, structured data, and a short text for crawlers).
 // The pins are only drawn by JavaScript in the 3D viewer, so without this crawlers never see them.
-// Locally, a failed read leaves the build as it is. On GitHub Actions it fails the build, so a deploy never ships
-// without the pin text.
+// Locally and in the PR check, a failed read leaves the build as it is. The deploy sets SEO_STRICT=1, so a failed
+// read fails it and a deploy never ships without the pin text.
 import {readFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 
@@ -145,6 +145,6 @@ try{
  await writeFile(`${dist}index.html`,homepage(await readFile(`${dist}index.html`,'utf8'),summary));
  const {stats}=summary;console.log(`SEO files: ${n(stats.pins)} pins, ${n(stats.features)} features, ${n(stats.structures)} structures, ${stats.muscles.length} muscles, ${summary.list.length} entries in llms.txt`);
 }catch(e){
- if(process.env.GITHUB_ACTIONS)throw e;
+ if(process.env.SEO_STRICT)throw e;
  console.warn(`SEO files skipped: ${e.message}. dist/ keeps the static versions from public/ and web/index.html.`);
 }
