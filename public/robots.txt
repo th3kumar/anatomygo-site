@@ -1,4 +1,45 @@
+# AnatomyGo welcomes search engines and AI assistants. A plain-text guide to the site is at /llms.txt,
+# and every pinned landmark, origin and insertion is listed at /llms-full.txt.
+# A crawler named in its own group below ignores the * group, so each group repeats "Allow: /".
+
 User-agent: *
+Allow: /
+
+# OpenAI: ChatGPT search, links that users open in ChatGPT, and model training
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: GPTBot
+Allow: /
+
+# Microsoft Bing (also feeds Copilot and ChatGPT search)
+User-agent: Bingbot
+Allow: /
+
+# Google Search and Gemini
+User-agent: Googlebot
+User-agent: Google-Extended
+Allow: /
+
+# Anthropic Claude
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+Allow: /
+
+# Apple (Siri, Spotlight, Apple Intelligence)
+User-agent: Applebot
+User-agent: Applebot-Extended
+Allow: /
+
+# DuckDuckGo assistant answers, Meta AI, Common Crawl (used by many AI models)
+User-agent: DuckAssistBot
+User-agent: Meta-ExternalAgent
+User-agent: CCBot
 Allow: /
 
 Sitemap: https://anatomygo.in/sitemap.xml

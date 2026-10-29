@@ -42,3 +42,15 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      # Tells Bing (which ChatGPT search and Copilot draw on) and the other IndexNow engines that these pages changed,
+      # so they are crawled again within hours instead of weeks. The key is public by design: IndexNow checks that
+      # https://anatomygo.in/<key>.txt holds it, to prove the site sent the ping. A failed ping never fails the deploy.
+      - name: Ping search engines (IndexNow)
+        continue-on-error: true
+        env:
+          INDEXNOW_KEY: 8d98fedd50be6f5f7ae39f22ee129ea5
+        run: |
+          curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -d "{\"host\":\"anatomygo.in\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"https://anatomygo.in/$INDEXNOW_KEY.txt\",\"urlList\":[\"https://anatomygo.in/\",\"https://anatomygo.in/playground/\",\"https://anatomygo.in/llms.txt\",\"https://anatomygo.in/llms-full.txt\"]}" \
+            -w 'IndexNow: HTTP %{http_code}\n'

@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "node scripts/prepare-assets.mjs && vite --host 127.0.0.1 --port 3016",
-    "build": "node scripts/prepare-assets.mjs && vite build && npm --prefix playground run build",
+    "build": "node scripts/prepare-assets.mjs && vite build && npm --prefix playground run build && node scripts/build-seo.mjs",
     "build:vercel": "npm run build",
     "check": "tsc --noEmit && npm --prefix playground run typecheck",
     "build:viewer": "node scripts/prepare-assets.mjs && vite build"
