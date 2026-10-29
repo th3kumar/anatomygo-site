@@ -56,6 +56,8 @@ export class PublishedPinLayer {
   if(shape)(u.uColour.value as T.Vector3).fromArray(hexToRgb(SHAPE_COLOURS[dark?'dark':'light'][shape.role]));
   this.overlay.visible=!!shape&&u.uCount.value>0;
  }
+ /** World position and surface normal of a pin (for turning the camera towards it), or null. */
+ facing(id:string){const p=this.pins.find(x=>x.id===id);return p?{point:p.anchor.clone().add(this.group.position),normal:p.normal.clone()}:null;}
  hit(ray:T.Raycaster){return this.group.visible?ray.intersectObjects(this.pins.map(p=>p.head),false)[0]:undefined;}
  clear(){for(const p of this.pins)p.stem.geometry.dispose();this.pins=[];this.shapes.clear();this.overlay=null;this.shown=null;this.group.clear();}
  dispose(){this.clear();this.sphere.dispose();this.regular.dispose();this.selected.dispose();this.line.dispose();this.community.dispose();this.communityLine.dispose();this.shapeMaterial.dispose();}
