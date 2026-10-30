@@ -12,7 +12,7 @@ export const isDark=(a:Appearance)=>a==='dark'||(a==='system'&&media.matches);
 function apply(){
  const dark=isDark(appearance());
  root.classList.toggle('dark',dark);root.style.colorScheme=dark?'dark':'only light';
- document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#1d1f23':'#f3f4f4');
+ document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#151618':'#f1f0ec');
  listeners.forEach(l=>l());
 }
 media.addEventListener('change',apply);

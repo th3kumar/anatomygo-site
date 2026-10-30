@@ -1,0 +1,85 @@
+/* AnatomyGo design tokens: the one place colours, glass, type, radii and motion are defined (docs/revamp/plan.md §3).
+ * Values come from the Motion handoff films. Light is the base, dark overrides it under html.dark (public/theme.js sets
+ * the class before the first paint). Components use these variables only; no raw colours elsewhere. */
+/* Inter, served from our own origin (the CSP allows no external fonts). Latin only; other scripts fall back to the
+ * system font. Files in public/fonts, licence public/fonts/Inter-OFL.txt (SIL OFL 1.1). */
+@font-face{font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/inter-latin-wght-normal.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Inter Variable';font-style:italic;font-display:swap;font-weight:100 900;src:url(/fonts/inter-latin-wght-italic.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+:root{
+ --font:'Inter Variable',Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+ /* Text. text-3 is darker than the films' #6f747a so 13 px meta text passes WCAG AA on the light ground. */
+ --text:#1f2124;--text-2:#4a4e54;--text-3:#62676d;
+ /* Mint, the only accent. On light, accent text uses a deeper green to stay readable. */
+ --accent:#3fa078;--accent-text:#236b4b;--accent-ink:#0c241a;--accent-strong:#7fd8b0;
+ --accent-fill:rgba(63,160,120,.12);--accent-line:rgba(63,160,120,.38);--accent-on:#1d6a4a;
+ --edge-a:#3fa078;--edge-b:#5aa9e6;
+ --ground:radial-gradient(45% 40% at 40% 42%,rgba(63,160,120,.07),transparent 70%),radial-gradient(ellipse 70% 60% at 45% 45%,#fbfaf7 0%,#f1f0ec 55%,#e6e5e0 100%);
+ --ground-phone:radial-gradient(60% 40% at 50% 38%,rgba(63,160,120,.07),transparent 70%),radial-gradient(ellipse 90% 60% at 50% 42%,#fbfaf7 0%,#f1f0ec 55%,#e6e5e0 100%);
+ --ground-flat:#f1f0ec;
+ --hair:rgba(20,22,26,.08);--hair-2:rgba(20,22,26,.06);--hair-3:rgba(20,22,26,.14);
+ --fill:rgba(20,22,26,.04);--fill-2:rgba(20,22,26,.06);--fill-hover:rgba(20,22,26,.05);--fill-on:rgba(255,255,255,.9);
+ --scrim:rgba(20,22,26,.24);
+ /* Glass. The films use no backdrop blur; --blur stays 0 on phones (WebGL underneath). */
+ --panel:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.5) 45%),rgba(255,255,255,.4);
+ --panel-solid:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.82) 45%),rgba(250,250,248,.92);
+ --panel-line:rgba(20,22,26,.08);
+ --panel-shadow:0 24px 60px rgba(40,40,50,.12),inset 0 1px 0 rgba(255,255,255,.9);
+ --sheet:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.55) 40%),rgba(250,250,248,.8);
+ --sheet-shadow:0 -16px 40px rgba(40,40,50,.1),inset 0 1px 0 #fff;
+ --chip:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.6));
+ --chip-shadow:inset 0 1px 0 #fff,0 8px 24px rgba(40,40,50,.08);
+ --pill-bg:rgba(255,255,255,.55);--pill-line:rgba(20,22,26,.07);
+ --tile:rgba(20,22,26,.03);--tile-line:rgba(20,22,26,.07);
+ --label-bg:rgba(255,255,255,.88);--label-line:rgba(20,22,26,.12);
+ --switch-on:rgba(63,160,120,.7);--switch-off:rgba(20,22,26,.12);--knob-off:#fff;
+ --track:rgba(20,22,26,.12);--knob:#fff;--knob-shadow:0 2px 6px rgba(40,40,50,.25);
+ --blur:blur(8px);
+ /* Shape */
+ --r-panel:24px;--r-sheet:26px;--r-tile:16px;--r-ctl:14px;--r-tabs:12px;--r-ind:9px;--r-row:10px;--r-label:8px;--r-kbd:6px;
+ --hit:44px;
+ /* Type */
+ --fs-title:24px;--fs-body:15px;--fs-small:13px;--fs-label:12px;
+ /* Motion. Springs are in app/motion.ts (stiffness/damping); CSS uses these eases and the spring curves as linear(). */
+ --ease-cam:cubic-bezier(.65,0,.35,1);--ease-out:cubic-bezier(.22,1,.36,1);--ease-in:cubic-bezier(.4,0,1,1);--ease-io:cubic-bezier(.45,0,.2,1);
+ --t-leave:.14s;--t-enter:.22s;--t-theme:.75s;
+ --theme-color:#f1f0ec;
+ /* shadcn/Base UI variables, mapped onto the tokens so the kit components follow them. */
+ --background:#f1f0ec;--foreground:var(--text);--card:#fbfaf7;--card-foreground:var(--text);--popover:#fbfaf7;--popover-foreground:var(--text);
+ --primary:var(--text);--primary-foreground:#fbfaf7;--secondary:rgba(20,22,26,.05);--secondary-foreground:var(--text);
+ --muted:rgba(20,22,26,.05);--muted-foreground:var(--text-3);--accent-k:rgba(20,22,26,.06);--accent-foreground:var(--text);
+ --destructive:#b4513f;--border:var(--hair);--input:var(--hair-3);--ring:var(--accent);--radius:.75rem;
+ color-scheme:light;
+}
+.dark{
+ --text:#eceef0;--text-2:#b9bdc2;--text-3:#8f949a;
+ --accent:#7fd8b0;--accent-text:#7fd8b0;--accent-strong:#7fd8b0;
+ --accent-fill:rgba(127,216,176,.14);--accent-line:rgba(127,216,176,.38);--accent-on:#bff0d9;
+ --edge-a:#7fd8b0;--edge-b:#8ecbff;
+ --ground:radial-gradient(45% 40% at 40% 42%,rgba(127,216,176,.07),transparent 70%),radial-gradient(ellipse 70% 60% at 45% 45%,#25272c 0%,#1a1b1f 55%,#131416 100%);
+ --ground-phone:radial-gradient(60% 40% at 50% 38%,rgba(127,216,176,.07),transparent 70%),radial-gradient(ellipse 90% 60% at 50% 42%,#25272c 0%,#1a1b1f 55%,#131416 100%);
+ --ground-flat:#151618;
+ --hair:rgba(255,255,255,.10);--hair-2:rgba(255,255,255,.06);--hair-3:rgba(255,255,255,.14);
+ --fill:rgba(255,255,255,.05);--fill-2:rgba(255,255,255,.06);--fill-hover:rgba(255,255,255,.06);--fill-on:rgba(255,255,255,.13);
+ --scrim:rgba(10,11,13,.48);
+ --panel:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 45%),rgba(30,32,37,.58);
+ --panel-solid:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 45%),rgba(30,32,37,.92);
+ --panel-line:rgba(255,255,255,.10);
+ --panel-shadow:0 24px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);
+ --sheet:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 40%),rgba(30,32,37,.84);
+ --sheet-shadow:0 -16px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);
+ --chip:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02)),rgba(30,32,37,.55);
+ --chip-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.25);
+ --pill-bg:rgba(20,21,23,.35);--pill-line:rgba(255,255,255,.07);
+ --tile:rgba(255,255,255,.045);--tile-line:rgba(255,255,255,.08);
+ --label-bg:rgba(22,23,26,.82);--label-line:rgba(255,255,255,.12);
+ --switch-on:rgba(127,216,176,.55);--switch-off:rgba(255,255,255,.14);--knob-off:#c8ccd0;
+ --track:rgba(255,255,255,.12);--knob:#eceef0;--knob-shadow:0 2px 6px rgba(0,0,0,.4);
+ --theme-color:#151618;
+ --background:#151618;--card:#1e2025;--popover:#1e2025;--primary-foreground:#151618;
+ --secondary:rgba(255,255,255,.06);--muted:rgba(255,255,255,.06);--accent-k:rgba(255,255,255,.08);
+ --destructive:#e8a092;
+ color-scheme:dark;
+}
+@media(max-width:767px){:root{--blur:none}}
+@media(prefers-reduced-motion:reduce){:root{--t-leave:.12s;--t-enter:.12s;--t-theme:.15s}}
