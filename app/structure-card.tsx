@@ -19,10 +19,12 @@ interface Nav {d:number;from:CardMode|null;swipe:number|null;width:number}
 
 /** Pages: 24 px the way you travel; a committed swipe carries both pages on with the finger. From the peek, the focus
  * body does not slide: its parts rise into place under the header that stays. */
+// Screens hand over in turn (the old one leaves, then the new one arrives), never both half-visible at once; a swipe is
+// the exception, carrying both together with the finger.
 const pageV:Variants={
- enter:(c:Nav)=>c.swipe!==null?{opacity:1,x:c.d*c.width+c.swipe}:c.from==='peek'||c.d===0?{opacity:0,x:0}:{opacity:0,x:24*c.d},
- center:(c:Nav)=>({opacity:1,x:0,transition:c.swipe!==null?spring.settle:tween('out',DUR.enter,DUR.enterDelay)}),
- exit:(c:Nav)=>c.swipe!==null?{opacity:1,x:-c.d*c.width,transition:spring.settle}:c.d===0||c.from===null?{opacity:0,transition:tween('in',DUR.leave)}:{opacity:0,x:-24*c.d,transition:tween('in',DUR.leave)},
+ enter:(c:Nav)=>c.swipe!==null?{opacity:1,x:c.d*c.width+c.swipe}:c.from==='peek'||c.d===0?{opacity:0,x:0}:{opacity:0,x:16*c.d},
+ center:(c:Nav)=>({opacity:1,x:0,transition:c.swipe!==null?spring.settle:tween('out',.24)}),
+ exit:(c:Nav)=>c.swipe!==null?{opacity:1,x:-c.d*c.width,transition:spring.settle}:c.d===0||c.from===null?{opacity:0,transition:tween('in',.1)}:{opacity:0,x:-12*c.d,transition:tween('in',.1)},
 };
 /** The focus body's pieces rise 6 px, 40 ms apart, as the card grows from the peek. */
 const rise=(i:number,fromPeek:boolean)=>fromPeek?{initial:{opacity:0,y:6},animate:{opacity:1,y:0,transition:tween('out',.22,.12+i*.04)}}:{};
@@ -121,10 +123,10 @@ export function StructureCard(p:Props){
  const close=!phone?null:canMini?<button type="button" className="card-x" onClick={()=>setMini(true)} aria-label="Minimise" title="Minimise"><ChevronDown size={18}/></button>:<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
 
  // Peek and focus share this header; it leaves with the focus body when a feature opens.
- const header=mode!=='feature'&&<m.div key={`head-${facts.reference}`} ref={head} className="card-head" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+ const header=<div ref={head} className="card-head">
   <div className="card-row"><p className="t-meta">{facts.kind}{facts.side?` · ${facts.side}`:''}</p>{close}</div>
   <h2 className="t-title card-title">{facts.title}</h2>
- </m.div>;
+ </div>;
 
  const peek=<m.div key={`peek-${facts.reference}`} ref={peekBody} className="card-page card-peek" custom={c} variants={pageV} initial="enter" animate="center" exit={{opacity:0,transition:tween('in',.12)}}>
   <p className="t-body2 clamp-2">{facts.description}</p>
@@ -198,19 +200,24 @@ export function StructureCard(p:Props){
   </div>}
  </m.div>;
  const full_=<m.div key="full" className="card-full" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.22,.06)}} exit={{opacity:0,transition:tween('in',.1)}}>{body0()}</m.div>;
- function body0(){return <>
-  <AnimatePresence mode="popLayout" initial={false} custom={c}>{header}</AnimatePresence>
-  <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:mode==='feature'&&feature?feature:focus}</AnimatePresence></div>
- </>;}
+ // The structure (its header and the peek or focus under it) is one screen, and a feature is another: a screen comes
+ // and goes as one block where it stands, so nothing below the header collapses upwards mid-move. Between peek and
+ // focus only the body changes and the header stays put.
+ function body0(){
+  const structure=<m.div key={`s-${facts.reference}`} className="card-screen" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+   {header}
+   <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:focus}</AnimatePresence></div>
+  </m.div>;
+  return <div className="card-body"><AnimatePresence mode={c.swipe!==null?'popLayout':'wait'} initial={false} custom={c}>{mode==='feature'&&feature?feature:structure}</AnimatePresence></div>;}
  const body=<AnimatePresence mode="popLayout" initial={false}>{mini?miniBar:full_}</AnimatePresence>;
  // Desktop: one corner button that follows the depth. On a feature it is a back arrow (to the structure); on the
  // structure it turns into a cross (to the whole body); the icons turn into each other as you move.
  const back=mode==='feature';
  const corner=<button type="button" className="card-corner" onClick={back?p.onPinClose:p.onClose} aria-label={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Back to the whole body'} title={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Whole body'}>
-  {/* Both icons stay in place, stacked; the cross turns out as the arrow turns in (and back), so nothing jumps and a
-     quick back-and-forth just reverses from where it is. */}
-  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:0,rotate:90,scale:.5}:{opacity:1,rotate:0,scale:1}} transition={spring.snappy}><X size={17}/></m.span>
-  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:1,rotate:0,scale:1}:{opacity:0,rotate:-90,scale:.5}} transition={spring.snappy}><ChevronLeft size={19}/></m.span>
+  {/* Both icons stay in place, stacked: the old one shrinks away, then the new one grows in (no half-turned cross that
+     reads as a plus), and a quick back-and-forth reverses from where it is. */}
+  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:0,rotate:20,scale:.7,transition:tween('in',.12)}:{opacity:1,rotate:0,scale:1,transition:tween('out',.2,.1)}}><X size={17}/></m.span>
+  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:1,rotate:0,scale:1,transition:tween('out',.2,.1)}:{opacity:0,rotate:-20,scale:.7,transition:tween('in',.12)}}><ChevronLeft size={19}/></m.span>
  </button>;
 
  if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${full&&open>rest+8?'is-full':''} ${mini?'is-mini':''}`} data-inset="bottom" data-inset-size={(mini?MINI:rest)||undefined} role="dialog" aria-label={facts.title}
