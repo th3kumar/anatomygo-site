@@ -3,7 +3,7 @@
  * springs between detents; drag it down to close it, swipe a feature sideways for the next one.
  * The header (kind, close, title) stays put from peek to focus; only what is under it changes. Pages push the way you
  * travel, worked out from what changed, so every path (buttons, Esc, pins on the model) moves the same way. */
-import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
 import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
