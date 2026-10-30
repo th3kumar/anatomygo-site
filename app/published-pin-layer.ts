@@ -81,10 +81,11 @@ if(this.born<0&&this.pins.length){this.born=now;[...this.pins].sort((a,b)=>a.anc
   this.overlay.visible=!!shape&&u.uCount.value>0;
  }
  /** Stand-ins drawn once with the same kinds of material as pins, stems and shapes, so their shaders are compiled before
- * the first pins pop in. The caller adds them for a compile and then disposes them. */
+ * the first pins pop in. The caller adds them for one compile and removes them; their materials stay alive, since the
+ * GPU may still be compiling when the call returns. */
  warmup(geometry:T.BufferGeometry){const mat=new T.MeshBasicMaterial({toneMapped:false,transparent:true}),line=new T.LineBasicMaterial({toneMapped:false,transparent:true});
   const objects=[new T.Mesh(this.sphere,mat),new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3(0,.01,0)]),line),new T.Mesh(geometry,this.shapeMaterial)];
-  objects.forEach(o=>{o.frustumCulled=false;});return {objects,dispose:()=>{mat.dispose();line.dispose();(objects[1] as T.Line).geometry.dispose();}};}
+  objects.forEach(o=>{o.frustumCulled=false;});return {objects};}
  /** World position and surface normal of a pin (for turning the camera towards it), or null. */
  facing(id:string){const p=this.pins.find(x=>x.id===id);return p?{point:p.anchor.clone().add(this.group.position),normal:p.normal.clone()}:null;}
  hit(ray:T.Raycaster){return this.group.visible?ray.intersectObjects(this.pins.filter(p=>p.head.visible).map(p=>p.head),false)[0]:undefined;}

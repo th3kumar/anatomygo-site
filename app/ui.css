@@ -221,7 +221,11 @@ button svg,a svg{flex-shrink:0}
 /* Focus chrome: back to the body (top left) and the focus pill, centred in the space left of the card. */
 .back-dock{position:absolute;left:32px;top:24px}
 .back-row{display:flex;align-items:center;gap:10px}
-.back-button{padding:0 16px 0 10px}
+/* Long structure names never run into the controls beside the back button: they end in an ellipsis. */
+.back-button{padding:0 16px 0 10px;max-width:min(420px,calc(100vw - 260px));overflow:hidden}
+.back-button>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back-link{flex:1;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.back-link svg{display:inline;vertical-align:-2px;margin-right:2px}
 .view-dock.is-focus{right:424px}
 .is-away{pointer-events:none}
 .focus-actions .vpill{padding:2px 4px}
@@ -302,6 +306,7 @@ button svg,a svg{flex-shrink:0}
 .scard.is-sheet{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .is-phone .back-dock{left:12px;top:max(14px,env(safe-area-inset-top))}
 .is-phone .focus-actions{right:12px;top:max(14px,env(safe-area-inset-top))}
+.is-phone .back-button{max-width:calc(100vw - 24px - 168px)}
 
 /* Medium widths: the card and the Systems panel can't both fit. */
 @media(min-width:768px) and (max-width:1099px){.hint-dock{display:none}}

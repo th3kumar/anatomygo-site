@@ -123,12 +123,16 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',ghost?'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partGhost < 0.5 || uSubjectOnly > 0.5) discard;':'#include <clipping_planes_fragment>\nfloat vis = uSubjectOnly > 0.5 ? partSubject * uOverlay : partVisible * mix(1.0, 1.0 - uDissolve, 1.0 - partSubject);\nif (vis < bayer4(gl_FragCoord.xy)) discard;');
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat leave = uDissolve * (1.0 - partSubject); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(.299,.587,.114))) * .7, leave * .8);\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.212, 0.686, 0.434), partSelected * 0.55 * uTint);');
     if(!ghost)shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat rim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.4);\ngl_FragColor.rgb += uGlowColour * rim * uGlow * partSubject;');
-   };materials.push(m);return m;
+   };
+   // Both kinds share one onBeforeCompile, whose source text three.js uses as the program's cache key: without its own
+   // key the neighbours' glass could be handed the body's program (which discards neighbours) and never show.
+   m.customProgramCacheKey=()=>ghost?'anatomy-part-ghost':'anatomy-part';materials.push(m);return m;
   };
   const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)])),ghostMaterial=materialFor('ghost',true) as T.MeshStandardMaterial;
   // Neighbours: one glass mesh per neighbouring part, rebuilt only when the set changes.
   const ghostGroup=new T.Group();scene.add(ghostGroup);let ghostKey='';
-  const setGhosts=(list:number[])=>{const key=list.join(',');if(key===ghostKey)return;ghostKey=key;ghostGroup.clear();for(const i of list){const g=pickers[i];if(!g)continue;const m=new T.Mesh(g.geometry,ghostMaterial);m.frustumCulled=false;m.renderOrder=2;ghostGroup.add(m);}};
+  // Only parts that have arrived count towards the key, so neighbours still streaming in are added when they land.
+  const setGhosts=(all:number[])=>{const list=all.filter(i=>pickers[i]),key=list.join(',');if(key===ghostKey)return;ghostKey=key;ghostGroup.clear();for(const i of list){const g=pickers[i];if(!g)continue;const m=new T.Mesh(g.geometry,ghostMaterial);m.frustumCulled=false;m.renderOrder=2;ghostGroup.add(m);}};
   // Parts arrive outside-in from the stream copy when this browser can use it (model-stream.ts), otherwise, or for
   // anything the stream fails to deliver, from the canonical chunks. Taps work from the first moment (a tap that a missing part might sit in front of is held, below); `outerIn` marks the outer body;
   // `ready` still means every part is in, as before.
@@ -222,7 +226,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const focusBlur=new FocusBlur(renderer,()=>el.clientWidth<768);
   // Everything the first Learn more draws for the first time (the blur, the neighbours' glass), compiled ahead: once the
   // body is in, and again as soon as a part is chosen (the peek always comes first).
-  let warmed=false;const warmFocus=()=>{if(disposed||warmed)return;const g=pickers.find(Boolean);if(!g)return;warmed=true;const probe=new T.Mesh(g.geometry,ghostMaterial);probe.frustumCulled=false;ghostGroup.add(probe);const pins=publishedLayer.warmup(g.geometry);pins.objects.forEach(o=>scene.add(o));const was=ghostGroup.visible;ghostGroup.visible=true;focusBlur.warm(scene,camera);ghostGroup.visible=was;ghostGroup.remove(probe);pins.objects.forEach(o=>scene.remove(o));pins.dispose();dirty=true;};
+  let warmed=false;const warmFocus=()=>{if(disposed||warmed)return;const g=pickers.find(Boolean);if(!g)return;warmed=true;const probe=new T.Mesh(g.geometry,ghostMaterial);probe.frustumCulled=false;ghostGroup.add(probe);const pins=publishedLayer.warmup(g.geometry);pins.objects.forEach(o=>scene.add(o));const was=ghostGroup.visible;ghostGroup.visible=true;focusBlur.warm(scene,camera);ghostGroup.visible=was;ghostGroup.remove(probe);pins.objects.forEach(o=>scene.remove(o));dirty=true;};
   const VIEWS:Record<string,T.Vector3>={front:new T.Vector3(0,.02,1),back:new T.Vector3(0,.02,-1),side:new T.Vector3(1,.02,0),'three-quarter':new T.Vector3(.35,.06,1)};
   let tick=0,lastDrawnTick=-2,lastDrawn=0,perfSent=false;const gaps:number[]=[],costs:number[]=[];const median=(a:number[])=>[...a].sort((x,y)=>x-y)[a.length>>1];
   const animate=()=>{
