@@ -2,7 +2,7 @@
  * Pieces arrive with the T1 entrance: each rises 8 px from its own edge, 40 ms after the one before. */
 import type {ReactNode} from 'react';
 import {m} from 'motion/react';
-import {Lightbulb,Moon,Pause,RotateCcw,RotateCw,Sun} from 'lucide-react';
+import {ChevronLeft,Eye,Layers,Lightbulb,Moon,Pause,RotateCcw,RotateCw,Sun,Tag} from 'lucide-react';
 import {DUR,tween,spring} from './motion';
 import type {View} from './anatomy';
 
@@ -48,4 +48,20 @@ export function ViewPill({view,explode,rotate,lighting,vertical,onView,onRotate,
 /** One quiet line of help. Changing text cross-fades; there is only ever one hint. */
 export function Hint({id,children,className}:{id:string,children:ReactNode,className?:string}){
  return <m.p className={`hint-line ${className??''}`} key={id} initial={{opacity:0}} animate={{opacity:1}} transition={tween('out',DUR.enter,DUR.enterDelay)}>{children}</m.p>;
+}
+
+export type FocusToggle='neighbours'|'labels'|'behind';
+/** Focus mode's pill: the four views, then neighbours (ghosts), labels and pins behind, in mint when on. Phones show the
+ * three toggles only. */
+export function FocusPill({view,options,onView,onToggle,compact}:{view:View,options:Record<FocusToggle,boolean>,onView?:(v:View)=>void,onToggle:(k:FocusToggle)=>void,compact?:boolean}){
+ const toggles:[FocusToggle,ReactNode,string][]=[['neighbours',<Layers size={17} key="n"/>,'Neighbouring structures'],['labels',<Tag size={17} key="l"/>,'Labels'],['behind',<Eye size={17} key="b"/>,'Pins on the far side']];
+ return <nav className="vpill" aria-label="Focus">
+  {!compact&&onView&&<>{VIEWS.map(([v,short,name])=><button type="button" key={v} className={`vbtn ${view===v?'is-on':''}`} aria-pressed={view===v} onClick={()=>onView(v)} title={name} aria-label={name}>{short}</button>)}<span className="vsep" aria-hidden="true"/></>}
+  {toggles.filter(([k])=>!compact||k!=='behind').map(([k,icon,name])=><button type="button" key={k} className={`vbtn ${options[k]?'is-mint':''}`} aria-pressed={options[k]} onClick={()=>onToggle(k)} title={name} aria-label={`${options[k]?'Hide':'Show'} ${name.toLowerCase()}`}>{icon}</button>)}
+ </nav>;
+}
+
+/** Back out of focus. Desktop shows the Esc key beside it; on phones its label follows where Back goes. */
+export function BackButton({label,onBack,esc}:{label:string,onBack:()=>void,esc?:boolean}){
+ return <div className="back-row"><button type="button" className="gbtn back-button" onClick={onBack}><ChevronLeft size={18}/><m.span key={label} initial={{opacity:0}} animate={{opacity:1}} transition={tween('io',.24,.1)}>{label}</m.span></button>{esc&&<kbd className="kbd">Esc</kbd>}</div>;
 }

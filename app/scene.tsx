@@ -1,5 +1,7 @@
 import {PublishedPinLayer} from './published-pin-layer';
 import {freeArea} from './insets';
+import {PinLabels} from './pin-labels';
+import {ease,reducedMotion} from './motion';
 import type {PublishedPin} from './published-pins';
 import {useEffect,useRef} from 'react';
 import * as T from 'three';
@@ -15,6 +17,7 @@ import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './ligh
 // The stage follows the page's appearance; the anatomy keeps its colours in both.
 // Dark ("Graphite Soft") draws on a transparent canvas over the page's stage gradient, with a platform ring and a
 // contact shadow instead of the floor.
+const GHOSTLESS=new Set(['arterial','venous','nervous','lymphatic','integumentary']);
 const STAGE={light:{clear:'#f1f0ec',alpha:0,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#151618',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
 /** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
 export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
@@ -34,7 +37,20 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
   camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
-  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;let turn:{from:T.Vector3;to:T.Vector3;length:number;t:number}|null=null;controls.addEventListener('start',()=>{turn=null;});
+  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;});
+  const labels=new PinLabels(el,id=>pickPin.current(id));
+  // Camera moves: one tween on the handoff's camera curve (no overshoot). Direction turns, distance eases in log space,
+  // and the view offset (which keeps the subject clear of the panels) moves with them. Grabbing the model stops it.
+  type Shot={pos:T.Vector3;target:T.Vector3;off:[number,number]};
+  let off:[number,number]=[0,0],fly:{from:Shot;to:Shot;t:number;dur:number}|null=null,bodyShot:Shot|null=null,isoShot:Shot|null=null;
+  const setOffset=(x:number,y:number)=>{off=[x,y];const w=el.clientWidth,h=el.clientHeight;if(Math.abs(x)<.01&&Math.abs(y)<.01)camera.clearViewOffset();else camera.setViewOffset(w,h,x,y,w,h);};
+  const shot=():Shot=>({pos:camera.position.clone(),target:controls.target.clone(),off:[...off]});
+  const flyTo=(to:Shot,dur:number)=>{if(dur<=0||reducedMotion()){fly=null;controls.target.copy(to.target);camera.position.copy(to.pos);setOffset(...to.off);controls.update();dirty=true;return;}fly={from:shot(),to,t:0,dur};dirty=true;};
+  const stepFly=(dt:number)=>{if(!fly)return;fly.t=Math.min(1,fly.t+dt/fly.dur);const e=ease.cam(fly.t),f=fly.from,g=fly.to;
+   const d0=f.pos.clone().sub(f.target),d1=g.pos.clone().sub(g.target),l0=Math.max(1e-4,d0.length()),l1=Math.max(1e-4,d1.length());
+   const q=new T.Quaternion().setFromUnitVectors(d0.clone().normalize(),d1.clone().normalize()),dir=d0.clone().normalize().applyQuaternion(new T.Quaternion().slerp(q,e));
+   controls.target.lerpVectors(f.target,g.target,e);camera.position.copy(controls.target).addScaledVector(dir,Math.exp(Math.log(l0)+(Math.log(l1)-Math.log(l0))*e));
+   setOffset(f.off[0]+(g.off[0]-f.off[0])*e,f.off[1]+(g.off[1]-f.off[1])*e);controls.update();dirty=true;if(fly.t>=1)fly=null;};
   const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment(),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();
   scene.add(new T.HemisphereLight(0xffffff,0x6d737a,RIG.hemisphere));
   const key=new T.DirectionalLight(0xfff5e8,RIG.key);key.position.set(-2,4,3);scene.add(key);
@@ -59,7 +75,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   markerMaterial.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (distance(gl_PointCoord, vec2(0.5)) > 0.5) discard;');};
   const markers=new T.Points(markerGeometry,markerMaterial);markers.frustumCulled=false;markers.renderOrder=10;markers.visible=false;scene.add(markers);
   let staged:boolean|null=null;
-  const stage=(dark:boolean)=>{const c=dark?STAGE.dark:STAGE.light;renderer.setClearColor(c.clear,c.alpha);const rim1=ring.material as T.MeshBasicMaterial,rim2=innerRing.material as T.MeshBasicMaterial;rim1.color.set(c.ring);rim1.opacity=c.ringOpacity;rim2.color.set(c.inner);rim2.opacity=c.innerOpacity;markerMaterial.color.set(c.marker);staged=dark;dirty=true;};
+  const stage=(dark:boolean)=>{const c=dark?STAGE.dark:STAGE.light;renderer.setClearColor(c.clear,c.alpha);const rim1=ring.material as T.MeshBasicMaterial,rim2=innerRing.material as T.MeshBasicMaterial;rim1.color.set(c.ring);rim1.opacity=c.ringOpacity;rim2.color.set(c.inner);rim2.opacity=c.innerOpacity;markerMaterial.color.set(c.marker);ghostMaterial.color.set(dark?0x8c969f:0x7d8892);staged=dark;dirty=true;};
   const hover=document.createElement('div');hover.className='part-hover';hover.setAttribute('role','tooltip');hover.hidden=true;el.appendChild(hover);
   type Target={index:number;x:number;y:number;left:number;right:number;top:number;bottom:number};let targets:Target[]=[];
   const projected=new T.Vector3();
@@ -68,18 +84,21 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    for(const t of targets){const dx=Math.max(t.left-x,0,x-t.right),dy=Math.max(t.top-y,0,y-t.bottom),distance=Math.hypot(dx,dy);if(distance>radius)continue;const candidate=distance+Math.hypot(t.x-x,t.y-y)*.025;if(candidate<score){score=candidate;best=t.index;}}
    return best;
   };
-  const materialFor=(system:string)=>{
-   const m=new T.MeshStandardMaterial({color:SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',metalness:.08,roughness:.53,envMap:env.texture,envMapIntensity:RIG.environment,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'});
+  const materialFor=(system:string,ghost=false)=>{
+   const m=ghost
+    // Neighbours in focus, as in the Playground: subdued grey glass that never hides the structure.
+    ?new T.MeshStandardMaterial({color:0x8c969f,transparent:true,opacity:.2,depthWrite:false,roughness:.9,side:T.DoubleSide,envMap:env.texture,envMapIntensity:RIG.environment})
+    :new T.MeshStandardMaterial({color:SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',metalness:.08,roughness:.53,envMap:env.texture,envMapIntensity:RIG.environment,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'});
    m.onBeforeCompile=shader=>{
     shader.uniforms.partState={value:partTexture};shader.uniforms.selectionState={value:selectionTexture};shader.uniforms.stateWidth={value:width};
-    shader.vertexShader='attribute float partIndex; uniform sampler2D partState; uniform sampler2D selectionState; uniform float stateWidth; varying float partVisible; varying float partSelected;\n'+shader.vertexShader;
-    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec2 stateUv = vec2((partIndex + 0.5) / stateWidth, 0.5); vec4 state = texture2D(partState, stateUv); transformed += state.xyz; partVisible = state.w; partSelected = texture2D(selectionState, stateUv).r;');
-    shader.fragmentShader='varying float partVisible; varying float partSelected;\n'+shader.fragmentShader;
-    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (partVisible < 0.5) discard;');
+    shader.vertexShader='attribute float partIndex; uniform sampler2D partState; uniform sampler2D selectionState; uniform float stateWidth; varying float partVisible; varying float partSelected; varying float partGhost;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec2 stateUv = vec2((partIndex + 0.5) / stateWidth, 0.5); vec4 state = texture2D(partState, stateUv); transformed += state.xyz; partVisible = state.w; vec4 sel = texture2D(selectionState, stateUv); partSelected = sel.r; partGhost = sel.g;');
+    shader.fragmentShader='varying float partVisible; varying float partSelected; varying float partGhost;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',ghost?'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partGhost < 0.5) discard;':'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partGhost > 0.5) discard;');
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.212, 0.686, 0.434), partSelected * 0.55);');
    };materials.push(m);return m;
   };
-  const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)]));
+  const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)])),ghostMaterial=materialFor('ghost',true) as T.MeshStandardMaterial;
   // Parts arrive outside-in from the stream copy when this browser can use it (model-stream.ts), otherwise, or for
   // anything the stream fails to deliver, from the canonical chunks. Taps work from the first moment (a tap that a missing part might sit in front of is held, below); `outerIn` marks the outer body;
   // `ready` still means every part is in, as before.
@@ -95,7 +114,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     g.setAttribute('partIndex',new T.BufferAttribute(new Float32Array(p.vertexCount).fill(i),1));
     const list=groups.get(p.system)??[];list.push(g);groups.set(p.system,list);
    }
-   groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);});
+   groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);const ghost=new T.Mesh(geometry,ghostMaterial);ghost.frustumCulled=false;ghost.renderOrder=2;scene.add(ghost);});
    lastState=null;dirty=true;retryTap();
   };
   const report=(n:number)=>{n=Math.max(shown,Math.min(99,Math.floor(n)));if(n!==shown){shown=n;onProgress(n);}};
@@ -123,7 +142,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   // The assembled body fills the screen space the panels leave free (app/insets.ts), centred in it; exploding blends
   // towards the inventory framing, which uses the whole screen.
   const BODY={centre:.86,height:1.86,width:.8};
-  const fit=(view:string,extent=0)=>{
+  // Seconds, from the handoff: focus and feature moves, pin to pin, and back to the body.
+  const DURATION={view:.9,focus:.95,feature:.9,next:.5,back:.85,reframe:.45};
+  const fit=(view:string,extent=0,dur=0)=>{
    const w=el.clientWidth,h=el.clientHeight,mobile=w<768,tan=Math.tan(T.MathUtils.degToRad(camera.fov/2)),area=freeArea(el);
    const freeW=Math.max(120,area.right-area.left),freeH=Math.max(120,area.bottom-area.top);
    const bodyDistance=Math.max(BODY.height/2/tan*(h/freeH),BODY.width/2/tan/camera.aspect*(w/freeW));
@@ -133,8 +154,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    // Centred on the screen as in the handoff, moved sideways only as far as a panel would otherwise cover the body.
    const bodyPx=BODY.width*h/(2*tan*bodyDistance),cx=freeW<bodyPx?(area.left+area.right)/2:Math.min(Math.max(w/2,area.left+bodyPx/2),area.right-bodyPx/2);
    const keep=1-Math.min(1,extent*1.5);
-   camera.setViewOffset(w,h,(w/2-cx)*keep,(h/2-(area.top+area.bottom)/2)*keep,w,h);
-   controls.target.set(extent>.1&&!mobile?-packingWidth*.12*Math.min(1,extent*2):0,T.MathUtils.lerp(BODY.centre,.85,Math.min(1,extent*2)),0);camera.position.copy(controls.target).addScaledVector(direction,distance);controls.update();dirty=true;
+   const target=new T.Vector3(extent>.1&&!mobile?-packingWidth*.12*Math.min(1,extent*2):0,T.MathUtils.lerp(BODY.centre,.85,Math.min(1,extent*2)),0);
+   flyTo({target,pos:target.clone().addScaledVector(direction,distance),off:[(w/2-cx)*keep,(h/2-(area.top+area.bottom)/2)*keep]},dur);
   };
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
@@ -147,7 +168,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   let pendingTap:{ray:T.Ray;x:number;y:number;touch:boolean;camera:T.Matrix4;at:number}|null=null;const offset=new T.Vector3();
   const resolveTap=(x:number,y:number,touch:boolean,at=performance.now()):'held'|'answered'|'missed'=>{
    let nearest=Infinity,found=-1;const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
-   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;}});
+   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||selectedData[i*4+1]>0||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;}});
    if(!ready)for(let i=0;i<atlas.parts.length;i++){if(added[i]||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))continue;worldBox.copy(bounds[i]).translate(offset.set(data[i*4],data[i*4+1],data[i*4+2]));if(raycaster.ray.intersectBox(worldBox,hitPoint)&&hitPoint.distanceTo(raycaster.ray.origin)<nearest){pendingTap={ray:raycaster.ray.clone(),x,y,touch,camera:camera.matrixWorld.clone(),at};return 'held';}}
    const pinHit=publishedLayer.hit(raycaster);if(pinHit&&pinHit.distance<=nearest){pickPin.current(pinHit.object.userData.pinId);return 'answered';}
    if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;select.current(atlas.parts[found].id);return 'answered';}
@@ -163,16 +184,25 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const clock=new T.Clock();let lastExtent=-1;
   // Smoothness, measured once per visit after loading: frames drawn on consecutive ticks (the model moving), however slow,
   // so a struggling phone still reports, and the time to draw each.
+  let lastHover:string|null|undefined,lastLabels:string|undefined,lastBehind:boolean|undefined;
   let tick=0,lastDrawnTick=-2,lastDrawn=0,perfSent=false;const gaps:number[]=[],costs:number[]=[];const median=(a:number[])=>[...a].sort((x,y)=>x-y)[a.length>>1];
   const animate=()=>{
    if(disposed)return;frame=requestAnimationFrame(animate);tick++;const dt=Math.min(clock.getDelta(),.05),s=latest.current;
    // Theme first: the stage visibility below depends on it, and a frame drawn in between would stay on screen.
    if(shade.current!==staged)stage(shade.current);
-   const changed=lastState?.visible!==s.visible||lastState?.selected!==s.selected||lastState?.isolate!==s.isolate;
+   const changed=lastState?.visible!==s.visible||lastState?.selected!==s.selected||lastState?.isolate!==s.isolate||lastState?.neighbours!==s.neighbours;
    const moving=Math.abs(amount-s.explode)>.0001;
    if(moving){amount=T.MathUtils.damp(amount,s.explode,8,dt);dirty=true;}
    if(changed||moving||lastExtent<0){
     const visible=new Set(s.visible),selection=new Set(s.selected);
+    // Focus: the nearest bones, muscles and organs around the structure stay as ghosts (vessels, nerves and skin run
+    // the length of the body, so they are left out).
+    const ghosts=new Set<number>();
+    if(s.isolate&&s.neighbours!==false){const box=new T.Box3();atlas.parts.forEach((p,i)=>{if(selection.has(p.id))box.union(bounds[i]);});
+     if(!box.isEmpty()){const size=box.getSize(new T.Vector3()),reach=box.clone().expandByScalar(Math.max(.03,.15*Math.max(size.x,size.y,size.z))),middle=box.getCenter(new T.Vector3());
+      const volume=(b:T.Box3)=>{const v=b.getSize(new T.Vector3());return v.x*v.y*v.z;},own=Math.max(1e-9,volume(box));
+      // Parts that wrap the structure (thigh muscles round the femur) would hide it, so they are left out.
+      atlas.parts.map((p,i)=>({p,i})).filter(({p,i})=>!selection.has(p.id)&&!GHOSTLESS.has(p.system)&&reach.intersectsBox(bounds[i])&&!bounds[i].containsPoint(middle)&&volume(bounds[i].clone().intersect(box))/own<.4).sort((a,b)=>centers[a.i].distanceToSquared(middle)-centers[b.i].distanceToSquared(middle)).slice(0,30).forEach(({i})=>ghosts.add(i));}}
     const visibleParts=atlas.parts.filter(p=>s.isolate?selection.has(p.id):visible.has(p.system)||selection.has(p.id));
     const nextLayoutKey=visibleParts.map(p=>p.id).join(',')+':'+camera.aspect.toFixed(3);
     if(nextLayoutKey!==layoutKey){const layout=createExplosionLayout(visibleParts,camera.aspect);packingWidth=layout.width;packingHeight=layout.height;atlas.parts.forEach((p,i)=>{const cell=layout.cells.get(p.id);offsets[i]=cell?new T.Vector3(cell.x,cell.y+.85,0):centers[i].clone();});layoutKey=nextLayoutKey;if(amount>.05&&!s.isolate)fit(s.view,Math.max(0,(amount-.3)/.7));}
@@ -181,38 +211,57 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
      const c=centers[i],destination=offsets[i];let dx=0,dy=0,dz=0;
      if(amount<=.45){const t=amount/.45;const group=SYSTEMS.findIndex(sys=>sys.id===p.system);const angle=group/SYSTEMS.length*Math.PI*2;dx=Math.sin(angle)*t*.48;dy=(c.y-.85)*t*.28;dz=Math.cos(angle)*t*.48;}
      else {const t=(amount-.45)/.55,group=SYSTEMS.findIndex(sys=>sys.id===p.system),angle=group/SYSTEMS.length*Math.PI*2;dx=T.MathUtils.lerp(Math.sin(angle)*.48,destination.x-c.x,t);dy=T.MathUtils.lerp((c.y-.85)*.28,destination.y-c.y,t);dz=T.MathUtils.lerp(Math.cos(angle)*.48,-c.z,t);}
-     const selected=selection.has(p.id);data.set([dx,dy,dz,(s.isolate?selected:visible.has(p.system)||selected)?1:0],i*4);selectedData[i*4]=selected?255:0;
+     const selected=selection.has(p.id),ghost=ghosts.has(i);data.set([dx,dy,dz,(s.isolate?selected||ghost:visible.has(p.system)||selected)?1:0],i*4);selectedData[i*4]=selected&&!s.isolate?255:0;selectedData[i*4+1]=ghost?255:0;
      markerPositions.set(data[i*4+3]>.5?[c.x+dx,c.y+dy,c.z+dz]:[10000,10000,10000],i*3);const mesh=pickers[i];if(mesh){mesh.position.set(dx,dy,dz);mesh.updateMatrix();mesh.updateMatrixWorld(true);}
     });partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;
    }
-   if(s.view!==lastView||s.reset!==lastReset){fit(s.view,amount);lastView=s.view;lastReset=s.reset;}
+   if(s.view!==lastView||s.reset!==lastReset){fit(s.view,amount,lastView&&!s.isolate?DURATION.view:0);lastView=s.view;lastReset=s.reset;}
    if(moving&&!s.isolate)fit(amount>.5?'front':s.view,Math.max(0,(amount-.3)/.7));
-   const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect:'';
+   const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect+':'+(s.frame??''):'';
    if(isolateKey!==lastIsolate||(s.isolate&&moving)){
     if(s.isolate){const box=new T.Box3();atlas.parts.forEach((p,i)=>{if(s.selected.includes(p.id))box.union(bounds[i].clone().translate(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])));});
-     if(!box.isEmpty()){const center=box.getCenter(new T.Vector3()),size=box.getSize(new T.Vector3());const w=el.clientWidth,h=el.clientHeight,{left,right,top,bottom}=freeArea(el);const availableWidth=Math.max(150,right-left),availableHeight=Math.max(40,bottom-top);camera.setViewOffset(w,h,w/2-(left+right)/2,h/2-(top+bottom)/2,w,h);const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35);controls.maxDistance=Math.max(40,distance*2);controls.target.copy(center);camera.position.copy(center).add(new T.Vector3(.2,.1,1).normalize().multiplyScalar(distance));controls.update();dirty=true;}
-    }else if(lastIsolate){fit(s.view,amount);}
+     if(!box.isEmpty()){
+      // Learn more: remember the body view to come back to, then frame the structure in the space the card leaves.
+      const entering=!lastIsolate,sameSelection=lastIsolate.split(':')[0]===s.selected.join(',');if(entering)bodyShot=shot();
+      const center=box.getCenter(new T.Vector3()),size=box.getSize(new T.Vector3());const w=el.clientWidth,h=el.clientHeight,{left,right,top,bottom}=freeArea(el);const availableWidth=Math.max(150,right-left),availableHeight=Math.max(40,bottom-top);
+      const distance=Math.max(.07,Math.max(size.y*h/availableHeight,size.x*w/availableWidth/camera.aspect,size.z)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.35);controls.maxDistance=Math.max(40,distance*2);
+      const dir=entering?camera.position.clone().sub(controls.target).normalize():new T.Vector3(.2,.1,1).normalize();if(entering){dir.y=T.MathUtils.clamp(dir.y,-.3,.45);dir.normalize();}else if(isoShot)dir.copy(isoShot.pos).sub(isoShot.target).normalize();
+      isoShot={target:center,pos:center.clone().addScaledVector(dir,distance),off:[w/2-(left+right)/2,h/2-(top+bottom)/2]};
+      // The card changed size (a tab, a detent): the camera reframes with it, quicker than a full move.
+      if(!selectedPinRef.current)flyTo(isoShot,entering||!sameSelection?DURATION.focus:DURATION.reframe);
+     }
+    }else if(lastIsolate){
+     // Back to the body: the camera returns to the exact view that was left.
+     if(bodyShot&&s.view===lastView)flyTo(bodyShot,DURATION.back);else fit(s.view,amount,DURATION.back);bodyShot=null;isoShot=null;
+    }
     lastIsolate=isolateKey;
    }
-   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&!s.isolate,floorOn=false,contactOn=onStage;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
+   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&!s.isolate,floorOn=false,contactOn=onStage;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;stepFly(dt);controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
    if(lamp.current!==placedLight){placedLight=lamp.current;dirty=true;}
    const pinHost=s.isolate&&s.selected.length===1?pickers[atlas.parts.findIndex(p=>p.id===s.selected[0])]:undefined;
    if(lastPins!==published.current||lastPin!==selectedPinRef.current){
-    // A newly selected pin on the far side (and its line or area) turns to face the camera, as in the Playground.
-    if(lastPin!==selectedPinRef.current&&selectedPinRef.current&&pinHost){publishedLayer.set(published.current,pinHost.geometry??null);publishedLayer.group.position.copy(pinHost.position);const f=publishedLayer.facing(selectedPinRef.current);
-     if(f&&f.normal.dot(camera.position.clone().sub(f.point).normalize())<.3){const offset=camera.position.clone().sub(controls.target),to=f.normal.clone();to.y=T.MathUtils.clamp(to.y,-.6,.6);turn={from:offset.clone().normalize(),to:to.normalize(),length:offset.length(),t:0};}}
-    lastPins=published.current;lastPin=selectedPinRef.current;dirty=true;}
-   if(turn){turn.t=Math.min(1,turn.t+dt/.6);const e=turn.t<.5?2*turn.t*turn.t:1-Math.pow(-2*turn.t+2,2)/2,q=new T.Quaternion().slerp(new T.Quaternion().setFromUnitVectors(turn.from,turn.to),e);
-    camera.position.copy(controls.target).addScaledVector(turn.from.clone().applyQuaternion(q),turn.length);controls.update();dirty=true;if(turn.t>=1)turn=null;}
+    const sel=selectedPinRef.current;
+    if(published.current!==lastPins)publishedLayer.delay=fly?(1-fly.t)*fly.dur*.75:0;
+    // A feature: the camera turns to face its pin and comes 1.5x closer; pin to pin it glides; closing returns to the structure.
+    if(lastPin!==sel&&s.isolate&&pinHost){publishedLayer.set(published.current,pinHost.geometry??null);publishedLayer.group.position.copy(pinHost.position);
+     if(sel){const f=publishedLayer.facing(sel);if(f&&isoShot){const d=isoShot.pos.distanceTo(isoShot.target),n=f.normal.clone();n.y=T.MathUtils.clamp(n.y,-.5,.5);const dir=camera.position.clone().sub(controls.target).normalize().lerp(n.normalize(),.75).normalize(),target=f.point.clone().lerp(isoShot.target,.35);
+      flyTo({target,pos:target.clone().addScaledVector(dir,d/1.5),off:isoShot.off},lastPin?DURATION.next:DURATION.feature);}}
+     else if(isoShot)flyTo(isoShot,DURATION.feature);}
+    lastPins=published.current;lastPin=sel;dirty=true;}
    publishedLayer.group.visible=!!pinHost&&published.current.length>0;publishedLayer.set(published.current,pinHost?.geometry??null);
-   if(dirty&&pinHost)publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current);
+   let popping=false;
+   if(dirty&&pinHost)popping=publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current);
+   const labelled=!!pinHost&&published.current.length>0;
+   labels.set(labelled?published.current.map(p=>({id:p.id,label:p.label})):[]);
+   if(dirty&&labelled)labels.update(publishedLayer.points(),camera,el.clientWidth,el.clientHeight,{selected:selectedPinRef.current,mode:s.labels??'full',behind:s.behind??true,hover:s.hoverPin??null,delay:publishedLayer.delay+.16});
+   if(lastHover!==s.hoverPin||lastLabels!==s.labels||lastBehind!==s.behind){lastHover=s.hoverPin;lastLabels=s.labels;lastBehind=s.behind;dirty=true;}
    if(dirty){placeLights();const drawStart=performance.now();renderer.render(scene,camera);
     if(ready&&!perfSent){if(lastDrawnTick===tick-1){gaps.push(drawStart-lastDrawn);costs.push(performance.now()-drawStart);}lastDrawn=drawStart;lastDrawnTick=tick;if(gaps.length>=60){perfSent=true;perf.current?.({frameMs:median(gaps),renderMs:median(costs)});}}
     targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
-
+   if(popping)dirty=true;
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();labels.dispose();renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }
