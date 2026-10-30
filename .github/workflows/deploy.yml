@@ -53,5 +53,5 @@ jobs:
         run: |
           curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow \
             -H 'Content-Type: application/json; charset=utf-8' \
-            -d "{\"host\":\"anatomygo.in\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"https://anatomygo.in/$INDEXNOW_KEY.txt\",\"urlList\":[\"https://anatomygo.in/\",\"https://anatomygo.in/playground/\",\"https://anatomygo.in/llms.txt\",\"https://anatomygo.in/llms-full.txt\"]}" \
+            -d "{\"host\":\"anatomygo.in\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"https://anatomygo.in/$INDEXNOW_KEY.txt\",\"urlList\":[\"https://anatomygo.in/\",\"https://anatomygo.in/playground/\",\"https://anatomygo.in/whats-new/\",\"https://anatomygo.in/llms.txt\",\"https://anatomygo.in/llms-full.txt\"]}" \
             -w 'IndexNow: HTTP %{http_code}\n'
