@@ -18,7 +18,9 @@ import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './ligh
 // The stage follows the page's appearance; the anatomy keeps its colours in both.
 // Dark ("Graphite Soft") draws on a transparent canvas over the page's stage gradient, with a platform ring and a
 // contact shadow instead of the floor.
-const GHOSTLESS=new Set(['arterial','venous','nervous','lymphatic','integumentary']);
+const GHOSTLESS=new Set(['arterial','venous','nervous','lymphatic','integumentary']),MSK=new Set(['skeletal','muscular','connective']);
+// Parts of the heart filed under muscles in the source data (papillary muscles and the like).
+const HEART=/papillary|ventric|atri(um|al)|trabecul|chordae|myocard/i;
 const STAGE={light:{clear:'#f1f0ec',alpha:0,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#151618',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
 /** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
 export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
@@ -238,14 +240,24 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    if(moving){amount=T.MathUtils.damp(amount,s.explode,8,dt);dirty=true;}
    if(changed||moving||lastExtent<0){
     const visible=new Set(s.visible),selection=new Set(s.selected);
-    // Focus: the nearest bones, muscles and organs around the structure stay as ghosts (vessels, nerves and skin run
-    // the length of the body, so they are left out).
+    // Focus: the structure's real neighbours stay as glass, chosen to give context without clutter:
+    // - the same side of the body only (the right femur never shows the left leg);
+    // - related systems: a bone or muscle gets bones, muscles and connective tissue; an organ also gets organs (vessels,
+    //   nerves and skin run the length of the body and are never neighbours; nor is the heart's own muscle, unless the
+    //   structure is part of the heart);
+    // - ranked by the gap between them, so parts that touch come first; up to 5 nearby bones are kept for orientation,
+    //   16 in all; parts that wrap the structure are left out, since they would hide it.
     const ghosts=new Set<number>();
     if((s.isolate||fp>0)&&s.neighbours!==false){const box=new T.Box3();atlas.parts.forEach((p,i)=>{if(selection.has(p.id))box.union(bounds[i]);});
-     if(!box.isEmpty()){const size=box.getSize(new T.Vector3()),reach=box.clone().expandByScalar(Math.max(.03,.15*Math.max(size.x,size.y,size.z))),middle=box.getCenter(new T.Vector3());
+     const chosen=atlas.parts.filter(p=>selection.has(p.id)),names=chosen.map(p=>p.name.toLowerCase()).join(' ');
+     if(!box.isEmpty()&&chosen.length){const size=box.getSize(new T.Vector3()),reach=Math.max(.03,.15*Math.max(size.x,size.y,size.z)),middle=box.getCenter(new T.Vector3());
       const volume=(b:T.Box3)=>{const v=b.getSize(new T.Vector3());return v.x*v.y*v.z;},own=Math.max(1e-9,volume(box));
-      // Parts that wrap the structure (thigh muscles round the femur) would hide it, so they are left out.
-      atlas.parts.map((p,i)=>({p,i})).filter(({p,i})=>!selection.has(p.id)&&!GHOSTLESS.has(p.system)&&reach.intersectsBox(bounds[i])&&!bounds[i].containsPoint(middle)&&volume(bounds[i].clone().intersect(box))/own<.4).sort((a,b)=>centers[a.i].distanceToSquared(middle)-centers[b.i].distanceToSquared(middle)).slice(0,30).forEach(({i})=>ghosts.add(i));}}
+      const ownSide=/\bright\b/.test(names)?'right':/\bleft\b/.test(names)?'left':null,other=ownSide==='right'?/\bleft\b/i:ownSide==='left'?/\bright\b/i:null;
+      const musculoskeletal=chosen.every(p=>MSK.has(p.system)),inHeart=HEART.test(names);
+      const near=atlas.parts.map((p,i)=>{if(selection.has(p.id)||GHOSTLESS.has(p.system)||(musculoskeletal&&!MSK.has(p.system))||(other&&other.test(p.name))||(!inHeart&&HEART.test(p.name)))return null;
+       const b=bounds[i],gap=Math.hypot(Math.max(0,b.min.x-box.max.x,box.min.x-b.max.x),Math.max(0,b.min.y-box.max.y,box.min.y-b.max.y),Math.max(0,b.min.z-box.max.z,box.min.z-b.max.z));
+       if(gap>reach||b.containsPoint(middle)||volume(b.clone().intersect(box))/own>=.4)return null;return {i,gap,d:centers[i].distanceToSquared(middle),bone:p.system==='skeletal'};}).filter(x=>!!x).sort((a,b)=>a.gap-b.gap||a.d-b.d);
+      const bones=near.filter(n=>n.bone).slice(0,5);bones.forEach(n=>ghosts.add(n.i));for(const n of near){if(ghosts.size>=16)break;ghosts.add(n.i);}}}
     const visibleParts=atlas.parts.filter(p=>s.isolate?selection.has(p.id):visible.has(p.system)||selection.has(p.id));
     const nextLayoutKey=visibleParts.map(p=>p.id).join(',')+':'+camera.aspect.toFixed(3);
     if(nextLayoutKey!==layoutKey){const layout=createExplosionLayout(visibleParts,camera.aspect);packingWidth=layout.width;packingHeight=layout.height;atlas.parts.forEach((p,i)=>{const cell=layout.cells.get(p.id);offsets[i]=cell?new T.Vector3(cell.x,cell.y+.85,0):centers[i].clone();});layoutKey=nextLayoutKey;if(amount>.05&&!s.isolate)fit(s.view,Math.max(0,(amount-.3)/.7));}
