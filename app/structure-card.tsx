@@ -42,7 +42,9 @@ interface Props {
  pin:PublishedPin|null;counterpart:{id:string;name:string}|null;
  needsPin:OpenFeature[];placeView?:ReactNode;
  /** Pins kept on this device for this structure, and your public name (for "Added by you"). */
- kept:{request:string;kind:string;landmark:string|null;label:string}[];me:string|null;onResume:(request:string)=>void;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ kept:{request:string;kind:string;landmark:string|null;label:string}[];me:string|null;onResume:(request:string)=>void;
+ /** Copies the pin's link; true when it reached the clipboard. */
+ onShare:(pin:PublishedPin)=>Promise<boolean>;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
@@ -52,6 +54,15 @@ interface Props {
  onMinimise?:(mini:boolean)=>void;
 }
 
+/** On your own pin (film K10): one button copies its link, and says so for 1.4 s. */
+function ShareTile({onShare}:{onShare:()=>Promise<boolean>}){
+ const [state,setState]=useState<'idle'|'copied'|'failed'>('idle');
+ useEffect(()=>{if(state==='idle')return;const t=setTimeout(()=>setState('idle'),1400);return()=>clearTimeout(t);},[state]);
+ return <div className="tile vote-tile"><p className="t-body2">Help someone learn it</p>
+  <button type="button" className={`vote share-button ${state==='copied'?'is-on':''}`} onClick={async()=>setState(await onShare()?'copied':'failed')} aria-live="polite">
+   <AnimatePresence mode="popLayout" initial={false}><m.span key={state} initial={{opacity:0,y:6}} animate={{opacity:1,y:0,transition:tween('out',.16)}} exit={{opacity:0,y:-6,transition:tween('in',.1)}}>{state==='copied'?'Copied':state==='failed'?'Couldn’t copy':'Share'}</m.span></AnimatePresence>
+  </button></div>;
+}
 /** Who added a pin, and "just now" for one added in the last two minutes. */
 function byline(pin:PublishedPin,me:string|null){
  const who=pin.by?`Added by ${pin.by===me?'you':pin.by}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community';
@@ -199,9 +210,11 @@ export function StructureCard(p:Props){
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
   <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='feature')scroller.current=el;}}>
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
-   {!(pin.by&&pin.by===p.me)&&(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
+   {pin.by&&pin.by===p.me?<ShareTile key={pin.id} onShare={()=>p.onShare(pin)}/>:(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
     {v?<VoteButton on={v.on} count={v.count} onClick={()=>p.onVote(pin)}/>:<a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a>}
     <button type="button" className="vote" onClick={()=>p.onSuggest(pin)}>Suggest a spot</button></div></div>;})()}
+   {pin.by&&pin.by===p.me&&p.needsPin.length>0&&<><p className="t-label next-label">Next to pin</p>
+    <div className="list">{p.needsPin.slice(0,2).map(f=><button type="button" key={f.id} className="row" onClick={()=>p.onPlace(f)}><span className="cap">{f.label}</span><span className="t-meta pin-it">Pin it ›</span></button>)}</div></>}
    {p.voteError&&<p className="t-meta vote-error" role="alert">{p.voteError}</p>}
    <p className="t-meta byline">{pin.by&&<span className={`avatar ${pin.by===p.me?'is-you':''}`} aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{byline(pin,p.me)}</p>
   </div>

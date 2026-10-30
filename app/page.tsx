@@ -4,6 +4,7 @@ import {cloud,rpc,storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
 import {SignInDialog} from './community/sign-in-dialog';
 import {Profile} from './community/account';
+import {copy,pinLink} from './community/share';
 import {PlaceSteps,type Refusal} from './community/place-card';
 import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
@@ -92,6 +93,11 @@ export default function Home(){
   if(await votes.vote(pin.proposal,next)==='kept'&&next===1&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
+ // A shared pin's link (?structure=…&pin=…) opens on that feature once its pins arrive. Older Playground links name
+ // the placement rather than the feature, so either is matched.
+ const [linkPin,setLinkPin]=useState(()=>{const q=new URLSearchParams(location.search);return q.get('structure')?q.get('pin'):null;});
+ useEffect(()=>{if(!linkPin||!shown.pins.length&&!shown.error)return;const p=shown.pins.find(x=>x.id===linkPin||x.proposal===linkPin);
+  track('shared_pin_opened',{found:p?1:0,published:p?.kind==='published'?1:0});if(p){setSelectedPin(p.id);setDetails(true);}setLinkPin(null);},[linkPin,shown.pins,shown.error]);
  // Placing a pin (films K7–K9): a draft for the open structure. Every suggestion is a point.
  const draftRef=useRef<string|null>(null);
  const [draft,setDraft]=useState<Draft|null>(null),[refused,setRefused]=useState<Refusal|null>(null),[saveState,setSaveState]=useState<'idle'|'saving'|'saved'>('idle'),[saveError,setSaveError]=useState(''),[invalidTris,setInvalidTris]=useState<number[]>([]);
@@ -312,6 +318,7 @@ export default function Home(){
    profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} pinHref={pinHref}
+   onShare={async x=>{const ok=selected?await copy(pinLink(selected.id,x.id)):false;track('pin_shared',{source:'card',result:ok?'copied':'failed',published:x.kind==='published'?1:0});return ok;}}
    needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
    onSuggest={x=>startDraft({kind:'correction',landmark:x.id,supersedes:x.proposal??null,label:x.label,latin:x.latinName,description:x.description})}

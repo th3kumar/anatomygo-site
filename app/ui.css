@@ -417,3 +417,5 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .profile-error{color:var(--destructive);margin-top:10px}
 .profile-out{margin-top:36px;min-height:var(--hit);color:var(--text-2)}
 .about-screen{display:flex;flex-direction:column;flex:1;min-height:0}
+.share-button{overflow:hidden;justify-content:center;min-width:84px}
+.next-label{margin:4px 0 0}
