@@ -37,7 +37,7 @@ export class PublishedPinLayer {
    head.userData.pinId=pin.id;this.group.add(stem,head);this.pins.push({id:pin.id,community,anchor,normal,head,stem,order:0});
   }
  }
- update(camera:T.PerspectiveCamera,height:number,offset:T.Vector3,selected:string|null,dark:boolean){
+ update(camera:T.PerspectiveCamera,height:number,offset:T.Vector3,selected:string|null,dark:boolean,behind=true){
   this.group.position.copy(offset);
   // White heads on the dark stage, near-black on the light one; the open feature's pin is mint and the rest step back.
   this.regular.color.set(dark?0xf4f5f6:0x2a2d31);this.line.color.copy(this.regular.color);this.community.color.set(dark?0xc8ccd0:0x6f747a);this.communityLine.color.copy(this.community.color);
@@ -47,7 +47,9 @@ export class PublishedPinLayer {
   let popping=false;
   for(const p of this.pins){const distance=camera.position.distanceTo(p.anchor.clone().add(offset)),unit=2*distance*Math.tan(T.MathUtils.degToRad(camera.fov/2))/Math.max(1,height),tip=p.anchor.clone().addScaledVector(p.normal,unit*14);
    const t=(now-this.born)/1000-this.delay-p.order*.03,grow=t<=0?0:.4+.6*springAt('snappy',t);if(t<.6)popping=true;
-   p.head.position.copy(tip);p.head.scale.setScalar(Math.max(1e-4,unit*(selected===p.id?4.2:3)*grow));p.head.visible=grow>0;p.head.material=selected===p.id?this.selected:p.community?this.community:this.regular;
+   // With pins behind off, a pin facing away (and its stem) is hidden unless it is the open one.
+   const away=!behind&&selected!==p.id&&camera.position.clone().sub(tip).dot(p.normal)<0;
+   p.head.position.copy(tip);p.head.scale.setScalar(Math.max(1e-4,unit*(selected===p.id?4.2:3)*grow));p.head.visible=grow>0&&!away;p.stem.visible=!away;p.head.material=selected===p.id?this.selected:p.community?this.community:this.regular;
    const pos=p.stem.geometry.getAttribute('position') as T.BufferAttribute;pos.setXYZ(0,p.anchor.x,p.anchor.y,p.anchor.z);pos.setXYZ(1,tip.x,tip.y,tip.z);pos.needsUpdate=true;p.stem.geometry.computeBoundingSphere();
   }
   this.drawShape(selected,dark);

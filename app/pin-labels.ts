@@ -47,13 +47,14 @@ export class PinLabels {
    if(!visible||(!facing&&!o.behind&&!on)){it.outer.style.opacity='0';it.outer.style.pointerEvents='none';continue;}
    const x=(this.v.x+1)*w/2,y=(1-this.v.y)*h/2;
    // Labels never pile up: one that would overlap a label already placed waits until there is room.
-   const text0=facing||on?it.text:`${it.text} · behind`,lw=text0.length*6.4+20,box=on?{l:x-18-lw,t:y-12,r:x-18,b:y+12}:{l:x+14,t:y-12,r:x+14+lw,b:y+12};
+   // The open label sits left of its pin, unless that would run off the screen; others sit right.
+   const text0=facing||on?it.text:`${it.text} · behind`,lw=text0.length*6.4+20,left=on&&x-18-lw>=8,box=left?{l:x-18-lw,t:y-12,r:x-18,b:y+12}:{l:x+14,t:y-12,r:x+14+lw,b:y+12};
    if(!on&&placed.some(q=>box.l<q.r&&box.r>q.l&&box.t<q.b&&box.b>q.t)){it.outer.style.opacity='0';it.outer.style.pointerEvents='none';continue;}
    placed.push(box);
    const strength=on||hover?1:o.selected?.55:o.mode==='soft'?.7:1;
    it.outer.style.opacity=String(strength*(facing||on?1:.6));
    it.outer.style.pointerEvents='auto';
-   it.outer.style.transform=on?`translate(${(x-18).toFixed(1)}px,${y.toFixed(1)}px) translate(-100%,-50%)`:`translate(${(x+14).toFixed(1)}px,${y.toFixed(1)}px) translateY(-50%)${hover?' scale(1.06)':''}`;
+   it.outer.style.transform=left?`translate(${(x-18).toFixed(1)}px,${y.toFixed(1)}px) translate(-100%,-50%)`:`translate(${(x+14).toFixed(1)}px,${y.toFixed(1)}px) translateY(-50%)${hover?' scale(1.06)':''}`;
    it.outer.classList.toggle('is-on',on);it.outer.classList.toggle('is-behind',!facing&&!on);
    if(it.inner.textContent!==text0)it.inner.textContent=text0;
    if(on){this.halo.hidden=false;this.halo.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;}

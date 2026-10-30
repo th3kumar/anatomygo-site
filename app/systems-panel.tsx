@@ -6,9 +6,9 @@ import {Slider} from '@/components/ui/slider';
 import {css} from './motion';
 import type {SystemId} from './anatomy';
 
-export type Preset='all'|'skeleton'|'muscles'|'organs';
+export type Preset='all'|'skeleton'|'organs';
 export const ORGANS:SystemId[]=['cardiac','respiratory','digestive','urinary','endocrine','reproductive'];
-const TABS:[Preset,string][]=[['all','All'],['skeleton','Bones'],['muscles','Muscles'],['organs','Organs']];
+const TABS:[Preset,string][]=[['all','All'],['skeleton','Skeleton'],['organs','Organs']];
 /** Rows shown before "N more systems". */
 const FIRST=10;
 
@@ -18,12 +18,11 @@ export function presetOf(visible:SystemId[],all:SystemId[]):Preset|null{
  const same=(a:SystemId[])=>a.length===visible.length&&a.every(id=>visible.includes(id));
  if(same(all))return 'all';
  if(same(['skeletal']))return 'skeleton';
- if(same(['muscular']))return 'muscles';
  if(same(ORGANS.filter(id=>all.includes(id))))return 'organs';
  return null;
 }
 export function presetSystems(p:Preset,all:SystemId[]):SystemId[]{
- return p==='all'?all:p==='skeleton'?['skeletal']:p==='muscles'?['muscular']:ORGANS.filter(id=>all.includes(id));
+ return p==='all'?all:p==='skeleton'?['skeletal']:ORGANS.filter(id=>all.includes(id));
 }
 
 export function SystemsBody({systems,allSet,counts,visible,shown,explode,onPreset,onToggle,onOnly,onExplode}:{systems:System[],allSet:SystemId[],counts:Record<string,number>,visible:SystemId[],shown:number,explode:number,onPreset:(p:Preset)=>void,onToggle:(id:SystemId)=>void,onOnly:(id:SystemId)=>void,onExplode:(v:number)=>void}){

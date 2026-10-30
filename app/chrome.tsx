@@ -57,7 +57,7 @@ export function FocusPill({view,options,onView,onToggle,compact}:{view:View,opti
  const toggles:[FocusToggle,ReactNode,string][]=[['neighbours',<Layers size={17} key="n"/>,'Neighbouring structures'],['labels',<Tag size={17} key="l"/>,'Labels'],['behind',<Eye size={17} key="b"/>,'Pins on the far side']];
  return <nav className="vpill" aria-label="Focus">
   {!compact&&onView&&<>{VIEWS.map(([v,short,name])=><button type="button" key={v} className={`vbtn ${view===v?'is-on':''}`} aria-pressed={view===v} onClick={()=>onView(v)} title={name} aria-label={name}>{short}</button>)}<span className="vsep" aria-hidden="true"/></>}
-  {toggles.filter(([k])=>!compact||k!=='behind').map(([k,icon,name])=><button type="button" key={k} className={`vbtn ${options[k]?'is-mint':''}`} aria-pressed={options[k]} onClick={()=>onToggle(k)} title={name} aria-label={`${options[k]?'Hide':'Show'} ${name.toLowerCase()}`}>{icon}</button>)}
+  {toggles.map(([k,icon,name])=><button type="button" key={k} className={`vbtn ${options[k]?'is-mint':''}`} aria-pressed={options[k]} onClick={()=>onToggle(k)} title={name} aria-label={`${options[k]?'Hide':'Show'} ${name.toLowerCase()}`}>{icon}</button>)}
  </nav>;
 }
 

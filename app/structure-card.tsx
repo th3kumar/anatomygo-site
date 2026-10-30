@@ -37,7 +37,7 @@ export function StructureCard(p:Props){
  const vh=typeof innerHeight==='number'?innerHeight:800;
  const deskH:number|'auto'=mode==='peek'?'auto':Math.min(600,vh-96-32);
  const phoneH:number|'auto'=mode==='peek'?'auto':mode==='focus'&&tab==='parts'?Math.min(vh*.65,560):Math.min(vh*.47,420);
- const size=phone?{height:phoneH}:{width:mode==='peek'?400:372,height:deskH};
+ const size=phone?{height:phoneH}:{width:mode==='peek'?416:392,height:deskH};
 
  const meta=<p className="t-meta">{facts.kind}{facts.side?` · ${facts.side}`:''}</p>;
  const close=<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
@@ -46,7 +46,6 @@ export function StructureCard(p:Props){
   <div className="card-row">{meta}{close}</div>
   <h2 className="t-title card-title">{facts.title}</h2>
   <p className="t-body2 clamp-2">{facts.description}</p>
-  {facts.features?<p className="t-meta">{facts.features===1?'1 part pinned':`${facts.features} parts & features pinned`}</p>:null}
   <button type="button" className="learn-more" onClick={p.onLearnMore}><span className="learn-more-in">Learn more<ChevronRight size={18}/></span></button>
  </m.div>;
 
@@ -96,10 +95,10 @@ export function StructureCard(p:Props){
   <div className="card-scroll">
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
    <div className="tile vote-tile"><p className="t-body2">Looks right?</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a></div>
-   <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.kind==='community'?(pin.by===null?'Starter pin · not yet reviewed':pin.by?`Added by the community · ${pin.by}`:'Added by the community'):'Published'}</p>
+   <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.kind==='community'?(pin.by===null?'Starter pin':pin.by?`Added by the community · ${pin.by}`:'Added by the community'):'Published'}</p>
   </div>
   {!phone&&<div className="contrib"><p className="t-meta">Pin in the wrong spot? Help fix it.</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a></div>}
-  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone&&<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>}{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
+  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone?<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>:<span/>}{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
  </m.div>;
 
  const body=<AnimatePresence mode="popLayout" initial={false}>{mode==='peek'?peek:mode==='feature'&&feature?feature:focus}</AnimatePresence>;
@@ -111,7 +110,7 @@ export function StructureCard(p:Props){
   <span className="grab-zone" onPointerDown={e=>drag.start(e)}><span className="grab" aria-hidden="true"/></span>
   {body}
  </m.section>;
- return <m.section className="panel scard" data-inset="right" data-inset-size={mode==='peek'?400:372} role="dialog" aria-label={facts.title}
+ return <m.section className="panel scard" data-inset="right" data-inset-size={mode==='peek'?416:392} role="dialog" aria-label={facts.title}
   initial={{opacity:0,x:16,...size}} animate={{opacity:1,x:0,...size}} exit={{opacity:0,scale:.98,transition:tween('in',.18)}} transition={{...spring.card,opacity:tween('out',.22)}}>
   {body}
  </m.section>;

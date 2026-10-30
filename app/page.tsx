@@ -130,7 +130,7 @@ export default function Home(){
  const choosePart=(id:string,source:string)=>{const p=parts.get(id);if(!p)return;visit.current.structures.add(id);track('structure_selected',{source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  const toggle=(id:SystemId)=>{visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
  const reset=()=>{track('view_reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
- useEffect(()=>{if(!atlas)return;const q=new URLSearchParams(location.search),id=q.get('structure');if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')==='1')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
+ useEffect(()=>{if(!atlas)return;const q=new URLSearchParams(location.search),id=q.get('structure');if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')!=='0')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
  const failed=(message:string)=>{setError(message);if(/WebGL/.test(message))track('renderer_failed',{reason:'webgl'});else if(/paused/.test(message))track('renderer_failed',{reason:'context_lost'});else track('atlas_download_failed',{stage:'models'});};
  const closeLighting=()=>{track('lighting_closed',{custom:isDefaultLight(light)?0:1});setLighting(false);};
  const toggleLighting=()=>{if(lighting){closeLighting();return;}track('lighting_opened');setPanel(null);setLighting(true);};
@@ -182,7 +182,7 @@ export default function Home(){
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={chromeReady?null:progress}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
    {!phone&&<Arrive ready={chromeReady&&!focused} edge="top" order={1} className="top-search">{panel!=='search'&&<SearchPill onOpen={()=>openPanel('search')}/>}</Arrive>}
-   {phone&&focused?<Arrive ready={mode==='focus'} edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive ready={chromeReady&&!focused} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
+   {phone&&focused?<Arrive ready edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive ready={chromeReady&&!focused} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
     <ThemeButton dark={dark} onToggle={toggleTheme}/>
     {phone
      ?<GlassButton icon={<Info size={18}/>} onClick={()=>openAbout('top_bar')} aria-label={appBadge?'About this atlas. New: the Android app':'About this atlas'}>{appBadge&&<span className="app-dot" aria-hidden="true"/>}</GlassButton>
@@ -206,7 +206,7 @@ export default function Home(){
     </Arrive>}
    </>
    :<>
-    {focused?<Arrive ready={mode==='focus'} edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
+    {focused?<Arrive ready edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
     :<Arrive ready={chromeReady} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}
     {!lighting&&!focused&&<Arrive ready={chromeReady} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}

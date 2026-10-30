@@ -37,20 +37,32 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
   camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
-  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;});
+  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;stopFloat();});
   const labels=new PinLabels(el,id=>pickPin.current(id));
   // Camera moves: one tween on the handoff's camera curve (no overshoot). Direction turns, distance eases in log space,
   // and the view offset (which keeps the subject clear of the panels) moves with them. Grabbing the model stops it.
   type Shot={pos:T.Vector3;target:T.Vector3;off:[number,number]};
+  // After Learn more lands, the structure floats gently for a few seconds (as in the handoff), until anything is touched.
+  const FLOAT={seconds:4,lift:3,period:2.8,breathe:.004};
+  let floatPending=false,floatAt=0,floatStop=0;
+  const stopFloat=()=>{floatPending=false;if(floatAt&&!floatStop)floatStop=performance.now();};
+  for(const type of ['pointerdown','keydown','wheel'])addEventListener(type,stopFloat,{capture:true,passive:true});
+  const applyFloat=()=>{
+   if(!floatAt)return;const now=performance.now(),t=(now-floatAt)/1000,fade=floatStop?Math.max(0,1-(now-floatStop)/200):1;
+   const w=el.clientWidth,h=el.clientHeight;
+   if(t>=FLOAT.seconds||fade<=0){floatAt=0;floatStop=0;camera.zoom=1;camera.updateProjectionMatrix();setOffset(...off);dirty=true;return;}
+   const env=Math.sin(Math.PI*t/FLOAT.seconds)*fade,wave=Math.sin(2*Math.PI*t/FLOAT.period);
+   camera.setViewOffset(w,h,off[0],off[1]-FLOAT.lift*wave*env,w,h);camera.zoom=1+FLOAT.breathe*Math.sin(2*Math.PI*t/(FLOAT.period*1.6))*env;camera.updateProjectionMatrix();dirty=true;
+  };
   let off:[number,number]=[0,0],fly:{from:Shot;to:Shot;t:number;dur:number}|null=null,bodyShot:Shot|null=null,isoShot:Shot|null=null;
   const setOffset=(x:number,y:number)=>{off=[x,y];const w=el.clientWidth,h=el.clientHeight;if(Math.abs(x)<.01&&Math.abs(y)<.01)camera.clearViewOffset();else camera.setViewOffset(w,h,x,y,w,h);};
   const shot=():Shot=>({pos:camera.position.clone(),target:controls.target.clone(),off:[...off]});
-  const flyTo=(to:Shot,dur:number)=>{if(dur<=0||reducedMotion()){fly=null;controls.target.copy(to.target);camera.position.copy(to.pos);setOffset(...to.off);controls.update();dirty=true;return;}fly={from:shot(),to,t:0,dur};dirty=true;};
+  const flyTo=(to:Shot,dur:number)=>{if(floatAt){floatAt=0;floatStop=0;camera.zoom=1;camera.updateProjectionMatrix();}if(dur<=0||reducedMotion()){fly=null;controls.target.copy(to.target);camera.position.copy(to.pos);setOffset(...to.off);controls.update();dirty=true;return;}fly={from:shot(),to,t:0,dur};dirty=true;};
   const stepFly=(dt:number)=>{if(!fly)return;fly.t=Math.min(1,fly.t+dt/fly.dur);const e=ease.cam(fly.t),f=fly.from,g=fly.to;
    const d0=f.pos.clone().sub(f.target),d1=g.pos.clone().sub(g.target),l0=Math.max(1e-4,d0.length()),l1=Math.max(1e-4,d1.length());
    const q=new T.Quaternion().setFromUnitVectors(d0.clone().normalize(),d1.clone().normalize()),dir=d0.clone().normalize().applyQuaternion(new T.Quaternion().slerp(q,e));
    controls.target.lerpVectors(f.target,g.target,e);camera.position.copy(controls.target).addScaledVector(dir,Math.exp(Math.log(l0)+(Math.log(l1)-Math.log(l0))*e));
-   setOffset(f.off[0]+(g.off[0]-f.off[0])*e,f.off[1]+(g.off[1]-f.off[1])*e);controls.update();dirty=true;if(fly.t>=1)fly=null;};
+   setOffset(f.off[0]+(g.off[0]-f.off[0])*e,f.off[1]+(g.off[1]-f.off[1])*e);controls.update();dirty=true;if(fly.t>=1){fly=null;if(floatPending&&!reducedMotion()){floatPending=false;floatAt=performance.now();floatStop=0;}}};
   const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment(),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();
   scene.add(new T.HemisphereLight(0xffffff,0x6d737a,RIG.hemisphere));
   const key=new T.DirectionalLight(0xfff5e8,RIG.key);key.position.set(-2,4,3);scene.add(key);
@@ -159,7 +171,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   };
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
-  const down=(e:PointerEvent)=>{hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
+  const down=(e:PointerEvent)=>{stopFloat();hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
   const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);if(e.buttons||amount<.5||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
   const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
   // A tap held because a part that might be in front of the hit is still on its way; tried again when parts arrive,
@@ -228,7 +240,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
       const dir=entering?camera.position.clone().sub(controls.target).normalize():new T.Vector3(.2,.1,1).normalize();if(entering){dir.y=T.MathUtils.clamp(dir.y,-.3,.45);dir.normalize();}else if(isoShot)dir.copy(isoShot.pos).sub(isoShot.target).normalize();
       isoShot={target:center,pos:center.clone().addScaledVector(dir,distance),off:[w/2-(left+right)/2,h/2-(top+bottom)/2]};
       // The card changed size (a tab, a detent): the camera reframes with it, quicker than a full move.
-      if(!selectedPinRef.current)flyTo(isoShot,entering||!sameSelection?DURATION.focus:DURATION.reframe);
+      if(!selectedPinRef.current){flyTo(isoShot,entering||!sameSelection?DURATION.focus:DURATION.reframe);if(entering)floatPending=true;}
      }
     }else if(lastIsolate){
      // Back to the body: the camera returns to the exact view that was left.
@@ -236,7 +248,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     }
     lastIsolate=isolateKey;
    }
-   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&!s.isolate,floorOn=false,contactOn=onStage;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;stepFly(dt);controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
+   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&!s.isolate,floorOn=false,contactOn=onStage;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;stepFly(dt);applyFloat();controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
    if(lamp.current!==placedLight){placedLight=lamp.current;dirty=true;}
    const pinHost=s.isolate&&s.selected.length===1?pickers[atlas.parts.findIndex(p=>p.id===s.selected[0])]:undefined;
    if(lastPins!==published.current||lastPin!==selectedPinRef.current){
@@ -249,19 +261,20 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
      else if(isoShot)flyTo(isoShot,DURATION.feature);}
     lastPins=published.current;lastPin=sel;dirty=true;}
    publishedLayer.group.visible=!!pinHost&&published.current.length>0;publishedLayer.set(published.current,pinHost?.geometry??null);
+   // Display toggles take effect at once, before this frame's labels and pins are placed.
+   if(lastHover!==s.hoverPin||lastLabels!==s.labels||lastBehind!==s.behind){lastHover=s.hoverPin;lastLabels=s.labels;lastBehind=s.behind;dirty=true;}
    let popping=false;
-   if(dirty&&pinHost)popping=publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current);
+   if(dirty&&pinHost)popping=publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current,s.behind??true);
    const labelled=!!pinHost&&published.current.length>0;
    labels.set(labelled?published.current.map(p=>({id:p.id,label:p.label})):[]);
    if(dirty&&labelled)labels.update(publishedLayer.points(),camera,el.clientWidth,el.clientHeight,{selected:selectedPinRef.current,mode:s.labels??'full',behind:s.behind??true,hover:s.hoverPin??null,delay:publishedLayer.delay+.16});
-   if(lastHover!==s.hoverPin||lastLabels!==s.labels||lastBehind!==s.behind){lastHover=s.hoverPin;lastLabels=s.labels;lastBehind=s.behind;dirty=true;}
    if(dirty){placeLights();const drawStart=performance.now();renderer.render(scene,camera);
     if(ready&&!perfSent){if(lastDrawnTick===tick-1){gaps.push(drawStart-lastDrawn);costs.push(performance.now()-drawStart);}lastDrawn=drawStart;lastDrawnTick=tick;if(gaps.length>=60){perfSent=true;perf.current?.({frameMs:median(gaps),renderMs:median(costs)});}}
     targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
    if(popping)dirty=true;
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();labels.dispose();renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();labels.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }

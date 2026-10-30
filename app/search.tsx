@@ -6,7 +6,7 @@ import {Search as SearchIcon} from 'lucide-react';
 import {spring,tween,DUR} from './motion';
 
 export type Result={id:string,name:string,meta:string};
-const PLACEHOLDER='Search a structure: femur, deltoid, heart…';
+const PLACEHOLDER='Search femur, deltoid, heart…';
 
 function bold(name:string,query:string){
  const q=query.trim(),i=q?name.toLowerCase().indexOf(q.toLowerCase()):-1;
@@ -15,7 +15,7 @@ function bold(name:string,query:string){
 
 export function SearchPill({onOpen,phone}:{onOpen:()=>void,phone?:boolean}){
  return <button type="button" className={`search-pill ${phone?'is-phone':''}`} onClick={onOpen} aria-label="Search a structure">
-  <SearchIcon size={18}/><span className="ph">{phone?'Search a structure':PLACEHOLDER}</span>{!phone&&<kbd className="kbd">/</kbd>}
+  <SearchIcon size={18}/><span className="ph">{phone?'Search':PLACEHOLDER}</span>{!phone&&<kbd className="kbd">/</kbd>}
  </button>;
 }
 
@@ -32,7 +32,7 @@ export function SearchPanel({phone,query,setQuery,results,note,onChoose,onClose}
  useEffect(()=>{document.getElementById(`${list}-${active}`)?.scrollIntoView({block:'nearest'});},[active,list]);
  const field=<div className={`search-field ${phone?'is-phone':''}`}>
   <SearchIcon size={18}/>
-  <input ref={input} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={key} placeholder={phone?'Search a structure':PLACEHOLDER} role="combobox" aria-expanded={results.length>0} aria-controls={list} aria-activedescendant={results.length?`${list}-${active}`:undefined} aria-autocomplete="list" aria-label="Search a structure" autoComplete="off" spellCheck={false} enterKeyHint="search"/>
+  <input ref={input} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={key} placeholder={phone?'Search':PLACEHOLDER} role="combobox" aria-expanded={results.length>0} aria-controls={list} aria-activedescendant={results.length?`${list}-${active}`:undefined} aria-autocomplete="list" aria-label="Search a structure" autoComplete="off" spellCheck={false} enterKeyHint="search"/>
   {!phone&&<kbd className="kbd">Esc</kbd>}
  </div>;
  const body=<>
