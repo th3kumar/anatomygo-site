@@ -207,7 +207,10 @@ export function StructureCard(p:Props){
  // structure it turns into a cross (to the whole body); the icons turn into each other as you move.
  const back=mode==='feature';
  const corner=<button type="button" className="card-corner" onClick={back?p.onPinClose:p.onClose} aria-label={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Back to the whole body'} title={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Whole body'}>
-  <AnimatePresence initial={false} mode="popLayout"><m.span key={back?'back':'close'} className="card-corner-icon" initial={{opacity:0,rotate:back?-90:90,scale:.6}} animate={{opacity:1,rotate:0,scale:1,transition:spring.snappy}} exit={{opacity:0,rotate:back?90:-90,scale:.6,transition:tween('in',.12)}}>{back?<ChevronLeft size={19}/>:<X size={17}/>}</m.span></AnimatePresence>
+  {/* Both icons stay in place, stacked; the cross turns out as the arrow turns in (and back), so nothing jumps and a
+     quick back-and-forth just reverses from where it is. */}
+  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:0,rotate:90,scale:.5}:{opacity:1,rotate:0,scale:1}} transition={spring.snappy}><X size={17}/></m.span>
+  <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:1,rotate:0,scale:1}:{opacity:0,rotate:-90,scale:.5}} transition={spring.snappy}><ChevronLeft size={19}/></m.span>
  </button>;
 
  if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${full&&open>rest+8?'is-full':''} ${mini?'is-mini':''}`} data-inset="bottom" data-inset-size={(mini?MINI:rest)||undefined} role="dialog" aria-label={facts.title}
