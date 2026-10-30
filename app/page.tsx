@@ -189,15 +189,15 @@ export default function Home(){
  const aboutPages={
   about:<div className="about-copy">
    <p className="t-body">A free 3D atlas of the adult male body: 2,234 parts to explore, isolate and pin.</p>
-   <p className="t-meta">For learning, not for diagnosis or surgery.</p>
-   <p className="t-meta about-credits">Anatomy: BodyParts3D © DBCLS (<a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noreferrer">CC BY 4.0</a>) · Viewer: Human Atlas (<a href="/human-atlas-license.txt" target="_blank" rel="noreferrer">MIT</a>)</p>
-  </div>,
-  app:PLAY_PUBLIC?<section className={`tile app-card ${appFresh?'is-fresh':''}`} aria-labelledby="app-card-title">
+   {PLAY_PUBLIC?<section className={`tile app-card ${appFresh?'is-fresh':''}`} aria-labelledby="app-card-title">
    <div className="app-card-head"><img src="/app-icon.png" alt="" width={48} height={48}/><div><h3 id="app-card-title" className="t-body">AnatomyGo for Android{appFresh&&<b className="new-tag">New</b>}</h3><p className="t-meta">Works offline. No account.</p></div></div>
    {platform==='ios'?<p className="t-meta app-card-note">Android only for now.</p>
    :coarse||platform==='android'?<a className="btn-accent app-card-cta" href={playUrl('site')} target="_blank" rel="noreferrer" onClick={playClicked}>Get it on Google Play<ArrowUpRight size={16}/></a>
    :<div className="app-card-qr"><img src="/app-qr.svg" alt="QR code for AnatomyGo on Google Play" width={104} height={104}/><div><strong className="t-body">Scan with your Android phone</strong><a className="link-mint" href={playUrl('site')} target="_blank" rel="noreferrer" onClick={playClicked}>Or open Google Play <ArrowUpRight size={13}/></a></div></div>}
-  </section>:undefined,
+  </section>:undefined}
+   <p className="t-meta">For learning, not for diagnosis or surgery.</p>
+   <p className="t-meta about-credits">Anatomy: BodyParts3D © DBCLS (<a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noreferrer">CC BY 4.0</a>) · Viewer: Human Atlas (<a href="/human-atlas-license.txt" target="_blank" rel="noreferrer">MIT</a>)</p>
+  </div>,
   feedback:<div className="about-copy">
    <section className="feedback-about" aria-label="Feedback"><p className="t-body2">What helped, what didn’t, what’s missing?</p>
     {aboutFeedback?<FeedbackForm source="about" context={feedbackContext} onSent={()=>markFeedback('sent')}/>:<button type="button" className="btn-quiet feedback-open" onClick={()=>{setAboutFeedback(true);track('feedback_opened',{ui_source:'about'});}}>Write feedback</button>}</section>
@@ -245,7 +245,7 @@ export default function Home(){
    </>}
   <p className="sr-only" role="status">{chromeReady?'':`Preparing the anatomy, ${progress}%`}</p>
   {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}
-  <AnimatePresence>{about?<AboutCard key="about" phone={phone} start={appFresh?'app':'about'} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
+  <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} contributeHref={featureHref} pinHref={pinHref}
    onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}

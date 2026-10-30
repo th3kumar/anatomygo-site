@@ -101,10 +101,11 @@ button svg,a svg{flex-shrink:0}
 @keyframes edge-in{to{opacity:.75}}
 
 /* Switch and slider (Base UI kit), restyled. Unlayered rules win over the kit's Tailwind utilities. */
-[data-slot=switch]{width:34px;height:20px;border-radius:999px;background:var(--switch-off);border:0;flex:none;transition:background .18s}
-[data-slot=switch][data-checked]{background:var(--switch-on)}
-[data-slot=switch-thumb]{width:16px;height:16px;margin-left:2px;background:var(--knob-off);box-shadow:0 1px 2px rgba(0,0,0,.2);translate:0 0;transition:translate var(--spring-snappy,.2s ease)}
-[data-slot=switch][data-checked] [data-slot=switch-thumb]{background:#fff;translate:14px 0}
+/* The doubled attributes outrank the kit's own size classes, which made the track 2px too narrow for the thumb. */
+[data-slot=switch][data-slot]{width:36px;height:22px;border-radius:999px;background:var(--switch-off);border:0;padding:0;flex:none;transition:background .18s}
+[data-slot=switch][data-slot][data-checked]{background:var(--switch-on)}
+[data-slot=switch-thumb][data-slot]{width:18px;height:18px;margin-left:2px;background:var(--knob-off);box-shadow:0 1px 2px rgba(0,0,0,.2);translate:0 0;transition:translate var(--spring-snappy,.2s ease)}
+[data-slot=switch][data-slot][data-checked] [data-slot=switch-thumb][data-slot]{background:#fff;translate:14px 0}
 [data-slot=slider-track]{height:4px;background:var(--track);overflow:visible}
 [data-slot=slider-range]{background:var(--accent);border-radius:2px}
 [data-slot=slider-thumb]{width:16px;height:16px;background:var(--knob);border:0;box-shadow:var(--knob-shadow)}
@@ -266,7 +267,7 @@ button svg,a svg{flex-shrink:0}
 .about-copy{display:flex;flex-direction:column;gap:12px}
 .about-credits a{color:var(--text-2)}
 .stats-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--hit);padding-top:12px;border-top:1px solid var(--hair-2)}
-.stats-choice>span{display:flex;flex-direction:column;gap:4px}
+.stats-choice>span:not([data-slot]){display:flex;flex-direction:column;gap:4px}
 
 /* Light pad */
 .light-overlay{position:absolute;inset:0;z-index:25;touch-action:none;cursor:crosshair;background:radial-gradient(ellipse at 50% 45%,transparent 45%,var(--scrim) 160%)}
