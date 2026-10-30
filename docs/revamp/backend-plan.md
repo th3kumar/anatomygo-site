@@ -21,14 +21,29 @@ existing changes, so the live Playground and the Android app keep working throug
 - `pg_submit` takes a request ID and returns the same pin when it is sent again, so a replay never makes a double.
 - `pg_vote` overwrites the earlier vote, so replaying is harmless.
 - Limits are 300 votes and 60 pins per hour per person, far above any replay.
-- **Catch:** a pin needs a public name first (`Choose a public display name first`). After sign-in, show the name step
-  filled in with the Google first name, then send the drafts.
+- A pin needs a public name. See 1.4: it is set without asking.
 - A vote on a pin that was removed meanwhile fails with `Proposal is unavailable`; drop it without a message.
 
 ### 1.3 The sign-in library loads only when needed
 - The main app reads Supabase with plain `fetch`. Sign-in needs `@supabase/supabase-js`, which is too big for the
   first-load budget (JS increase under 40 kB gzipped).
 - Load it on first vote, Contribute, or Account, and right away only when a session is already stored.
+
+### 1.4 No name step: the Google first name is used
+- A pin needs a public name (`pg_profiles`, 2–60 characters). The films' flow has no room for a separate step, and
+  learners shouldn't be stopped mid-study.
+- On a person's first pin, the app quietly saves their **Google first name** (`given_name`, else the first word of
+  `full_name`) through `pg_set_profile`, then sends the pin. No dialog, no extra tap.
+- It is shown right away: the published pin reads "Added by Mantu · just now". About → Account has
+  "Name on your pins · Mantu · Change", a single field to change it.
+- **Never the email address.** Names in `pg_profiles` are public, and the part before the @ often holds a surname,
+  birth year or work handle.
+- Only if Google gives no name: one field, "Name on your pins", with Save. This is rare.
+- **No change to the database, and no backfill.** People who signed in before get their name the same way at their next
+  pin. Filling names for everyone who ever signed in would publish names of people who never pinned anything,
+  because the table is public.
+- **The live Playground stays compatible.** It still asks for a name when none exists. Once the new app has saved one,
+  the Playground finds it and skips its dialog.
 
 ## 2. Recommended: one additive migration
 
@@ -76,3 +91,22 @@ existing changes, so the live Playground and the Android app keep working throug
 4. **Owner's step:** apply the migration and add the redirect URL. This is the only production change, and it comes
    right before launch.
 5. Matching script for `attaches_to`. The owner reviews the unsure matches, then it is applied.
+
+## 6. Keeping the live site safe
+People use anatomygo.in and the Playground while this is built, so every database change follows these rules:
+1. **Add only.** The migration adds one function (`pg_card`) and one nullable column (`attaches_to`).
+   - It doesn't change or drop any existing table, function, policy or permission.
+   - `pg_published_pack`, `pg_vote_totals`, `pg_submit` and `pg_vote` keep their exact signatures and behaviour.
+2. **No locks users would feel.** A nullable column with no default is a metadata-only change, and creating a function
+   locks nothing. Filling `attaches_to` updates about 260 rows in small batches.
+3. **Nothing live reads the new parts.** Live code names its columns (`cloud.ts`, `published-pins.ts`,
+   `feature-counts.ts`), so an extra column changes no response. The Android app makes no Supabase calls.
+4. **Old and new front ends both work.** The revamp falls back to today's requests when `pg_card` is missing, so the
+   migration can go live before, with or after the new site.
+5. **Tested first, locally.** `supabase/tests/run.sh` runs every migration on a throwaway local database, plus checks
+   that the old functions still answer as before.
+6. **Easy to undo.** A rollback file (`drop function pg_card; alter table pg_landmarks drop column attaches_to`) is
+   written alongside. Nothing old depends on either.
+7. **Checked live after applying.** Home page pins on a structure, a Playground vote, and feedback sending. These are
+   REST reads, not log queries, so they don't touch the log budget.
+8. **The owner applies it**, at a quiet hour, after reviewing the SQL.
