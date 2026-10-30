@@ -79,6 +79,8 @@ export function StructureCard(p:Props){
  // (by the handle, the header or the content) raises the whole sheet towards full height, and only then does the
  // content scroll. Dragged below its resting height it closes.
  const scroller=useRef<HTMLElement|null>(null),[fit,setFit]=useState(0),[full,setFull]=useState(false);
+ // Set by callback refs below, so React never clears it: without this a closed card stayed in memory.
+ useEffect(()=>()=>{scroller.current=null;},[]);
  // In focus and on a feature the card minimises instead of closing: leaving the structure is the Body button's job.
  const canMini=phone&&mode!=='peek',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
  useEffect(()=>{if(!canMini)setMini(false);},[canMini]);useEffect(()=>{setMini(false);},[facts.reference]);
