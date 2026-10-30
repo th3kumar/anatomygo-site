@@ -10,7 +10,8 @@ interface Pack {schema:number;meshId:string;geometry:string;pins:PublishedPin[]}
 interface Row {id:string;landmark_id:string;label:string;latin_name:string|null;description:string|null;geometry:string;triangle:number;u:number;v:number;shape?:unknown;author_id:string|null;pg_profiles:{display_name:string|null}|null}
 const cache=new Map<string,{at:number;pins:PublishedPin[];needsPin:OpenFeature[]}>();
 let geometry:Promise<string>|undefined;
-function fingerprint(){return geometry??=fetch('/models/playground-geometry.json').then(r=>{if(!r.ok)throw Error('Model metadata unavailable');return r.json()}).then(x=>{const value=(x as {geometry?:unknown}).geometry;if(typeof value!=='string'||value.length!==64)throw Error('Model metadata invalid');return value;}).catch(e=>{geometry=undefined;throw e;});}
+/** The model's geometry fingerprint: placements are stored against it, so a pin can't land on a different model. */
+export function fingerprint(){return geometry??=fetch('/models/playground-geometry.json').then(r=>{if(!r.ok)throw Error('Model metadata unavailable');return r.json()}).then(x=>{const value=(x as {geometry?:unknown}).geometry;if(typeof value!=='string'||value.length!==64)throw Error('Model metadata invalid');return value;}).catch(e=>{geometry=undefined;throw e;});}
 const validAnchor=(a:{triangle:number;u:number;v:number}|undefined)=>!!a&&Number.isInteger(a.triangle)&&a.triangle>=0&&Number.isFinite(a.u)&&Number.isFinite(a.v)&&a.u>=0&&a.v>=0&&a.u+a.v<=1;
 export function validatePublishedPack(value:unknown,mesh:string,expectedGeometry:string):PublishedPin[]{
  const p=value as Pack;
@@ -39,7 +40,9 @@ export function validateCard(value:unknown,mesh:string,expectedGeometry:string):
 }
 /** Published pins first, then one community pin per remaining feature: one `pg_card` read, or the older four reads
  * until that migration is live. A failed community read leaves the published ones. */
-export function useStructurePins(mesh:string|null){
+/** Forgets a structure's pins, so the next read (after saving one) is fresh. */
+export function forgetPins(mesh:string){cache.delete(mesh);}
+export function useStructurePins(mesh:string|null,version=0){
  const [pins,setPins]=useState<PublishedPin[]>([]),[needsPin,setNeedsPin]=useState<OpenFeature[]>([]),[error,setError]=useState('');
  useEffect(()=>{setPins([]);setNeedsPin([]);setError('');if(!mesh||!supabaseConfig())return;
  const cached=cache.get(mesh);if(cached&&Date.now()-cached.at<60000){setPins(cached.pins);setNeedsPin(cached.needsPin);return;}
@@ -49,7 +52,7 @@ export function useStructurePins(mesh:string|null){
   .then(next=>{if(!live)return;cache.set(mesh,{at:Date.now(),...next});while(cache.size>30)cache.delete(cache.keys().next().value!);setPins(next.pins);setNeedsPin(next.needsPin);})
   .catch(e=>{if(live&&!signal.aborted)setError(e instanceof RestError||e.name==='TypeError'?'Pins couldn’t load. Check your connection.':e.message);});
  return()=>{live=false;abort.abort();};
- },[mesh]);
+ },[mesh,version]);
  return {pins,needsPin,error};
 }
 /** Features with no placement yet, by name (at most 200). */

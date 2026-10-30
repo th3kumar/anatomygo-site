@@ -1,8 +1,10 @@
-import {useStructurePins,type PublishedPin} from './published-pins';
+import {fingerprint,forgetPins,useStructurePins,type PublishedPin} from './published-pins';
 import type {Session} from '@supabase/supabase-js';
 import {storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
 import {SignInDialog} from './community/sign-in-dialog';
+import {PlaceSteps,type Refusal} from './community/place-card';
+import {dropDraft,keepDraft,keptDrafts,submit,toSaved,unusable,type Draft} from './community/placing';
 import {flushSync} from 'react-dom';
 import {registerAtlasTools} from './agent-tools';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -73,7 +75,8 @@ export default function Home(){
  const activeSystems=PANEL_ORDER.map(id=>SYSTEMS.find(s=>s.id===id)!).filter(s=>counts[s.id]>0);
  const selectedParts=state.selected.map(id=>parts.get(id)).filter(p=>!!p),selected=selectedParts[0],system=SYSTEMS.find(s=>s.id===selected?.system);
  // Pins on an isolated single piece: published ones, then one community pin per remaining feature (marked as not yet reviewed).
- const shown=useStructurePins(state.isolate&&selectedParts.length===1?selected.id:null);
+ const [pinsVersion,setPinsVersion]=useState(0);
+ const shown=useStructurePins(state.isolate&&selectedParts.length===1?selected.id:null,pinsVersion);
  // The contribute list, in the card (film K6). It belongs to one structure, so it closes when that changes.
  const [contributing,setContributing]=useState(false);
  useEffect(()=>{setContributing(false);},[selected?.id,state.isolate]);
@@ -88,6 +91,28 @@ export default function Home(){
   if(await votes.vote(pin.proposal,next)==='kept'&&next===1&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
+ // Placing a pin (films K7–K9): a draft for the open structure. Every suggestion is a point.
+ const [draft,setDraft]=useState<Draft|null>(null),[refused,setRefused]=useState<Refusal|null>(null),[saveState,setSaveState]=useState<'idle'|'saving'|'saved'>('idle'),[saveError,setSaveError]=useState(''),[invalidTris,setInvalidTris]=useState<number[]>([]);
+ const [openProposal,setOpenProposal]=useState<string|null>(null);
+ useEffect(()=>{setDraft(null);},[selected?.id,state.isolate]);
+ const startDraft=(d:Pick<Draft,'kind'|'landmark'|'supersedes'|'label'|'latin'|'description'>)=>{if(!selected)return;
+  setDraft({...d,request:crypto.randomUUID(),mesh:selected.id,anchor:null,note:''});setRefused(null);setSaveState('idle');setSaveError('');setInvalidTris([]);
+  void unusable(selected.id).then(setInvalidTris);track('draft_started',{kind:d.kind,practice:0});};
+ const cancelDraft=()=>{if(draft)track('draft_cancelled',{stage:draft.anchor?'placed':'placing'});setDraft(null);};
+ const savePin=async()=>{if(!draft?.anchor||saveState!=='idle')return;setSaveState('saving');setSaveError('');
+  try{const saved=toSaved(draft,await fingerprint());
+   // Signed out: kept on this device, then sign-in is offered (Later keeps it here).
+   if(!session){keepDraft(saved);setSaveState('saved');setTimeout(()=>{setCloudOn(true);setAsk('pin');track('sign_in_prompted',{reason:'save'});},250);return;}
+   const id=await submit(saved,session);setSaveState('saved');forgetPins(saved.mesh);
+   setTimeout(()=>{setDraft(null);setPinsVersion(v=>v+1);setOpenProposal(id);if(saved.landmark)setSelectedPin(saved.landmark);},700);
+  }catch(e){setSaveState('idle');setSaveError(e instanceof Error&&/name/.test(e.message)?e.message:'That didn’t save. Please try again.');}};
+ // A new part has no feature id until it is saved: open it once its pin arrives.
+ useEffect(()=>{if(!openProposal)return;const p=shown.pins.find(x=>x.proposal===openProposal);if(p){setSelectedPin(p.id);setOpenProposal(null);}},[shown.pins,openProposal]);
+ // After sign-in, pins kept on this device are sent, then forgotten here.
+ useEffect(()=>{if(!session)return;const list=keptDrafts();if(!list.length)return;
+  void (async()=>{for(const k of list){try{await submit(k,session);dropDraft(k.request);forgetPins(k.mesh);}catch{/* kept for the next try */}}setPinsVersion(v=>v+1);
+   // A pin saved just before signing in is now sent: its step card closes.
+   setDraft(d=>d&&!keptDrafts().some(k=>k.request===d.request)?null:d);})();},[session]);
  const selectPin=(id:string,source:'list'|'model')=>{setSelectedPin(id);const p=shown.pins.find(x=>x.id===id);if(p)track('home_pin_selected',{kind:p.kind??'published',source});};
  useEffect(()=>{if(shown.pins.length)track('home_pins_shown',{structure_id:selected?.id??'',pins:bucket(shown.pins.length),published:bucket(shown.pins.filter(p=>p.kind!=='community').length)});},[shown.pins]);
  // Playground entry: a count of the structure's parts & features, a "New" tag and (with coach marks on) two one-time tips until the visitor has tried it.
@@ -166,10 +191,10 @@ export default function Home(){
  const [returning,setReturning]=useState(false),[linkedReady,setLinkedReady]=useState(false),[sheetRest,setSheetRest]=useState(0),[cardMini,setCardMini]=useState(false);
  const [tab,setTab]=useState<CardTab>('about'),[hoverPin,setHoverPin]=useState<string|null>(null);
  const [focusOptions,setFocusOptions]=useState<Record<FocusToggle,boolean>>({neighbours:true,labels:true,behind:true});
- const mode:CardMode|null=!(details&&selectedParts.length>0)?null:!state.isolate?'peek':pin?'feature':contributing?'contribute':'focus';
+ const mode:CardMode|null=!(details&&selectedParts.length>0)?null:!state.isolate?'peek':draft?'place':pin?'feature':contributing?'contribute':'focus';
  // A structure link opens in focus, but its chrome waits until that structure has loaded (the bar under the wordmark shows the way).
  const linkWaiting=linked.length>0&&!linkedReady&&!viewReady;
- const focused=(mode==='focus'||mode==='feature')&&!linkWaiting;
+ const focused=(mode==='focus'||mode==='feature'||mode==='contribute'||mode==='place')&&!linkWaiting;
  useEffect(()=>{setTab('about');setHoverPin(null);},[state.selected]);
  const clearing=useRef(0);
  const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
@@ -178,7 +203,7 @@ export default function Home(){
  const closeCard=()=>{if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
  const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more'});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
  const KIND:Record<string,string>={skeletal:'Bone',muscular:'Muscle',arterial:'Artery',venous:'Vein'};
  const side=chosen?/\bleft\b/i.test(chosen.name)?'Left':/\bright\b/i.test(chosen.name)?'Right':null:null;
  const counterpart=(()=>{if(!atlas||!selected||selectedParts.length!==1||!side)return null;const want=selected.name.replace(/\b(Left|Right|left|right)\b/,w=>({Left:'Right',Right:'Left',left:'right',right:'left'} as Record<string,string>)[w]);const p=atlas.parts.find(x=>x.name===want);return p?{id:p.id,name:p.name}:null;})();
@@ -223,12 +248,14 @@ export default function Home(){
  };
 
  return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
-  {atlas&&<AnatomyScene pins={shown.pins} selectedPin={selectedPin} onPinSelect={id=>{selectPin(id,'model');setDetails(true);}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={id=>choosePart(id,'tap')} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
+  {atlas&&<AnatomyScene pins={shown.pins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;selectPin(id,'model');setDetails(true);}}
+   placing={mode==='place'&&draft?{anchor:draft.anchor,invalid:invalidTris}:null}
+   onPlace={r=>{if('refused' in r){setRefused(r.refused);track('pin_refused',{reason:r.refused,practice:0});return;}setRefused(null);if(!r.moved)track('pin_placed',{kind:draft?.anchor?'moved':'placed',practice:0});setDraft(d=>d&&{...d,anchor:r.anchor});}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={id=>choosePart(id,'tap')} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
   <AnimatePresence>{lighting&&<LightPad key="light" light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}</AnimatePresence>
   {/* The header, with the intro also in web/index.html's first frame: keep the two in step. */}
   <header className="topbar" data-inset="top">
    <AnimatePresence initial={false} mode="popLayout">{focused
-    ?<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature'){setSelectedPin(null);setTab('parts');}else backToBody();}}/></m.div>
+    ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature'){setSelectedPin(null);setTab('parts');}else backToBody();}}/></m.div>
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={chromeReady?null:progress}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
    {!phone&&<Arrive ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
@@ -266,13 +293,16 @@ export default function Home(){
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} pinHref={pinHref}
    needsPin={shown.needsPin} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
-   onPlace={()=>{location.href=featureHref;}} onSuggest={x=>{location.href=pinHref(x);}}
+ onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
+   onSuggest={x=>startDraft({kind:'correction',landmark:x.id,supersedes:x.proposal??null,label:x.label,latin:x.latinName,description:x.description})}
+   placeView={draft&&<PlaceSteps phone={phone} draft={draft} structure={facts?.title??''} refused={refused} state={saveState} error={saveError}
+    onName={v=>setDraft(d=>d&&{...d,label:v})} onNote={v=>setDraft(d=>d&&{...d,note:v})} onSave={()=>void savePin()} onCancel={cancelDraft}/>}
    vote={x=>x.proposal?{on:votes.mine(x.proposal)===1,count:votes.count(x.proposal,x.upvotes??0)}:null} onVote={x=>void castVote(x)} voteError={votes.error}
    onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}
    onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
-  <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{later.current=true;setAsk(null);}}/>}</AnimatePresence>
+  <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{if(ask==='pin')setDraft(null);else later.current=true;setAsk(null);}}/>}</AnimatePresence>
   <AnimatePresence>{feedbackPrompt&&<FeedbackPrompt key="feedback" phone={phone} context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}</AnimatePresence>
   {featureTip&&<Tip target='[data-tip-target="features"]' side={phone?'top':'left'} onDone={()=>{track('home_tip_dismissed',{tip:'features'});seeTips('entry','features');}}><strong>New: parts & features</strong>See where each part of this structure sits, or pin one that’s missing.</Tip>}
   {entryTip&&<Tip target='[data-tip-target="entry"]' side="bottom" onDone={()=>{track('home_tip_dismissed',{tip:'entry'});seeTips('entry');}}><strong>New: Playground</strong>Pin the parts & features of any structure, and vote on other people’s pins.</Tip>}

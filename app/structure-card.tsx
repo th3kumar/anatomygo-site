@@ -3,7 +3,7 @@
  * springs between detents; drag it down to close it, swipe a feature sideways for the next one.
  * The header (kind, close, title) stays put from peek to focus; only what is under it changes. Pages push the way you
  * travel, worked out from what changed, so every path (buttons, Esc, pins on the model) moves the same way. */
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
 import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
@@ -11,7 +11,7 @@ import {LANDSCAPE,useMedia} from './media';
 import type {PublishedPin} from './published-pins';
 import {VoteButton} from './community/vote-button';
 
-export type CardMode='peek'|'focus'|'feature'|'contribute';
+export type CardMode='peek'|'focus'|'feature'|'contribute'|'place';
 /** A feature with no placement yet, offered in the contribute list. */
 export interface OpenFeature {id:string;label:string;latinName:string}
 export type CardTab='about'|'parts';
@@ -40,7 +40,7 @@ interface Props {
  mode:CardMode;phone:boolean;facts:CardFacts;tab:CardTab;
  members:{id:string;name:string}[];pins:PublishedPin[];pinsLoading:boolean;pinsError:string;
  pin:PublishedPin|null;counterpart:{id:string;name:string}|null;
- needsPin:OpenFeature[];onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ needsPin:OpenFeature[];placeView?:ReactNode;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
@@ -61,7 +61,7 @@ export function StructureCard(p:Props){
  // Direction of travel, from what changed since the last render (refs, so every path that changes mode is covered).
  const was=useRef({mode:null as CardMode|null,index:-1,ref:''}),nav=useRef<Nav>({d:0,from:null,swipe:null,width:0}),swipe=useRef<number|null>(null);
  if(was.current.mode!==mode||was.current.index!==index||was.current.ref!==facts.reference){
-  const w=was.current,d=w.ref!==facts.reference&&w.mode===mode?0:(w.mode==='focus'&&(mode==='feature'||mode==='contribute'))?1:(w.mode==='contribute'&&mode==='focus')?-1:w.mode==='feature'&&mode==='focus'?-1:w.mode==='feature'&&mode==='feature'?intent.current||Math.sign(index-w.index)||1:0;intent.current=0;
+  const w=was.current,d=w.ref!==facts.reference&&w.mode===mode?0:mode==='place'&&w.mode!=='place'?1:w.mode==='place'&&mode!=='place'?-1:(w.mode==='focus'&&(mode==='feature'||mode==='contribute'))?1:(w.mode==='contribute'&&mode==='focus')?-1:w.mode==='feature'&&mode==='focus'?-1:w.mode==='feature'&&mode==='feature'?intent.current||Math.sign(index-w.index)||1:0;intent.current=0;
   nav.current={d,from:w.mode,swipe:mode==='feature'&&w.mode==='feature'?swipe.current:null,width:sheet.current?.offsetWidth??(typeof innerWidth==='number'?innerWidth:390)};
   swipe.current=null;was.current={mode,index,ref:facts.reference};
  }
@@ -86,14 +86,16 @@ export function StructureCard(p:Props){
  // Set by callback refs below, so React never clears it: without this a closed card stayed in memory.
  useEffect(()=>()=>{scroller.current=null;},[]);
  // In focus and on a feature the card minimises instead of closing: leaving the structure is the Body button's job.
- const canMini=phone&&mode!=='peek',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
+ const canMini=phone&&mode!=='peek'&&mode!=='place',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
  useEffect(()=>{if(!canMini)setMini(false);},[canMini]);useEffect(()=>{setMini(false);},[facts.reference]);
  useEffect(()=>{p.onMinimise?.(mini);},[mini]);
  useLayoutEffect(()=>{if(!phone)return;const probe=document.createElement('div');probe.style.cssText='position:fixed;height:env(safe-area-inset-bottom);visibility:hidden';document.body.appendChild(probe);setSafe(probe.offsetHeight);probe.remove();},[phone]);
  const MINI=(mode==='feature'?118:78)+safe;
  // A phone on its side has too little height for a half sheet: focus and features open as tall as they need and scroll inside.
  const sideways=useMedia(LANDSCAPE)&&mode!=='peek';
- const top=Math.min(vh-72,vh*.92),rest=mode==='peek'?(peekH?peekH+12:0):sideways?Math.min(fit||top,top):Math.min(fit||vh*.47,vh*.62),open=Math.max(rest,Math.min(fit,top));
+ // While placing, the sheet fits its steps (short before the drop, then tall enough for the note and Save), so Save is never below the fold.
+ const fitted=sideways||mode==='place';
+ const top=Math.min(vh-72,vh*.92),rest=mode==='peek'?(peekH?peekH+12:0):fitted?Math.min(fit||top,top):Math.min(fit||vh*.47,vh*.62),open=Math.max(rest,Math.min(fit,top));
  const target=mini?MINI:full&&open>rest+8?open:rest;
  useLayoutEffect(()=>{if(!phone)return;const measure=()=>{const s=sheet.current,sc=scroller.current;if(!s||mini)return;if(mode==='peek'){setFit(0);return;}if(!sc)return;
    // The content's own height (not the scroll box's), so a sheet with little to show can shrink to fit it.
@@ -213,6 +215,11 @@ export function StructureCard(p:Props){
   </div>
  </m.div>;
 
+ // Placing a pin: the step card, with Cancel as its only way out (no corner, no minimise).
+ const placeScreen=mode==='place'&&<m.div key="place" className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+  <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='place')scroller.current=el;}}>{p.placeView}</div>
+ </m.div>;
+
  // Minimised: the name (on a feature, which one and arrows to step through them) and a way back up.
  const miniBar=<m.div key="mini" className="card-mini" role="button" tabIndex={0} aria-label={`Show details: ${mode==='feature'&&p.pin?p.pin.label:facts.title}`}
   initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.2,.08)}} exit={{opacity:0,transition:tween('in',.12)}}
@@ -233,7 +240,7 @@ export function StructureCard(p:Props){
    {header}
    <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:focus}</AnimatePresence></div>
   </m.div>;
-  return <div className="card-body"><AnimatePresence mode={c.swipe!==null?'popLayout':'wait'} initial={false} custom={c}>{mode==='feature'&&feature?feature:mode==='contribute'?contribute:structure}</AnimatePresence></div>;}
+  return <div className="card-body"><AnimatePresence mode={c.swipe!==null?'popLayout':'wait'} initial={false} custom={c}>{mode==='place'?placeScreen:mode==='feature'&&feature?feature:mode==='contribute'?contribute:structure}</AnimatePresence></div>;}
  const body=<AnimatePresence mode="popLayout" initial={false}>{mini?miniBar:full_}</AnimatePresence>;
  // Desktop: one corner button that follows the depth. On a feature it is a back arrow (to the structure); on the
  // structure it turns into a cross (to the whole body); the icons turn into each other as you move.
@@ -253,6 +260,6 @@ export function StructureCard(p:Props){
  </m.section>;
  return <m.section className={`panel scard ${mini?'is-mini':''}`} data-inset={mini?undefined:'right'} data-inset-size={mode==='peek'?416:392} role="dialog" aria-label={facts.title}
   initial={{opacity:0,x:16,...size}} animate={{opacity:1,x:0,...size}} exit={{opacity:0,scale:.98,transition:tween('in',.18)}} transition={{...spring.card,opacity:tween('out',.22)}}>
-  {corner}{body}
+  {mode!=='place'&&corner}{body}
  </m.section>;
 }

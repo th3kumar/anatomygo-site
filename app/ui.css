@@ -368,3 +368,30 @@ button svg,a svg{flex-shrink:0}
 .contribute-list .t-label{margin:14px 0 4px}
 .contribute-list .t-label:first-child{margin-top:4px}
 .pin-it{color:var(--accent-text);flex:none}
+/* Placing a pin (films K7–K9) */
+.place-steps{display:flex;flex-direction:column;flex:none}
+.steps{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.step-grow{flex:1;min-width:0}
+.step-dot{position:relative;width:22px;height:22px;margin-top:1px;flex:none;border-radius:50%;border:1.5px solid var(--hair-3);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);transition:border-color .2s,color .2s,background .2s}
+.step-dot.is-active{border-color:var(--accent);color:var(--accent-text)}
+.step-dot.is-done{border-color:transparent;background:var(--accent);color:var(--accent-ink)}
+.step-check{display:inline-flex}
+.step-why{margin-top:2px;color:var(--destructive)}
+.field{width:100%;font-size:var(--fs-body);color:var(--text);background:var(--fill);border:1px solid var(--hair-3);border-radius:12px;padding:10px 14px;-webkit-user-select:text;user-select:text}
+.field:focus-visible{outline:none;border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-fill)}
+input.field{height:40px;padding:0 14px;flex:1;min-width:0}
+.note-wrap{overflow:hidden}
+.field.note{margin-top:10px;height:93px;resize:none;line-height:1.5}
+.save-pin{margin-top:22px}
+.save-pin:disabled{opacity:.45}
+.place-cancel{margin:12px auto 0;min-height:var(--hit)}
+/* The pin that floats with the cursor until it is dropped: its tip is the cursor, and it bobs up to three times. */
+.pin-cursor{position:absolute;left:0;top:0;z-index:4;pointer-events:none;width:0;height:0}
+.pin-cursor::before{content:'';position:absolute;left:-1px;bottom:0;width:2px;height:22px;background:var(--accent);border-radius:1px;animation:pin-bob 1.1s ease-in-out 3}
+.pin-cursor::after{content:'';position:absolute;left:-6px;bottom:20px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 6px var(--accent-fill);animation:pin-bob 1.1s ease-in-out 3}
+@keyframes pin-bob{50%{transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.pin-cursor::before,.pin-cursor::after{animation:none}}
+.place-steps .card-title{margin-top:6px}
+.place-steps .latin{margin-top:4px}
+.scard.is-sheet .field.note{height:76px}

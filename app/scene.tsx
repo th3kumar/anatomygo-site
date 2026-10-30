@@ -4,6 +4,7 @@ import {PinLabels} from './pin-labels';
 import {DUR,ease,reducedMotion,springAt} from './motion';
 import {FocusBlur} from './focus-blur';
 import type {PublishedPin} from './published-pins';
+import {DraftPinLayer,anchorAt,type Anchor} from './draft-pin-layer';
 import {useEffect,useRef} from 'react';
 import * as T from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
@@ -24,8 +25,11 @@ const HEART=/papillary|ventric|atri(um|al)|trabecul|chordae|myocard/i;
 const STAGE={light:{clear:'#f1f0ec',alpha:0,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#151618',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
 /** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
 export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
-interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view'|'priority')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
-export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect}:Props){
+/** Placing a pin: where it is so far, and the structure's unusable triangles. A tap reports a new spot (or why not), a drag of the pin reports a nudge. */
+export type PlaceResult={anchor:Anchor;moved:boolean}|{refused:'miss'|'back_face'|'degenerate'};
+interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;placing?:{anchor:Anchor|null;invalid:number[]}|null;onPlace?:(r:PlaceResult)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view'|'priority')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
+export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect,placing=null,onPlace}:Props){
+ const placingRef=useRef(placing),placeCb=useRef(onPlace);placingRef.current=placing;placeCb.current=onPlace;
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
  const published=useRef(pins),selectedPinRef=useRef(selectedPin),pickPin=useRef(onPinSelect);published.current=pins;selectedPinRef.current=selectedPin;pickPin.current=onPinSelect;
  const perf=useRef(onPerf),milestone=useRef(onMilestone),first=useRef(priority??[]),loadingTap=useRef(onLoadingTap);loadingTap.current=onLoadingTap;perf.current=onPerf;milestone.current=onMilestone;first.current=priority??[];
@@ -40,7 +44,11 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
   camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
-  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;stopFloat();});
+  const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);
+  // The pin being placed, and on a desktop the mint pin that floats with the cursor until it is dropped (film K7).
+  const draftLayer=new DraftPinLayer();scene.add(draftLayer.group);let lastDraft:Anchor|null=null,dropNext=false,wasPlacing=false,dragging:{id:number;dx:number;dy:number}|null=null;
+  const follower=document.createElement('div');follower.className='pin-cursor';follower.setAttribute('aria-hidden','true');follower.hidden=true;el.appendChild(follower);
+ let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;stopFloat();});
   const labels=new PinLabels(el,id=>pickPin.current(id));
   // Camera moves: one tween on the handoff's camera curve (no overshoot). Direction turns, distance eases in log space,
   // and the view offset (which keeps the subject clear of the panels) moves with them. Grabbing the model stops it.
@@ -217,9 +225,27 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   };
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);if(!latest.current.isolate&&!fp)fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
-  const down=(e:PointerEvent)=>{stopFloat();hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
-  const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);if(e.buttons||amount<.5||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
-  const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
+  // Placing: only the open structure takes the pin, wherever the tap lands on it (ghosts are glass, not in the way).
+  const hostMesh=()=>{const s=latest.current;return s.isolate&&s.selected.length===1?pickers[atlas.parts.findIndex(p=>p.id===s.selected[0])]:undefined;};
+  const aim=(x:number,y:number)=>{const rect=renderer.domElement.getBoundingClientRect();pointer.set(x/rect.width*2-1,-y/rect.height*2+1);raycaster.setFromCamera(pointer,camera);};
+  const placeAt=(x:number,y:number,drop:boolean)=>{const m=hostMesh(),pl=placingRef.current;if(!m||!pl)return;aim(x,y);
+   const hit=raycaster.intersectObject(m,false)[0];if(!hit){if(drop)placeCb.current?.({refused:'miss'});return;}
+   const r=anchorAt(hit,m,raycaster.ray,new Set(pl.invalid));if(!r.ok){if(drop)placeCb.current?.({refused:r.reason});return;}
+   dropNext=drop;placeCb.current?.({anchor:r.anchor,moved:!drop});};
+  const down=(e:PointerEvent)=>{stopFloat();hover.hidden=true;
+   // Grabbing the placed pin nudges it: the view holds still, and on a phone the pin rides 48 px above the finger.
+   if(placingRef.current?.anchor){const rect=renderer.domElement.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+    if(draftLayer.near(camera,rect.width,rect.height,x,y,e.pointerType==='touch'?28:16)){const a=draftLayer.screen(camera,rect.width,rect.height);dragging={id:e.pointerId,dx:e.pointerType==='touch'?0:a.x-x,dy:e.pointerType==='touch'?-48:a.y-y};controls.enabled=false;renderer.domElement.setPointerCapture(e.pointerId);return;}}
+   tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
+  const move=(e:PointerEvent)=>{
+   if(dragging&&e.pointerId===dragging.id){const rect=renderer.domElement.getBoundingClientRect();placeAt(e.clientX-rect.left+dragging.dx,e.clientY-rect.top+dragging.dy,false);return;}
+   if(placingRef.current){tap.move(e.pointerId,e.clientX,e.clientY);hover.hidden=true;const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,mouse=e.pointerType==='mouse'&&!e.buttons;
+    const free=mouse&&!placingRef.current.anchor;follower.hidden=!free;if(free){follower.style.transform=`translate(${x}px,${y}px)`;}
+    const over=mouse&&!!placingRef.current.anchor&&draftLayer.near(camera,rect.width,rect.height,x,y,16);
+    renderer.domElement.style.cursor=free?'none':over?'grab':e.buttons?'grabbing':'crosshair';return;}
+   tap.move(e.pointerId,e.clientX,e.clientY);if(e.buttons||amount<.5||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
+  const cancel=(e:PointerEvent)=>{tap.cancel(e.pointerId);if(dragging&&e.pointerId===dragging.id){dragging=null;controls.enabled=true;}};
+  const leave=()=>{follower.hidden=true;};renderer.domElement.addEventListener('pointerleave',leave);
   // A tap held because a part that might be in front of the hit is still on its way; tried again when parts arrive,
   // and dropped if the camera has moved since or it has waited longer than HOLD_MS (a late selection would surprise).
   const HOLD_MS=3000;
@@ -237,7 +263,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   };
   function retryTap(){if(!pendingTap)return;const t=pendingTap;pendingTap=null;const waitMs=performance.now()-t.at;if(waitMs>HOLD_MS){loadingTap.current?.({result:'dropped',reason:'timeout',waitMs});return;}if(!t.camera.equals(camera.matrixWorld)){loadingTap.current?.({result:'dropped',reason:'moved',waitMs});return;}raycaster.ray.copy(t.ray);if(resolveTap(t.x,t.y,t.touch,t.at)!=='held')loadingTap.current?.({result:'resolved',waitMs});}
   const up=(e:PointerEvent)=>{
+   if(dragging&&e.pointerId===dragging.id){dragging=null;controls.enabled=true;return;}
    const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap)return;
+   if(placingRef.current){const rect=renderer.domElement.getBoundingClientRect();placeAt(e.clientX-rect.left,e.clientY-rect.top,true);return;}
    if(pendingTap){loadingTap.current?.({result:'dropped',reason:'replaced',waitMs:performance.now()-pendingTap.at});pendingTap=null;}const loading=!ready;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
    const result=resolveTap(e.clientX-rect.left,e.clientY-rect.top,e.pointerType==='touch');if(loading)loadingTap.current?.({result});
   };
@@ -325,7 +353,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
      if(to===0){bodyShot=null;isoShot=null;lastState=null;tintFadeAt=performance.now()+1000;}}}
    {const sm=T.MathUtils.smoothstep,still=reducedMotion();focusFx.uDissolve.value=sm(fp,.05,.8);ghostMaterial.opacity=.2*sm(fp,.4,.95);ghostGroup.visible=fp>.001;
     focusFx.uGlow.value=still||!fpTween?0:Math.sin(Math.PI*fp)*.55;(contact.material as T.MeshBasicMaterial).opacity=1-sm(fp,0,.4);
-    publishedLayer.opacity=sm(fp,.7,1);labels.root.style.opacity=String(sm(fp,.7,1));
+    // While a pin is placed, the others step back to 45% (film K7).
+    const back=placingRef.current?.45:1;publishedLayer.opacity=sm(fp,.7,1)*back;labels.root.style.opacity=String(sm(fp,.7,1)*back);
     // The peek's mint: it rises as a part is chosen, gives way to the structure's own colours in focus, and after Back
     // holds a second before fading (the page clears the selection as it ends).
     const key=s.selected.join(','),now=performance.now();if(key!==tintKey){tintKey=key;tintAt=now;tintFadeAt=0;if(key)warmFocus();}
@@ -346,7 +375,11 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    publishedLayer.group.visible=!!pinHost&&published.current.length>0;publishedLayer.set(published.current,pinHost?.geometry??null);
    // Display toggles take effect at once, before this frame's labels and pins are placed.
    if(lastHover!==s.hoverPin||lastLabels!==s.labels||lastBehind!==s.behind){lastHover=s.hoverPin;lastLabels=s.labels;lastBehind=s.behind;dirty=true;}
+   if(!!placingRef.current!==wasPlacing){wasPlacing=!!placingRef.current;dirty=true;if(!wasPlacing){follower.hidden=true;renderer.domElement.style.cursor='';}}
    let popping=false;
+   const pl=placingRef.current;if(pl?.anchor&&!follower.hidden)follower.hidden=true;
+   if(pinHost&&pl){if(pl.anchor!==lastDraft){draftLayer.set(pinHost.geometry,pl.anchor,dropNext&&!!pl.anchor);dropNext=false;lastDraft=pl.anchor;dirty=true;}if(draftLayer.group.visible&&draftLayer.update(camera,el.clientHeight,pinHost.position,shade.current))dirty=true;else if(dirty)draftLayer.update(camera,el.clientHeight,pinHost.position,shade.current);}
+   else if(lastDraft||draftLayer.group.visible){draftLayer.set(null,null,false);lastDraft=null;dirty=true;}
    if(dirty&&pinHost)popping=publishedLayer.update(camera,el.clientHeight,pinHost.position,selectedPinRef.current,shade.current,s.behind??true);
    const labelled=!!pinHost&&published.current.length>0;
    labels.set(labelled?published.current.map(p=>({id:p.id,label:p.label})):[]);
@@ -361,7 +394,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    if(popping)dirty=true;
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();peekTag.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();draftLayer.dispose();follower.remove();renderer.domElement.removeEventListener('pointerleave',leave);controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();peekTag.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }
