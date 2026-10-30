@@ -1,9 +1,10 @@
 import {useEffect,useState} from 'react';
 import {parseFeatureShape,type FeatureShape} from '../lib/feature-shape';
+import {RestError,missingRpc,rest,supabaseConfig} from './supabase-rest';
 /** A pin drawn on an isolated structure. `id` is the feature (landmark) ID, so each feature shows one pin.
  * Community pins are the Playground's unreviewed placements: `proposal` links back to the pin there, and
  * `by` is the contributor's public name, '' when they have none, or null for a starter pin (no author). */
-export interface PublishedPin {id:string;label:string;latinName:string;description:string;anchor:{triangle:number;u:number;v:number};shape?:FeatureShape|null;kind?:'published'|'community';proposal?:string;by?:string|null;upvotes?:number}
+export interface PublishedPin {id:string;label:string;latinName:string;description:string;anchor:{triangle:number;u:number;v:number};shape?:FeatureShape|null;kind?:'published'|'community';proposal?:string;by?:string|null;upvotes?:number;at?:string}
 interface Pack {schema:number;meshId:string;geometry:string;pins:PublishedPin[]}
 interface Row {id:string;landmark_id:string;label:string;latin_name:string|null;description:string|null;geometry:string;triangle:number;u:number;v:number;shape?:unknown;author_id:string|null;pg_profiles:{display_name:string|null}|null}
 const cache=new Map<string,{at:number;pins:PublishedPin[]}>();
@@ -24,22 +25,37 @@ export function communityPins(rows:Row[],totals:{proposal_id:string;upvotes:numb
  for(const r of rows){if(published.has(r.landmark_id)||r.geometry!==expectedGeometry||typeof r.label!=='string'||!validAnchor(r))continue;const b=best.get(r.landmark_id);if(!b||(score.get(r.id)?.net??0)>(score.get(b.id)?.net??0))best.set(r.landmark_id,r);}
  return [...best.values()].slice(0,100).map(r=>({id:r.landmark_id,proposal:r.id,label:r.label,latinName:r.latin_name??'',description:r.description??'',anchor:{triangle:r.triangle,u:r.u,v:r.v},shape:parseFeatureShape(r.shape),kind:'community' as const,by:r.author_id?r.pg_profiles?.display_name??'':null,upvotes:score.get(r.id)?.up??0})).sort((a,b)=>a.label.localeCompare(b.label));
 }
-/** Published pins first, then one community pin per remaining feature. A failed community read leaves the published ones. */
+/** One structure's card, as `pg_card` returns it. Only the pins are used so far; the rest is for contributing. */
+interface Card {schema:number;meshId:string;geometry:string;pins:(PublishedPin&{kind:'published'|'community'})[];needsPin:{id:string;label:string;latinName:string}[]}
+/** The card's pins, checked as the pack is: same model, valid anchors, at most 200; a malformed shape is dropped. */
+export function validateCard(value:unknown,mesh:string,expectedGeometry:string):PublishedPin[]{
+ const c=value as Card;
+ if(!c||c.schema!==1||c.meshId!==mesh||c.geometry!==expectedGeometry||!Array.isArray(c.pins)||c.pins.length>200)throw Error('Pins do not match this model.');
+ const ids=new Set<string>(),out:PublishedPin[]=[];
+ for(const pin of c.pins){if(typeof pin.id!=='string'||ids.has(pin.id)||typeof pin.label!=='string'||!validAnchor(pin.anchor))continue;ids.add(pin.id);
+  out.push({id:pin.id,proposal:pin.proposal,label:pin.label,latinName:pin.latinName??'',description:pin.description??'',anchor:pin.anchor,shape:parseFeatureShape(pin.shape),kind:pin.kind,by:pin.by,upvotes:Number(pin.upvotes)||0,at:pin.at});}
+ return [...out.filter(p=>p.kind==='published'),...out.filter(p=>p.kind!=='published').sort((a,b)=>a.label.localeCompare(b.label))];
+}
+/** Published pins first, then one community pin per remaining feature: one `pg_card` read, or the older four reads
+ * until that migration is live. A failed community read leaves the published ones. */
 export function useStructurePins(mesh:string|null){
  const [pins,setPins]=useState<PublishedPin[]>([]),[error,setError]=useState('');
- useEffect(()=>{setPins([]);setError('');if(!mesh)return;const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;if(!url||!key)return;
+ useEffect(()=>{setPins([]);setError('');if(!mesh||!supabaseConfig())return;
  const cached=cache.get(mesh);if(cached&&Date.now()-cached.at<60000){setPins(cached.pins);return;}
- let live=true;const abort=new AbortController();
- const rest=<R,>(path:string,body?:unknown)=>fetch(`${url}/rest/v1/${path}`,{method:body?'POST':'GET',headers:{apikey:key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:abort.signal}).then(r=>{if(!r.ok)throw Error('Pins could not be loaded.');return r.json() as Promise<R>;});
- const rows=rest<Row[]>(`pg_proposals?select=id,landmark_id,label,latin_name,description,geometry,triangle,u,v,shape,author_id,pg_profiles(display_name)&mesh_id=eq.${encodeURIComponent(mesh)}&status=eq.community&order=created_at.desc,id&limit=500`).catch(e=>{if(e.name==='AbortError')throw e;return [] as Row[];});
- Promise.all([fingerprint(),rest('rpc/pg_published_pack',{p_mesh:mesh}),rows]).then(async([g,pack,rows])=>{
-  const published=validatePublishedPack(pack,mesh,g).map(p=>({...p,kind:'published' as const})),done=new Set(published.map(p=>p.id));
-  const open=rows.filter(r=>!done.has(r.landmark_id)).map(r=>r.id).slice(0,500);
-  const totals=open.length?await rest<{proposal_id:string;upvotes:number;downvotes:number}[]>('rpc/pg_vote_totals',{p_ids:open}).catch(e=>{if(e.name==='AbortError')throw e;return [];}):[];
-  const next=[...published,...communityPins(rows,totals,done,g)];if(!live)return;
-  cache.set(mesh,{at:Date.now(),pins:next});while(cache.size>30)cache.delete(cache.keys().next().value!);setPins(next);
- }).catch(e=>{if(live&&e.name!=='AbortError')setError(e.message);});
+ let live=true;const abort=new AbortController(),signal=abort.signal;
+ Promise.all([fingerprint(),rest<unknown>('rpc/pg_card',{body:{p_mesh:mesh},signal}).catch(e=>{if(missingRpc(e))return null;throw e;})])
+  .then(([g,card])=>card?validateCard(card,mesh,g):olderReads(mesh,g,signal))
+  .then(next=>{if(!live)return;cache.set(mesh,{at:Date.now(),pins:next});while(cache.size>30)cache.delete(cache.keys().next().value!);setPins(next);})
+  .catch(e=>{if(live&&!signal.aborted)setError(e instanceof RestError||e.name==='TypeError'?'Pins couldn’t load. Check your connection.':e.message);});
  return()=>{live=false;abort.abort();};
  },[mesh]);
  return {pins,error};
+}
+async function olderReads(mesh:string,g:string,signal:AbortSignal):Promise<PublishedPin[]>{
+ const rows=rest<Row[]>(`pg_proposals?select=id,landmark_id,label,latin_name,description,geometry,triangle,u,v,shape,author_id,pg_profiles(display_name)&mesh_id=eq.${encodeURIComponent(mesh)}&status=eq.community&order=created_at.desc,id&limit=500`,{signal}).catch(e=>{if(signal.aborted)throw e;return [] as Row[];});
+ const [pack,list]=await Promise.all([rest('rpc/pg_published_pack',{body:{p_mesh:mesh},signal}),rows]);
+ const published=validatePublishedPack(pack,mesh,g).map(p=>({...p,kind:'published' as const})),done=new Set(published.map(p=>p.id));
+ const open=list.filter(r=>!done.has(r.landmark_id)).map(r=>r.id).slice(0,500);
+ const totals=open.length?await rest<{proposal_id:string;upvotes:number;downvotes:number}[]>('rpc/pg_vote_totals',{body:{p_ids:open},signal}).catch(e=>{if(signal.aborted)throw e;return [];}):[];
+ return [...published,...communityPins(list,totals,done,g)];
 }

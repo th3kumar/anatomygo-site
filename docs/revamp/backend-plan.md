@@ -169,3 +169,18 @@ Measured against the live API, using public reads only.
 - **Feedback:** has a site-wide flood guard and drops double sends.
 - **Locking:** saving a pin locks in a safe order against admin moves.
 - **Signed-out access:** anonymous users can't write.
+
+## 8. Decided and built, 31 Oct
+- **Skipped for now (owner's call):** nightly deploy (3), the backup copy (4), pins in the static build (6), structure
+  pages (9) and sitemap dates (10). Policy tidy-up (8) waits until after launch.
+- **Built locally, not applied:** `supabase/migrations/202610310001_revamp_card.sql` adds `attaches_to` (2.2),
+  `pg_feature_counts` (1), `pg_card` (2.1) and `pg_delete_my_account` (2). The undo is
+  `supabase/rollback/202610310001_revamp_card.sql`.
+- **Tests:** `supabase/tests/revamp.sql`. The old suite also passes after the undo.
+- **Same pins as today:** checked on a copy of four real structures (FJ3152, FJ3288, FJ3365, FJ1504). `pg_card` picked
+  the same pins as today's four reads, in about half the bytes (FJ3152: 46 KB).
+- **App** (`app/supabase-rest.ts`): every read has an 8 s limit and one retry. The card and counts use the new
+  functions, and fall back to today's reads while they're missing.
+- **Open:** whether Supabase's `postgres` role may delete from `auth.users` inside `pg_delete_my_account`. Check this on
+  the project before applying. If it can't, the function stops before the last line and an admin deletes the sign-in
+  in the dashboard.

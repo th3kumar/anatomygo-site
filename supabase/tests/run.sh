@@ -8,4 +8,4 @@ createdb "$playground_test_db"
 trap 'dropdb --if-exists "$playground_test_db" >/dev/null' EXIT
 psql -d "$playground_test_db" -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
 for migration in supabase/migrations/*.sql; do psql -d "$playground_test_db" -v ON_ERROR_STOP=1 -f "$migration"; done
-psql -d "$playground_test_db" -v ON_ERROR_STOP=1 -f supabase/tests/permissions.sql
+for test in supabase/tests/permissions.sql supabase/tests/revamp.sql; do psql -d "$playground_test_db" -v ON_ERROR_STOP=1 -f "$test"; done
