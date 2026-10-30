@@ -5,13 +5,15 @@
  * travel, worked out from what changed, so every path (buttons, Esc, pins on the model) moves the same way. */
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
-import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,SquarePen,X} from 'lucide-react';
+import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
 import type {PublishedPin} from './published-pins';
 import {VoteButton} from './community/vote-button';
 
-export type CardMode='peek'|'focus'|'feature';
+export type CardMode='peek'|'focus'|'feature'|'contribute';
+/** A feature with no placement yet, offered in the contribute list. */
+export interface OpenFeature {id:string;label:string;latinName:string}
 export type CardTab='about'|'parts';
 export interface CardFacts {kind:string;title:string;description:string;curated:boolean;system:string;side:string|null;pieces:number;features:number|null;reference:string}
 
@@ -38,7 +40,8 @@ interface Props {
  mode:CardMode;phone:boolean;facts:CardFacts;tab:CardTab;
  members:{id:string;name:string}[];pins:PublishedPin[];pinsLoading:boolean;pinsError:string;
  pin:PublishedPin|null;counterpart:{id:string;name:string}|null;
- contributeHref:string;vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
+ needsPin:OpenFeature[];onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
  /** The phone sheet's resting height, so the camera can frame the space above it. */
@@ -58,7 +61,7 @@ export function StructureCard(p:Props){
  // Direction of travel, from what changed since the last render (refs, so every path that changes mode is covered).
  const was=useRef({mode:null as CardMode|null,index:-1,ref:''}),nav=useRef<Nav>({d:0,from:null,swipe:null,width:0}),swipe=useRef<number|null>(null);
  if(was.current.mode!==mode||was.current.index!==index||was.current.ref!==facts.reference){
-  const w=was.current,d=w.ref!==facts.reference&&w.mode===mode?0:w.mode==='focus'&&mode==='feature'?1:w.mode==='feature'&&mode==='focus'?-1:w.mode==='feature'&&mode==='feature'?intent.current||Math.sign(index-w.index)||1:0;intent.current=0;
+  const w=was.current,d=w.ref!==facts.reference&&w.mode===mode?0:(w.mode==='focus'&&(mode==='feature'||mode==='contribute'))?1:(w.mode==='contribute'&&mode==='focus')?-1:w.mode==='feature'&&mode==='focus'?-1:w.mode==='feature'&&mode==='feature'?intent.current||Math.sign(index-w.index)||1:0;intent.current=0;
   nav.current={d,from:w.mode,swipe:mode==='feature'&&w.mode==='feature'?swipe.current:null,width:sheet.current?.offsetWidth??(typeof innerWidth==='number'?innerWidth:390)};
   swipe.current=null;was.current={mode,index,ref:facts.reference};
  }
@@ -160,17 +163,16 @@ export function StructureCard(p:Props){
    ?<div className="list">{p.members.slice(0,60).map(x=><button type="button" key={x.id} className="row" onClick={()=>p.onMember(x.id)}><span className="cap">{x.name}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :p.pinsLoading?<div className="list" aria-busy="true">{[0,1,2,3].map(i=><span key={i} className="row skeleton"/>)}</div>
    :p.pins.length?<div className="list" onPointerLeave={()=>p.onHoverPin(null)}>{p.pins.map(x=><button type="button" key={x.id} className="row" onPointerEnter={()=>p.onHoverPin(x.id)} onFocus={()=>p.onHoverPin(x.id)} onClick={()=>p.onPin(x.id)}><span className="cap">{x.label}</span><ChevronRight size={16} className="chev"/></button>)}</div>
-   :<p className="t-body2">{p.pinsError||'No parts pinned on this structure yet.'}</p>}
+   :<p className="t-body2">{p.pinsError||'No parts pinned yet.'}</p>}
  </m.div>;
 
- const foot=(line:string,source:string,icon:ReactNode)=><>
-  <div className="contrib"><p className="t-meta">{line}</p><a className="pill" href={p.contributeHref} onClick={()=>p.onContribute(source)}>{icon}Contribute</a></div>
-  {!phone&&<p className="t-meta foot-links">{p.counterpart&&<button type="button" className="link-quiet" onClick={p.onCounterpart}>{p.counterpart.name} ›</button>}<a className="link-quiet" href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noreferrer">Source <ArrowUpRight size={12}/></a></p>}
- </>;
- // The footer changes with the tab: it cross-fades (and on phones, where About has none, it opens and closes).
- const footer=tab==='about'?(phone?null:<m.div key="foot-about" className="card-foot" {...fade}>{foot('Something to add? Write it in your name.','about',<Plus size={14}/>)}</m.div>)
-  :<m.div key="foot-parts" className="card-foot" {...(phone?{initial:{opacity:0,height:0},animate:{opacity:1,height:'auto',transition:tween('out',DUR.enter)},exit:{opacity:0,height:0,transition:tween('in',DUR.leave)}}:fade)}>{foot('Missed a part? Add it in your name.','parts',<Plus size={14}/>)}</m.div>;
-
+ const links=!phone&&<p className="t-meta foot-links">{p.counterpart&&<button type="button" className="link-quiet" onClick={p.onCounterpart}>{p.counterpart.name} ›</button>}<a className="link-quiet" href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noreferrer">Source <ArrowUpRight size={12}/></a></p>;
+ // The footer changes with the tab: About has the links (desktop), Parts the way to contribute. It cross-fades (and on
+ // phones, where About has none, it opens and closes).
+ const footer=tab==='about'?(phone?null:<m.div key="foot-about" className="card-foot" {...fade}>{links}</m.div>)
+  :p.members.length>1?null:<m.div key="foot-parts" className="card-foot" {...(phone?{initial:{opacity:0,height:0},animate:{opacity:1,height:'auto',transition:tween('out',DUR.enter)},exit:{opacity:0,height:0,transition:tween('in',DUR.leave)}}:fade)}>
+   <div className="contrib"><p className="t-meta">{p.pins.length?'Missed a part? Add it in your name.':'Add the first, in your name.'}</p><button type="button" className="pill" onClick={p.onOpenContribute}><Plus size={14}/>Contribute</button></div>{links}
+  </m.div>;
  const focus=<m.div key={`focus-${facts.reference}`} className="card-page card-focus" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
   <m.div {...rise(0,fromPeek)}>{tabs}</m.div>
   <m.div className="card-scroll" {...rise(1,fromPeek)}><AnimatePresence mode="popLayout" initial={false}>{tab==='about'?about:parts}</AnimatePresence></m.div>
@@ -189,19 +191,33 @@ export function StructureCard(p:Props){
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
    {(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
     {v?<VoteButton on={v.on} count={v.count} onClick={()=>p.onVote(pin)}/>:<a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a>}
-    <a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>Suggest a spot</a></div></div>;})()}
+    <button type="button" className="vote" onClick={()=>p.onSuggest(pin)}>Suggest a spot</button></div></div>;})()}
    {p.voteError&&<p className="t-meta vote-error" role="alert">{p.voteError}</p>}
-   <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.by?`Added by ${pin.by}${pin.kind==='published'?' · Published':''}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community'}</p>
+   <p className="t-meta byline">{pin.by&&<span className="avatar" aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{pin.by?`Added by ${pin.by}${pin.kind==='published'?' · Published':''}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community'}</p>
   </div>
-  {!phone&&<div className="contrib"><p className="t-meta">Pin in the wrong spot? Help fix it.</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a></div>}
-  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone?<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>:<span/>}{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
+  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}<span/>{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
+ </m.div>;
+
+ const [all,setAll]=useState(false);useEffect(()=>{setAll(false);},[facts.reference,mode]);
+ const row=(i:number)=>({initial:{opacity:0,y:6},animate:{opacity:1,y:0,transition:tween('out',.18,.08+i*DUR.stagger)}});
+ const open_=all?p.needsPin:p.needsPin.slice(0,3);
+ const contribute=mode==='contribute'&&<m.div key="contribute" className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+  <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onCloseContribute}>{phone&&<ChevronLeft size={14}/>}{facts.title} · Parts</button>{close}</div>
+  <h2 className="t-title card-title">Contribute</h2>
+  <div className="card-scroll is-plain contribute-list" ref={el=>{if(el&&mode==='contribute')scroller.current=el;}}>
+   {p.needsPin.length>0&&<><m.p className="t-label" {...row(0)}>Needs a pin</m.p>
+    <div className="list">{open_.map((f,i)=><m.button type="button" key={f.id} className="row" {...row(i+1)} onClick={()=>p.onPlace(f)}><span className="cap">{f.label}</span><span className="t-meta pin-it">Pin it ›</span></m.button>)}
+     {!all&&p.needsPin.length>3&&<m.button type="button" className="row" {...row(4)} onClick={()=>setAll(true)}>See all<ChevronRight size={16} className="chev"/></m.button>}</div></>}
+   <m.p className="t-label" {...row(5)}>Something missing?</m.p>
+   <div className="list"><m.button type="button" className="row" {...row(6)} onClick={()=>p.onPlace(null)}>Add a missing part<ChevronRight size={16} className="chev"/></m.button></div>
+  </div>
  </m.div>;
 
  // Minimised: the name (on a feature, which one and arrows to step through them) and a way back up.
  const miniBar=<m.div key="mini" className="card-mini" role="button" tabIndex={0} aria-label={`Show details: ${mode==='feature'&&p.pin?p.pin.label:facts.title}`}
   initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.2,.08)}} exit={{opacity:0,transition:tween('in',.12)}}
   onClick={()=>setMini(false)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setMini(false);}}}>
-  <div className="mini-text"><p className="t-meta">{mode==='feature'&&p.pin?`Feature · ${index+1} of ${p.pins.length}`:`${facts.kind}${facts.side?` · ${facts.side}`:''}`}</p><p className="mini-title cap">{mode==='feature'&&p.pin?p.pin.label:facts.title}</p></div>
+  <div className="mini-text"><p className="t-meta">{mode==='feature'&&p.pin?`Feature · ${index+1} of ${p.pins.length}`:mode==='contribute'?facts.title:`${facts.kind}${facts.side?` · ${facts.side}`:''}`}</p><p className="mini-title cap">{mode==='feature'&&p.pin?p.pin.label:mode==='contribute'?'Contribute':facts.title}</p></div>
   <span className="card-x mini-open" aria-hidden="true"><ChevronUp size={18}/></span>
   {mode==='feature'&&(prev||next)&&<div className="mini-steps t-meta">
    {prev?<button type="button" className="link-quiet" onClick={e=>{e.stopPropagation();go(prev,-1);}} aria-label={`Previous feature: ${prev.label}`}>‹ <span className="cap">{prev.label}</span></button>:<span/>}
@@ -217,12 +233,12 @@ export function StructureCard(p:Props){
    {header}
    <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:focus}</AnimatePresence></div>
   </m.div>;
-  return <div className="card-body"><AnimatePresence mode={c.swipe!==null?'popLayout':'wait'} initial={false} custom={c}>{mode==='feature'&&feature?feature:structure}</AnimatePresence></div>;}
+  return <div className="card-body"><AnimatePresence mode={c.swipe!==null?'popLayout':'wait'} initial={false} custom={c}>{mode==='feature'&&feature?feature:mode==='contribute'?contribute:structure}</AnimatePresence></div>;}
  const body=<AnimatePresence mode="popLayout" initial={false}>{mini?miniBar:full_}</AnimatePresence>;
  // Desktop: one corner button that follows the depth. On a feature it is a back arrow (to the structure); on the
  // structure it turns into a cross (to the whole body); the icons turn into each other as you move.
- const back=mode==='feature';
- const corner=<button type="button" className="card-corner" onClick={back?p.onPinClose:p.onClose} aria-label={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Back to the whole body'} title={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Whole body'}>
+ const back=mode==='feature'||mode==='contribute';
+ const corner=<button type="button" className="card-corner" onClick={back?(mode==='contribute'?p.onCloseContribute:p.onPinClose):p.onClose} aria-label={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Back to the whole body'} title={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Whole body'}>
   {/* Both icons stay in place, stacked: the old one shrinks away, then the new one grows in (no half-turned cross that
      reads as a plus), and a quick back-and-forth reverses from where it is. */}
   <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:0,rotate:20,scale:.7,transition:tween('in',.12)}:{opacity:1,rotate:0,scale:1,transition:tween('out',.2,.1)}}><X size={17}/></m.span>

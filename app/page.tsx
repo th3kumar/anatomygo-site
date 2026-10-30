@@ -74,6 +74,9 @@ export default function Home(){
  const selectedParts=state.selected.map(id=>parts.get(id)).filter(p=>!!p),selected=selectedParts[0],system=SYSTEMS.find(s=>s.id===selected?.system);
  // Pins on an isolated single piece: published ones, then one community pin per remaining feature (marked as not yet reviewed).
  const shown=useStructurePins(state.isolate&&selectedParts.length===1?selected.id:null);
+ // The contribute list, in the card (film K6). It belongs to one structure, so it closes when that changes.
+ const [contributing,setContributing]=useState(false);
+ useEffect(()=>{setContributing(false);},[selected?.id,state.isolate]);
  // Contributing. Signed-in Supabase loads only when needed: a session already kept here, a sign-in returning, or a first vote.
  const [cloudOn,setCloudOn]=useState(()=>storedSession()||new URLSearchParams(location.search).has('code')),[session,setSession]=useState<Session|null>(null);
  useEffect(()=>cloudOn?watchSession(setSession):undefined,[cloudOn]);
@@ -84,6 +87,7 @@ export default function Home(){
  const castVote=async(pin:PublishedPin)=>{if(!pin.proposal)return;const next=votes.mine(pin.proposal)===1?0:1;
   if(await votes.vote(pin.proposal,next)==='kept'&&next===1&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
+ useEffect(()=>{if(pin)setContributing(false);},[pin]);
  const selectPin=(id:string,source:'list'|'model')=>{setSelectedPin(id);const p=shown.pins.find(x=>x.id===id);if(p)track('home_pin_selected',{kind:p.kind??'published',source});};
  useEffect(()=>{if(shown.pins.length)track('home_pins_shown',{structure_id:selected?.id??'',pins:bucket(shown.pins.length),published:bucket(shown.pins.filter(p=>p.kind!=='community').length)});},[shown.pins]);
  // Playground entry: a count of the structure's parts & features, a "New" tag and (with coach marks on) two one-time tips until the visitor has tried it.
@@ -162,7 +166,7 @@ export default function Home(){
  const [returning,setReturning]=useState(false),[linkedReady,setLinkedReady]=useState(false),[sheetRest,setSheetRest]=useState(0),[cardMini,setCardMini]=useState(false);
  const [tab,setTab]=useState<CardTab>('about'),[hoverPin,setHoverPin]=useState<string|null>(null);
  const [focusOptions,setFocusOptions]=useState<Record<FocusToggle,boolean>>({neighbours:true,labels:true,behind:true});
- const mode:CardMode|null=!(details&&selectedParts.length>0)?null:!state.isolate?'peek':pin?'feature':'focus';
+ const mode:CardMode|null=!(details&&selectedParts.length>0)?null:!state.isolate?'peek':pin?'feature':contributing?'contribute':'focus';
  // A structure link opens in focus, but its chrome waits until that structure has loaded (the bar under the wordmark shows the way).
  const linkWaiting=linked.length>0&&!linkedReady&&!viewReady;
  const focused=(mode==='focus'||mode==='feature')&&!linkWaiting;
@@ -174,7 +178,7 @@ export default function Home(){
  const closeCard=()=>{if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
  const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more'});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
  const KIND:Record<string,string>={skeletal:'Bone',muscular:'Muscle',arterial:'Artery',venous:'Vein'};
  const side=chosen?/\bleft\b/i.test(chosen.name)?'Left':/\bright\b/i.test(chosen.name)?'Right':null:null;
  const counterpart=(()=>{if(!atlas||!selected||selectedParts.length!==1||!side)return null;const want=selected.name.replace(/\b(Left|Right|left|right)\b/,w=>({Left:'Right',Right:'Left',left:'right',right:'left'} as Record<string,string>)[w]);const p=atlas.parts.find(x=>x.name===want);return p?{id:p.id,name:p.name}:null;})();
@@ -260,7 +264,9 @@ export default function Home(){
   {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
-   pin={pin??null} counterpart={counterpart} contributeHref={featureHref} pinHref={pinHref}
+   pin={pin??null} counterpart={counterpart} pinHref={pinHref}
+   needsPin={shown.needsPin} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
+   onPlace={()=>{location.href=featureHref;}} onSuggest={x=>{location.href=pinHref(x);}}
    vote={x=>x.proposal?{on:votes.mine(x.proposal)===1,count:votes.count(x.proposal,x.upvotes??0)}:null} onVote={x=>void castVote(x)} voteError={votes.error}
    onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}
    onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}

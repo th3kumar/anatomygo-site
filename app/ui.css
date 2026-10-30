@@ -363,3 +363,8 @@ button svg,a svg{flex-shrink:0}
 .google-slot.is-ready{opacity:1}
 .dialog-problem{color:var(--destructive);margin-top:10px}
 .dialog-later{margin-top:14px;min-height:var(--hit)}
+/* Contribute list (film K6) */
+.contribute-list{display:flex;flex-direction:column}
+.contribute-list .t-label{margin:14px 0 4px}
+.contribute-list .t-label:first-child{margin-top:4px}
+.pin-it{color:var(--accent-text);flex:none}
