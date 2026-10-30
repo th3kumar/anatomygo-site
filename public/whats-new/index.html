@@ -2,158 +2,58 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<title>What's new in AnatomyGo · Free 3D anatomy with muscle origins and insertions</title>
-<meta name="description" content="AnatomyGo updates, newest first: pinned bone landmarks, muscle origins and insertions drawn on the 3D model, faster loading on phones, and the Android app. Free, no sign-up.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f4f4"><meta name="color-scheme" content="light dark"><script src="/theme.js"></script>
+<title>What's new in AnatomyGo · Muscle origins and insertions in 3D</title>
+<meta name="description" content="AnatomyGo, the free 3D anatomy atlas, now shows where muscles attach: origins and insertions of the deltoid, trapezius, pectoralis major, biceps, rectus femoris and more.">
 <link rel="canonical" href="https://anatomygo.in/whats-new/">
 <link rel="icon" href="/favicon.svg">
 <meta property="og:type" content="article"><meta property="og:site_name" content="AnatomyGo"><meta property="og:url" content="https://anatomygo.in/whats-new/">
-<meta property="og:title" content="What's new in AnatomyGo"><meta property="og:description" content="Muscle origins and insertions in 3D, pinned bone landmarks, faster loading, and the Android app. Free, no sign-up.">
+<meta property="og:title" content="What's new in AnatomyGo"><meta property="og:description" content="Muscle origins and insertions in 3D. Free, no sign-up.">
 <meta property="og:image" content="https://anatomygo.in/og-home.png"><meta name="twitter:card" content="summary_large_image">
-<!-- This page is plain HTML so search engines and AI assistants can read it without running JavaScript.
-     scripts/build-seo.mjs fills in the live counts (data-count), the update date, the muscle list and the structured data.
-     Keep every claim here checkable: exact numbers, dates, and a link to see it. -->
+<link rel="stylesheet" href="/whats-new/style.css">
+<!-- Plain HTML, so search engines and AI assistants can read it without JavaScript. scripts/build-seo.mjs fills in the
+     live counts (data-count), the date, the muscle list and the structured data. Keep it short and every claim checkable. -->
 <!--seo:data--><!--/seo:data-->
-<style>
-  :root { --bg: #F2F4F3; --card: #FFFFFF; --text: #243A3A; --muted: #596966; --primary: #297D74; --line: #DCE3E0; --origin: #C2410C; --insertion: #1D4ED8; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #121A1D; --card: #1A2427; --text: #E1ECE9; --muted: #AFBFBA; --primary: #83D5C5; --line: #2A373A; --origin: #FB923C; --insertion: #93C5FD; } }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 40px 16px 64px; }
-  a { color: var(--primary); font-weight: 600; }
-  .eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
-  h1 { font-size: 32px; line-height: 1.2; margin: 6px 0 12px; }
-  h2 { font-size: 22px; margin: 40px 0 8px; }
-  h3 { font-size: 17px; margin: 0 0 4px; }
-  .lead { font-size: 18px; }
-  .muted, time { color: var(--muted); }
-  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; padding: 0; list-style: none; }
-  .facts li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
-  .facts b { display: block; font-size: 22px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; }
-  .card p { margin: 4px 0; }
-  .origin b { color: var(--origin); } .insertion b { color: var(--insertion); }
-  .entry { border-left: 3px solid var(--line); padding-left: 16px; margin: 24px 0; }
-  .entry ul { padding-left: 20px; }
-  .cta { display: inline-block; margin: 8px 0; padding: 10px 16px; border-radius: 999px; background: var(--primary); color: var(--bg); text-decoration: none; }
-  footer { margin-top: 48px; font-size: 14px; color: var(--muted); }
-</style>
 </head>
 <body>
-<main>
-<div class="eyebrow">AnatomyGo · What's new</div>
-<h1>What's new in AnatomyGo</h1>
+<main class="page">
+  <a class="identity" href="/">
+    <div class="eyebrow"><span class="status-dot"></span> WHAT'S NEW</div>
+    <div class="wordmark">AnatomyGo<span class="edition">3D</span></div>
+  </a>
 
-<p class="lead"><strong>AnatomyGo is a free 3D human anatomy atlas</strong> for medical, physiotherapy, nursing and dental students. It runs in any web browser on a phone or computer, with no sign-up, and as an Android app. It has 2,234 modelled structures from BodyParts3D, and <span data-count="pins">773</span> pins that mark <span data-count="features">750</span> bone landmarks and muscle attachments on the 3D model, including the origins and insertions of <span data-count="muscles">14</span> muscles.</p>
-<p>Updated <time data-count="updated" datetime="2026-10-30">30 October 2026</time>. <a class="cta" href="/">Open the 3D atlas</a></p>
+  <section class="card">
+    <div class="accent"></div>
+    <div class="eyebrow">Updated <time data-count="updated" datetime="2026-10-30">30 October 2026</time></div>
+    <h1 class="title">Muscle origins and insertions, in 3D</h1>
+    <p class="summary">AnatomyGo is a free 3D anatomy atlas in your browser. <span data-count="muscles">14</span> muscles now show where they attach: <span class="o">origin</span> and <span class="i">insertion</span>.</p>
+    <!--seo:muscles--><p class="summary">See the <a href="/llms-full.txt">full list</a>.</p><!--/seo:muscles-->
+    <p class="note">Placed by measuring the 3D model and checked against published anatomy references. Open to community review.</p>
+  </section>
 
-<h2>At a glance</h2>
-<ul class="facts">
-  <li><b>2,234</b>modelled structures in 15 body systems</li>
-  <li><b><span data-count="pins">773</span></b>pins on landmarks and attachments</li>
-  <li><b><span data-count="structures">80</span></b>structures with pinned features</li>
-  <li><b><span data-count="muscles">14</span></b>muscles with origins and insertions</li>
-  <li><b>Free</b>no account, no paywall, no ads</li>
-  <li><b>Phone ready</b>browser and Android app</li>
-</ul>
+  <div class="actions">
+    <a class="primary" href="/">Open the 3D atlas<small><span data-count="pins">773</span> pins · free, no sign-up</small></a>
+    <a class="secondary" href="/playground/">Playground<small>see and vote on pins</small></a>
+  </div>
 
-<h2 id="origins-insertions">Muscle origins and insertions in 3D</h2>
-<p>Each muscle shows where it attaches: <span class="origin"><b>origins in red</b></span>, <span class="insertion"><b>insertions in blue</b></span>, drawn as areas on the muscle together with the bone landmark it attaches to. Open any muscle below to turn it around in 3D.</p>
-<!--seo:muscles--><p>See the <a href="/llms-full.txt">full list of pinned origins and insertions</a>.</p><!--/seo:muscles-->
+  <section class="card">
+    <div class="eyebrow">Earlier updates</div>
+    <ol class="log">
+      <li><time datetime="2026-10-28">28–30 Oct</time><span>549 new pins on the most-opened bones, from the skull to the tibia</span></li>
+      <li><time datetime="2026-10-29">29 Oct</time><span>Lines and areas on pins, not just points</span></li>
+      <li><time datetime="2026-10-26">26 Oct</time><span>Faster return visits</span></li>
+      <li><time datetime="2026-10-23">23 Oct</time><span>The body appears about 4× sooner on phones</span></li>
+      <li><time datetime="2026-10-21">21 Oct</time><span><a href="https://play.google.com/store/apps/details?id=com.anatomygo">Android app</a> on Google Play</span></li>
+      <li><time datetime="2026-10-06">6 Oct</time><span>Playground: pin, vote on and share the features of each structure</span></li>
+      <li><time datetime="2026-09-25">25 Sep</time><span>AnatomyGo goes live: 2,234 structures in 3D</span></li>
+    </ol>
+  </section>
 
-<h2 id="updates">Updates, newest first</h2>
-
-<section class="entry" id="2026-10-28">
-<h3>New pins: bone landmarks, origins and insertions</h3>
-<time datetime="2026-10-28">28–30 October 2026</time>
-<ul>
-  <li><strong>549 new pins</strong>, so 7 in 10 of all pins are new this week.</li>
-  <li><strong>Bones:</strong> the bones students open most now have their landmarks pinned and described: hip bone, femur, tibia, humerus, radius, ulna, scapula, clavicle, sternum, sacrum, atlas, axis, a lumbar vertebra, the mandible and the skull bones (frontal, parietal, temporal, occipital, sphenoid, ethmoid, zygomatic, maxilla and nasal).</li>
-  <li><strong>Muscles:</strong> origins and insertions of the deltoid (anterior, middle and posterior), trapezius (upper and lower), pectoralis major (both heads), biceps brachii long head, rectus femoris, sartorius, gluteus maximus, external oblique, platysma and serratus posterior inferior. Both sides of the body.</li>
-  <li><strong>How they were placed:</strong> most pins were placed by measuring the 3D model (joint lines, sutures, borders and where structures meet) and checked against published anatomy references such as Gray's Anatomy, TeachMeAnatomy and peer-reviewed measurement studies. Every pin stays open to community review, and pins that have not been reviewed yet are marked as such.</li>
-</ul>
-<a href="/?structure=FJ1433&amp;isolate=1">See rectus femoris in 3D</a>
-</section>
-
-<section class="entry" id="2026-10-29">
-<h3>Lines and areas, not just points</h3>
-<time datetime="2026-10-29">29 October 2026</time>
-<ul>
-  <li>Features that are lines or surfaces, like the gluteal lines, the linea aspera or a joint surface, are now drawn on the bone as amber lines and areas.</li>
-  <li>Muscle attachments are drawn as red (origin) and blue (insertion) areas.</li>
-  <li>Choosing a pin on the far side turns the model so you can see it.</li>
-</ul>
-<a href="/?structure=FJ3365&amp;isolate=1">See the femur's landmarks</a>
-</section>
-
-<section class="entry" id="2026-10-26">
-<h3>Faster return visits and a clearer Systems panel</h3>
-<time datetime="2026-10-26">26 October 2026</time>
-<ul>
-  <li>The model stays on your device between visits, so coming back is quicker.</li>
-  <li>You can tap and select structures while the body is still loading.</li>
-  <li>The Systems panel starts with the four you use most: Muscles, Skeleton, Arteries and Veins.</li>
-  <li>A feedback form in About: tell us what to add next.</li>
-</ul>
-</section>
-
-<section class="entry" id="2026-10-23">
-<h3>The body appears about 4 times sooner on phones</h3>
-<time datetime="2026-10-23">23 October 2026</time>
-<ul>
-  <li>The model now loads from the outside in: the body surface first, deeper structures after.</li>
-  <li>In our test on a 10 Mbps phone connection, the body appeared in 2.1 seconds instead of 8.3.</li>
-</ul>
-</section>
-
-<section class="entry" id="2026-10-21">
-<h3>AnatomyGo for Android on Google Play</h3>
-<time datetime="2026-10-21">21 October 2026</time>
-<ul>
-  <li>The free <a href="https://play.google.com/store/apps/details?id=com.anatomygo">Android app</a> is public on Google Play.</li>
-</ul>
-</section>
-
-<section class="entry" id="2026-10-07">
-<h3>Starter pins for common landmarks</h3>
-<time datetime="2026-10-07">7 October 2026</time>
-<ul>
-  <li>154 starter pins for well-known landmarks, shown on the model when you isolate a structure.</li>
-</ul>
-</section>
-
-<section class="entry" id="2026-10-06">
-<h3>Playground: see, pin and discuss the features of each structure</h3>
-<time datetime="2026-10-06">6 October 2026</time>
-<ul>
-  <li>Open any structure's parts and features, suggest where a pin belongs, and vote on other students' pins.</li>
-  <li>Share a pin with one link.</li>
-</ul>
-<a href="/playground/">Open the Playground</a>
-</section>
-
-<section class="entry" id="2026-09-25">
-<h3>AnatomyGo goes live</h3>
-<time datetime="2026-09-25">25–26 September 2026</time>
-<ul>
-  <li>A free 3D explorer of 2,234 structures at anatomygo.in: isolate, hide and explode any structure, and share a view with a link.</li>
-  <li>Dark mode and a movable light.</li>
-</ul>
-</section>
-
-<h2 id="faq">Questions students ask</h2>
-<div class="card"><h3>Is AnatomyGo free?</h3><p>Yes. The website is free with no account, and the Android app is free on Google Play.</p></div>
-<div class="card"><h3>Does it work on a phone?</h3><p>Yes. It runs in any modern browser with WebGL on phones, tablets and computers, and as an Android app.</p></div>
-<div class="card"><h3>Where can I see muscle origins and insertions in 3D?</h3><p>Open a muscle in AnatomyGo and isolate it: its origins show in red and its insertions in blue, next to the bone landmarks they attach to. The muscles covered so far are listed above.</p></div>
-<div class="card"><h3>Where does the 3D model come from?</h3><p>From BodyParts3D by the Database Center for Life Science (Japan), licensed CC BY-SA 2.1 Japan. It has 2,234 structures across 15 body systems.</p></div>
-<div class="card"><h3>How accurate are the pins?</h3><p>Most pins were placed by measuring the 3D model and checked against published anatomy references. Every pin stays open to community review, and pins that have not been reviewed yet are marked as such. If you spot a wrong pin, say so in the Playground.</p></div>
-<div class="card"><h3>Can I link to one structure?</h3><p>Yes. A link like <a href="/?structure=FJ1433&amp;isolate=1">anatomygo.in/?structure=FJ1433&amp;isolate=1</a> opens the atlas on that structure with its pins.</p></div>
-
-<footer>
-  <p><a href="/">AnatomyGo</a> · <a href="/playground/">Playground</a> · <a href="https://play.google.com/store/apps/details?id=com.anatomygo">Android app</a> · <a href="/llms.txt">For AI assistants</a></p>
-  <p>3D model: BodyParts3D, © Database Center for Life Science, CC BY-SA 2.1 Japan.</p>
-</footer>
+  <footer class="footer">
+    <p><a href="/">AnatomyGo</a> · <a href="/playground/">Playground</a> · <a href="/llms.txt">For AI assistants</a></p>
+    <p>3D model: BodyParts3D, © Database Center for Life Science, CC BY-SA 2.1 Japan</p>
+  </footer>
 </main>
 </body>
 </html>

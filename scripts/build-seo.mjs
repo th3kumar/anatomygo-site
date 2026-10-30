@@ -1,7 +1,7 @@
 // Runs after the build. Reads the live pins from Supabase and writes the files that search engines and AI assistants
 // read: llms.txt (a short guide to the site), llms-full.txt (every pinned feature in plain text), a dated sitemap, and
 // the current pin counts in dist/index.html (meta description, structured data, and a short text for crawlers) and in
-// dist/whats-new/index.html (counts, the muscle list and its structured data).
+// dist/whats-new/index.html (counts, date, the muscle list and its structured data).
 // The pins are only drawn by JavaScript in the 3D viewer, so without this crawlers never see them.
 // Locally and in the PR check, a failed read leaves the build as it is. The deploy sets SEO_STRICT=1, so a failed
 // read fails it and a deploy never ships without the pin text.
@@ -89,7 +89,7 @@ ${others.map(g=>`- ${g.name} (${g.features.size} ${g.features.size===1?'feature'
 ## More
 
 - [Every pinned feature with its description](${SITE}/llms-full.txt)
-- [What's new](${SITE}/whats-new/): dated updates, newest first, and every muscle's origin and insertion
+- [What's new](${SITE}/whats-new/): every muscle's origin and insertion, and dated updates
 - [Playground](${SITE}/playground/): see the features of each structure and vote on or suggest pin placements
 - [Android app](https://play.google.com/store/apps/details?id=com.anatomygo)
 
@@ -140,34 +140,31 @@ function homepage(html,{stats}){
  return swap(html,/<!--seo:about-->[\s\S]*?<!--\/seo:about-->/,`<!--seo:about-->${about}<!--/seo:about-->`);
 }
 
-// The common names students search for, next to the atlas's Latin-style part names.
-const COMMON={'Clavicular part of deltoid':'Anterior deltoid (clavicular part)','Acromial part of deltoid':'Middle deltoid (acromial part)','Spinal part of deltoid':'Posterior deltoid (spinal part)',
- 'Descending part of trapezius':'Upper trapezius (descending part)','Ascending part of trapezius':'Lower trapezius (ascending part)','Clavicular part of pectoralis major':'Pectoralis major, clavicular head',
+// The short names students search for, in place of the atlas's part names.
+const COMMON={'Clavicular part of deltoid':'Anterior deltoid','Acromial part of deltoid':'Middle deltoid','Spinal part of deltoid':'Posterior deltoid',
+ 'Descending part of trapezius':'Upper trapezius','Ascending part of trapezius':'Lower trapezius','Clavicular part of pectoralis major':'Pectoralis major, clavicular head',
  'Sternocostal part of pectoralis major':'Pectoralis major, sternocostal head','Long head of biceps brachii':'Biceps brachii, long head'};
-const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-const strip=s=>s.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
-function muscleCards(list){
- const cards=list.filter(g=>g.system==='muscular').map(g=>{
-  const fs=[...g.features.values()],name=COMMON[g.name]??g.name,belly=fs.find(f=>/^muscle (belly|sheet)$/i.test(f.label));
-  const part=kind=>fs.filter(f=>f.kind===kind).map(f=>esc(f.label.replace(/^(origin|insertion):\s*/i,''))).join('; ');
-  const open=[...g.meshes].sort(([,a],[,b])=>a.localeCompare(b)).map(([id,mesh])=>`<a href="/?structure=${encodeURIComponent(id)}&amp;isolate=1">${/\bleft\b/i.test(mesh)?'left':/\bright\b/i.test(mesh)?'right':'open'}</a>`).join(' · ');
-  return {name,html:`<div class="card" id="${slug(name)}"><h3>${esc(name)}</h3>${part('origin')?`<p class="origin"><b>Origin:</b> ${part('origin')}</p>`:''}${part('insertion')?`<p class="insertion"><b>Insertion:</b> ${part('insertion')}</p>`:''}${belly?`<p class="muted">${esc(belly.description)}</p>`:''}<p>Open in 3D: ${open}</p></div>`};
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+/** One row per muscle: its name, origin → insertion, linking to the right side in 3D. */
+function muscleRows(list){
+ const rows=list.filter(g=>g.system==='muscular').map(g=>{
+  const fs=[...g.features.values()],name=COMMON[g.name]??g.name;
+  const part=kind=>fs.filter(f=>f.kind===kind).map(f=>f.label.replace(/^(origin|insertion):\s*/i,'')).join('; ');
+  const meshes=[...g.meshes],[id]=meshes.find(([,m])=>/\bright\b/i.test(m))??meshes[0];
+  const from=part('origin'),to=part('insertion');
+  return {name,html:`<li><a href="/?structure=${encodeURIComponent(id)}&amp;isolate=1"><div class="name">${esc(name)}</div><div class="attach">${from?`<span class="from">${esc(cap(from))}</span>`:''}${to?`<span class="to">${esc(cap(to))}</span>`:''}</div></a></li>`};
  });
- return cards.sort((a,b)=>a.name.localeCompare(b.name)).map(c=>c.html).join('\n');
+ return `<ol class="muscles">${rows.sort((a,b)=>a.name.localeCompare(b.name)).map(r=>r.html).join('')}</ol>`;
 }
+const strip=s=>s.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
 function whatsNew(html,{list,stats}){
- const counts={pins:n(stats.pins),features:n(stats.features),structures:n(stats.structures),muscles:n(stats.muscles.length)};
+ const counts={pins:n(stats.pins),muscles:n(stats.muscles.length)};
  for(const [k,v] of Object.entries(counts))html=swap(html,new RegExp(`(<span data-count="${k}">)[^<]*(</span>)`,'g'),`$1${v}$2`);
  const date=new Date(`${today}T12:00:00Z`).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
  html=swap(html,/<time data-count="updated" datetime="[^"]*">[^<]*<\/time>/,`<time data-count="updated" datetime="${today}">${date}</time>`);
- html=swap(html,/<!--seo:muscles-->[\s\S]*?<!--\/seo:muscles-->/,`<!--seo:muscles-->${muscleCards(list)}<!--/seo:muscles-->`);
- // The FAQ data is read from the visible questions, so the two can never disagree.
- const faq=[...html.matchAll(/<div class="card"><h3>([\s\S]*?)<\/h3><p>([\s\S]*?)<\/p><\/div>/g)].map(([,q,a])=>({'@type':'Question',name:strip(q),acceptedAnswer:{'@type':'Answer',text:strip(a)}}));
- if(faq.length<3)throw Error('whats-new: FAQ not found');
- const lead=strip(html.match(/<p class="lead">([\s\S]*?)<\/p>/)?.[1]??'');
- const data={'@context':'https://schema.org','@graph':[
-  {'@type':'WebPage','@id':`${SITE}/whats-new/#page`,url:`${SITE}/whats-new/`,name:"What's new in AnatomyGo",description:lead,inLanguage:'en',datePublished:'2026-10-30',dateModified:today,isPartOf:{'@id':`${SITE}/#website`},about:{'@id':`${SITE}/#app`}},
-  {'@type':'FAQPage','@id':`${SITE}/whats-new/#faq`,mainEntity:faq}]};
+ html=swap(html,/<!--seo:muscles-->[\s\S]*?<!--\/seo:muscles-->/,`<!--seo:muscles-->${muscleRows(list)}<!--/seo:muscles-->`);
+ const data={'@context':'https://schema.org','@type':'WebPage','@id':`${SITE}/whats-new/#page`,url:`${SITE}/whats-new/`,name:"What's new in AnatomyGo",
+  description:strip(html.match(/<p class="summary">([\s\S]*?)<\/p>/)?.[1]??''),inLanguage:'en',datePublished:'2026-10-30',dateModified:today,isPartOf:{'@id':`${SITE}/#website`},about:{'@id':`${SITE}/#app`}};
  return swap(html,/<!--seo:data-->[\s\S]*?<!--\/seo:data-->/,ldJson(data));
 }
 
