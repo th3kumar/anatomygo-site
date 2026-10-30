@@ -17,11 +17,12 @@ export const SPRINGS={
 } satisfies Record<string,Spring>;
 export type SpringName=keyof typeof SPRINGS;
 
-const BEZIER={cam:[.65,0,.35,1],out:[.22,1,.36,1],in:[.4,0,1,1],io:[.45,0,.2,1]} as const;
+// glide: the focus move (Learn more and Back). It leaves at once and settles slowly, with no lag at the start.
+const BEZIER={cam:[.65,0,.35,1],out:[.22,1,.36,1],in:[.4,0,1,1],io:[.45,0,.2,1],glide:[.3,.65,.2,1]} as const;
 export type EaseName=keyof typeof BEZIER;
 
 /** Seconds. Leaving is quicker than arriving; arrivals start a beat after the leave. */
-export const DUR={leave:.14,enter:.22,enterDelay:.05,stagger:.03,chromeStagger:.04,camera:.9,cameraShort:.5,cameraBack:.85,theme:.75};
+export const DUR={leave:.14,enter:.22,enterDelay:.05,stagger:.03,chromeStagger:.04,camera:.9,cameraShort:.5,cameraBack:.85,theme:.75,focusIn:.8,focusBack:.7};
 
 /** For the motion library: `transition={spring.card}`. */
 export const spring=Object.fromEntries(Object.entries(SPRINGS).map(([k,s])=>[k,{type:'spring',mass:1,...s}])) as Record<SpringName,{type:'spring',mass:number}&Spring>;

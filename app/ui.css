@@ -89,12 +89,13 @@ button svg,a svg{flex-shrink:0}
 .link-quiet:hover{color:var(--text)}
 .new-tag{margin-left:8px;font-size:10px;font-weight:600;color:var(--accent-ink);background:var(--accent-strong);padding:1px 6px;border-radius:999px;vertical-align:2px}
 
-/* Learn more: a dark key with a light that runs round its edge (three laps, then it rests). */
+/* Learn more: a dark key with one soft light that drifts round its edge, slowly and without end, gentle on the eye. */
 .learn-more{position:relative;display:block;width:100%;height:52px;padding:1.5px;border-radius:15px;overflow:hidden;background:var(--hair)}
-.learn-more::before{content:'';position:absolute;left:-50%;top:-300%;width:200%;height:700%;background:conic-gradient(from 0deg,var(--edge-a),var(--edge-b),transparent 35%,transparent 65%,var(--edge-a));animation:edge-run 2.9s linear .4s 1 both}
+.learn-more::before{content:'';position:absolute;left:-50%;top:-300%;width:200%;height:700%;background:conic-gradient(from 0deg,transparent 0deg,transparent 190deg,color-mix(in srgb,var(--edge-a) 70%,transparent) 285deg,color-mix(in srgb,var(--edge-b) 50%,transparent) 330deg,transparent 360deg);opacity:0;animation:edge-in .9s var(--ease-out) .3s forwards,edge-run 9s linear infinite}
 .learn-more-in{position:relative;height:100%;border-radius:13.5px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--panel-solid);color:var(--text);font-size:16px;font-weight:600}
 .learn-more.is-on::before{animation:none;opacity:.35}
-@keyframes edge-run{from{transform:rotate(0)}to{transform:rotate(1080deg)}}
+@keyframes edge-run{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes edge-in{to{opacity:.75}}
 
 /* Switch and slider (Base UI kit), restyled. Unlayered rules win over the kit's Tailwind utilities. */
 [data-slot=switch]{width:34px;height:20px;border-radius:999px;background:var(--switch-off);border:0;flex:none;transition:background .18s}
@@ -308,4 +309,4 @@ button svg,a svg{flex-shrink:0}
 /* Theme change: one smooth wash (View Transitions) */
 ::view-transition-old(root),::view-transition-new(root){animation-duration:var(--t-theme);animation-timing-function:var(--ease-cam)}
 
-@media(prefers-reduced-motion:reduce){.learn-more::before{animation:none}.app-dot,.app-dot::after{animation:none}}
+@media(prefers-reduced-motion:reduce){.learn-more::before{animation:none;opacity:.5}.app-dot,.app-dot::after{animation:none}}
