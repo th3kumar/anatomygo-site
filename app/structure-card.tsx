@@ -9,6 +9,7 @@ import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,SquareP
 import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
 import type {PublishedPin} from './published-pins';
+import {VoteButton} from './community/vote-button';
 
 export type CardMode='peek'|'focus'|'feature';
 export type CardTab='about'|'parts';
@@ -37,7 +38,7 @@ interface Props {
  mode:CardMode;phone:boolean;facts:CardFacts;tab:CardTab;
  members:{id:string;name:string}[];pins:PublishedPin[];pinsLoading:boolean;pinsError:string;
  pin:PublishedPin|null;counterpart:{id:string;name:string}|null;
- contributeHref:string;pinHref:(p:PublishedPin)=>string;
+ contributeHref:string;vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
  /** The phone sheet's resting height, so the camera can frame the space above it. */
@@ -186,8 +187,11 @@ export function StructureCard(p:Props){
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
   <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='feature')scroller.current=el;}}>
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
-   <div className="tile vote-tile"><p className="t-body2">Looks right?</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a></div>
-   <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.kind==='community'?(pin.by===null?'Starter pin':pin.by?`Added by the community · ${pin.by}`:'Added by the community'):'Published'}</p>
+   {(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
+    {v?<VoteButton on={v.on} count={v.count} onClick={()=>p.onVote(pin)}/>:<a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a>}
+    <a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>Suggest a spot</a></div></div>;})()}
+   {p.voteError&&<p className="t-meta vote-error" role="alert">{p.voteError}</p>}
+   <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.by?`Added by ${pin.by}${pin.kind==='published'?' · Published':''}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community'}</p>
   </div>
   {!phone&&<div className="contrib"><p className="t-meta">Pin in the wrong spot? Help fix it.</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a></div>}
   <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone?<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>:<span/>}{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>

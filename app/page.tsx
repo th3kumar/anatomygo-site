@@ -1,4 +1,8 @@
-import {useStructurePins} from './published-pins';
+import {useStructurePins,type PublishedPin} from './published-pins';
+import type {Session} from '@supabase/supabase-js';
+import {storedSession,watchSession} from './community/cloud';
+import {useVotes} from './community/votes';
+import {SignInDialog} from './community/sign-in-dialog';
 import {flushSync} from 'react-dom';
 import {registerAtlasTools} from './agent-tools';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -70,6 +74,15 @@ export default function Home(){
  const selectedParts=state.selected.map(id=>parts.get(id)).filter(p=>!!p),selected=selectedParts[0],system=SYSTEMS.find(s=>s.id===selected?.system);
  // Pins on an isolated single piece: published ones, then one community pin per remaining feature (marked as not yet reviewed).
  const shown=useStructurePins(state.isolate&&selectedParts.length===1?selected.id:null);
+ // Contributing. Signed-in Supabase loads only when needed: a session already kept here, a sign-in returning, or a first vote.
+ const [cloudOn,setCloudOn]=useState(()=>storedSession()||new URLSearchParams(location.search).has('code')),[session,setSession]=useState<Session|null>(null);
+ useEffect(()=>cloudOn?watchSession(setSession):undefined,[cloudOn]);
+ const votes=useVotes(session,shown.pins.flatMap(p=>p.proposal?[p.proposal]:[]));
+ // Asked after the action lands (0.25 s), once a visit: Later means "not now", and the vote stays on this device.
+ const [ask,setAsk]=useState<'vote'|'pin'|null>(null),later=useRef(false);
+ useEffect(()=>{if(session&&ask){setAsk(null);track('sign_in_completed',{method:'google_button'});}},[session,ask]);
+ const castVote=async(pin:PublishedPin)=>{if(!pin.proposal)return;const next=votes.mine(pin.proposal)===1?0:1;
+  if(await votes.vote(pin.proposal,next)==='kept'&&next===1&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  const selectPin=(id:string,source:'list'|'model')=>{setSelectedPin(id);const p=shown.pins.find(x=>x.id===id);if(p)track('home_pin_selected',{kind:p.kind??'published',source});};
  useEffect(()=>{if(shown.pins.length)track('home_pins_shown',{structure_id:selected?.id??'',pins:bucket(shown.pins.length),published:bucket(shown.pins.filter(p=>p.kind!=='community').length)});},[shown.pins]);
@@ -248,10 +261,12 @@ export default function Home(){
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} contributeHref={featureHref} pinHref={pinHref}
+   vote={x=>x.proposal?{on:votes.mine(x.proposal)===1,count:votes.count(x.proposal,x.upvotes??0)}:null} onVote={x=>void castVote(x)} voteError={votes.error}
    onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}
    onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
+  <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{later.current=true;setAsk(null);}}/>}</AnimatePresence>
   <AnimatePresence>{feedbackPrompt&&<FeedbackPrompt key="feedback" phone={phone} context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}</AnimatePresence>
   {featureTip&&<Tip target='[data-tip-target="features"]' side={phone?'top':'left'} onDone={()=>{track('home_tip_dismissed',{tip:'features'});seeTips('entry','features');}}><strong>New: parts & features</strong>See where each part of this structure sits, or pin one that’s missing.</Tip>}
   {entryTip&&<Tip target='[data-tip-target="entry"]' side="bottom" onDone={()=>{track('home_tip_dismissed',{tip:'entry'});seeTips('entry');}}><strong>New: Playground</strong>Pin the parts & features of any structure, and vote on other people’s pins.</Tip>}
