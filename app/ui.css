@@ -344,7 +344,8 @@ button svg,a svg{flex-shrink:0}
 .scard.is-sheet .about-page{padding:14px 20px calc(20px + env(safe-area-inset-bottom))}
 .about-tab{height:auto;padding:4px 0 0}
 .about-tab .feedback-about{border-top:0;padding-top:0}
-.scard.is-sheet.about-card{backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+/* Solid on phones: no blur over the model there, and the tabs hold fields that must stay readable. */
+.scard.is-sheet.about-card{background:var(--panel-solid);background-color:var(--ground-flat)}
 /* Votes (film C1) */
 .vote-actions{display:flex;gap:6px;flex:none}
 .vote{position:relative;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:999px;background:var(--fill-2);border:1px solid var(--hair-3);color:var(--text);font-size:13px;font-weight:500;transition:background .12s,border-color .12s,color .12s}
@@ -383,9 +384,10 @@ button svg,a svg{flex-shrink:0}
 input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .note-wrap{overflow:hidden}
 .field.note{margin-top:10px;height:93px;resize:none;line-height:1.5}
-.save-pin{margin-top:22px}
+.step-actions{display:grid;grid-template-columns:1fr 1.6fr;gap:10px;margin-top:22px}
+.step-actions .btn-quiet{height:48px;border-radius:var(--r-ctl)}
+.save-pin.is-wide{grid-column:1/-1}
 .save-pin:disabled{opacity:.45}
-.place-cancel{margin:12px auto 0;min-height:var(--hit)}
 /* The pin that floats with the cursor until it is dropped: its tip is the cursor, and it bobs up to three times. */
 .pin-cursor{position:absolute;left:0;top:0;z-index:4;pointer-events:none;width:0;height:0}
 .pin-cursor::before{content:'';position:absolute;left:-1px;bottom:0;width:2px;height:22px;background:var(--accent);border-radius:1px;animation:pin-bob 1.1s ease-in-out 3}
@@ -395,3 +397,11 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .place-steps .card-title{margin-top:6px}
 .place-steps .latin{margin-top:4px}
 .scard.is-sheet .field.note{height:76px}
+.avatar.is-you{background:var(--accent-fill);color:var(--accent-text);box-shadow:inset 0 0 0 1px var(--accent-line)}
+/* "Pin saved" (film K10): drops in under the top bar for 2.4 s. */
+.panel.toast{position:fixed;z-index:95;top:24px;left:50%;translate:-50% 0;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--text);background:var(--panel-solid);pointer-events:none}
+/* About → Account */
+.account{display:flex;flex-direction:column;gap:14px}
+.account-name{display:flex;flex-direction:column;gap:6px}
+.account-row{display:flex;gap:8px;align-items:center}
+.account-out{align-self:flex-start}

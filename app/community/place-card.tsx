@@ -25,7 +25,10 @@ export function PlaceSteps({phone,draft,structure,refused,state,error,onName,onN
      <textarea className="field note" value={draft.note} onChange={e=>onNote(e.target.value)} maxLength={4000} rows={3} aria-label="Note"/></m.div>}</AnimatePresence></div></li>
   </ol>
   {error&&<p className="t-meta step-why" role="alert">{error}</p>}
-  <m.button type="button" className="btn-accent save-pin" disabled={!ready||state!=='idle'} onClick={onSave} whileTap={ready?{scale:.98}:undefined}>{state==='saved'?'✓ Saved':state==='saving'?'Saving…':'Save pin'}</m.button>
-  {state!=='saved'&&<button type="button" className="t-meta link-quiet place-cancel" onClick={onCancel}>Cancel</button>}
+  {/* One row: the way out on the left, the main action on the right. */}
+  <div className="step-actions">
+   {state!=='saved'&&<button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>}
+   <m.button type="button" className={`btn-accent save-pin ${state==='saved'?'is-wide':''}`} disabled={!ready||state!=='idle'} onClick={onSave} whileTap={ready?{scale:.98}:undefined}>{state==='saved'?'✓ Saved':state==='saving'?'Saving…':'Save pin'}</m.button>
+  </div>
  </div>;
 }

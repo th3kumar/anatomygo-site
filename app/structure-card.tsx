@@ -40,7 +40,9 @@ interface Props {
  mode:CardMode;phone:boolean;facts:CardFacts;tab:CardTab;
  members:{id:string;name:string}[];pins:PublishedPin[];pinsLoading:boolean;pinsError:string;
  pin:PublishedPin|null;counterpart:{id:string;name:string}|null;
- needsPin:OpenFeature[];placeView?:ReactNode;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ needsPin:OpenFeature[];placeView?:ReactNode;
+ /** Pins kept on this device for this structure, and your public name (for "Added by you"). */
+ kept:{request:string;kind:string;landmark:string|null;label:string}[];me:string|null;onResume:(request:string)=>void;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
@@ -50,6 +52,12 @@ interface Props {
  onMinimise?:(mini:boolean)=>void;
 }
 
+/** Who added a pin, and "just now" for one added in the last two minutes. */
+function byline(pin:PublishedPin,me:string|null){
+ const who=pin.by?`Added by ${pin.by===me?'you':pin.by}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community';
+ const fresh=pin.at&&Date.now()-Date.parse(pin.at)<120000?' · just now':'';
+ return who+(pin.by&&pin.kind==='published'?' · Published':fresh);
+}
 export function StructureCard(p:Props){
  const {mode,phone,facts,tab}=p;
  const sheet=useRef<HTMLElement>(null);
@@ -191,11 +199,11 @@ export function StructureCard(p:Props){
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
   <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='feature')scroller.current=el;}}>
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
-   {(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
+   {!(pin.by&&pin.by===p.me)&&(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
     {v?<VoteButton on={v.on} count={v.count} onClick={()=>p.onVote(pin)}/>:<a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a>}
     <button type="button" className="vote" onClick={()=>p.onSuggest(pin)}>Suggest a spot</button></div></div>;})()}
    {p.voteError&&<p className="t-meta vote-error" role="alert">{p.voteError}</p>}
-   <p className="t-meta byline">{pin.by&&<span className="avatar" aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{pin.by?`Added by ${pin.by}${pin.kind==='published'?' · Published':''}`:pin.kind==='published'?'Published':pin.by===null?'Starter pin':'Added by the community'}</p>
+   <p className="t-meta byline">{pin.by&&<span className={`avatar ${pin.by===p.me?'is-you':''}`} aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{byline(pin,p.me)}</p>
   </div>
   <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}<span/>{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
  </m.div>;
@@ -208,10 +216,11 @@ export function StructureCard(p:Props){
   <h2 className="t-title card-title">Contribute</h2>
   <div className="card-scroll is-plain contribute-list" ref={el=>{if(el&&mode==='contribute')scroller.current=el;}}>
    {p.needsPin.length>0&&<><m.p className="t-label" {...row(0)}>Needs a pin</m.p>
-    <div className="list">{open_.map((f,i)=><m.button type="button" key={f.id} className="row" {...row(i+1)} onClick={()=>p.onPlace(f)}><span className="cap">{f.label}</span><span className="t-meta pin-it">Pin it ›</span></m.button>)}
+    <div className="list">{open_.map((f,i)=><m.button type="button" key={f.id} className="row" {...row(i+1)} onClick={()=>p.onPlace(f)}><span className="cap">{f.label}</span><span className="t-meta pin-it">{p.kept.some(k=>k.kind==='first_pin'&&k.landmark===f.id)?'Draft ›':'Pin it ›'}</span></m.button>)}
      {!all&&p.needsPin.length>3&&<m.button type="button" className="row" {...row(4)} onClick={()=>setAll(true)}>See all<ChevronRight size={16} className="chev"/></m.button>}</div></>}
    <m.p className="t-label" {...row(5)}>Something missing?</m.p>
-   <div className="list"><m.button type="button" className="row" {...row(6)} onClick={()=>p.onPlace(null)}>Add a missing part<ChevronRight size={16} className="chev"/></m.button></div>
+   <div className="list">{p.kept.filter(k=>k.kind==='new').map((k,i)=><m.button type="button" key={k.request} className="row" {...row(6+i)} onClick={()=>p.onResume(k.request)}><span className="cap">{k.label}</span><span className="t-meta pin-it">Draft ›</span></m.button>)}
+    <m.button type="button" className="row" {...row(6)} onClick={()=>p.onPlace(null)}>Add a missing part<ChevronRight size={16} className="chev"/></m.button></div>
   </div>
  </m.div>;
 

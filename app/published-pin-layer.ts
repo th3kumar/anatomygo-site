@@ -8,7 +8,7 @@ import {MAX_PRIMITIVES,SHAPE_COLOURS,SHAPE_FRAGMENT,SHAPE_VERTEX,emptyPacked,hex
 export class PublishedPinLayer {
  readonly group=new T.Group();
  // Each pin has its own materials, so the open pin can blend to mint and a pin turning away can fade on its own.
- private pins:{id:string;community:boolean;anchor:T.Vector3;normal:T.Vector3;head:T.Mesh;stem:T.Line;order:number;mat:T.MeshBasicMaterial;lineMat:T.LineBasicMaterial;vis:number;visFrom:number;visTo:number;visAt:number}[]=[];
+ private pins:{id:string;community:boolean;draft:boolean;anchor:T.Vector3;normal:T.Vector3;head:T.Mesh;stem:T.Line;order:number;mat:T.MeshBasicMaterial;lineMat:T.LineBasicMaterial;vis:number;visFrom:number;visTo:number;visAt:number}[]=[];
  /** When this set of pins appeared (ms), so heads can pop in nearest first; -1 until first drawn. */
  private born=-1;
  private last:PublishedPin[]|null=null;
@@ -32,8 +32,8 @@ export class PublishedPinLayer {
   for(const pin of input){const {triangle,u,v}=pin.anchor;if(triangle*3+2>=indices.count)continue;
    const a=new T.Vector3().fromBufferAttribute(positions,indices.getX(triangle*3)),b=new T.Vector3().fromBufferAttribute(positions,indices.getX(triangle*3+1)),c=new T.Vector3().fromBufferAttribute(positions,indices.getX(triangle*3+2));
    const normal=b.clone().sub(a).cross(c.clone().sub(a));if(normal.lengthSq()<=1e-28)continue;normal.normalize();
-   const community=pin.kind==='community',anchor=a.multiplyScalar(1-u-v).addScaledVector(b,u).addScaledVector(c,v),mat=new T.MeshBasicMaterial({toneMapped:false,transparent:true}),lineMat=new T.LineBasicMaterial({toneMapped:false,transparent:true}),head=new T.Mesh(this.sphere,mat),stem=new T.Line(new T.BufferGeometry().setFromPoints([anchor,anchor]),lineMat);
-   head.userData.pinId=pin.id;this.group.add(stem,head);this.pins.push({id:pin.id,community,anchor,normal,head,stem,order:0,mat,lineMat,vis:1,visFrom:1,visTo:-1,visAt:0});
+   const community=pin.kind==='community'||pin.kind==='draft',draft=pin.kind==='draft',anchor=a.multiplyScalar(1-u-v).addScaledVector(b,u).addScaledVector(c,v),mat=new T.MeshBasicMaterial({toneMapped:false,transparent:true}),lineMat=new T.LineBasicMaterial({toneMapped:false,transparent:true}),head=new T.Mesh(this.sphere,mat),stem=new T.Line(new T.BufferGeometry().setFromPoints([anchor,anchor]),lineMat);
+   head.userData.pinId=pin.id;this.group.add(stem,head);this.pins.push({id:pin.id,community,draft,anchor,normal,head,stem,order:0,mat,lineMat,vis:1,visFrom:1,visTo:-1,visAt:0});
   }
  }
  update(camera:T.PerspectiveCamera,height:number,offset:T.Vector3,selected:string|null,dark:boolean,behind=true){
@@ -52,7 +52,7 @@ if(this.born<0&&this.pins.length){this.born=now;[...this.pins].sort((a,b)=>a.anc
    const away=!behind&&selected!==p.id&&camera.position.clone().sub(tip).dot(p.normal)<0,visTo=away?0:1;
    if(p.visTo<0){p.vis=p.visFrom=p.visTo=visTo;}else if(visTo!==p.visTo){p.visFrom=p.vis;p.visTo=visTo;p.visAt=now;}
    const kv=still?1:Math.min(1,(now-p.visAt)/1000/(visTo?DUR.enter:DUR.leave));p.vis=p.visFrom+(p.visTo-p.visFrom)*ease[visTo?'out':'in'](kv);if(kv<1)popping=true;
-   const on=p.id===this.cur?sw:p.id===this.prev?1-sw:0,c=T.MathUtils.clamp(on,0,1),base=p.community?this.community:this.regular,op=(p.community?.8:1)*dim;
+   const on=p.id===this.cur?sw:p.id===this.prev?1-sw:0,c=T.MathUtils.clamp(on,0,1),base=p.draft?this.mint:p.community?this.community:this.regular,op=(p.community?.8:1)*dim;
    p.mat.color.lerpColors(base,this.mint,c);p.mat.opacity=T.MathUtils.lerp(op,1,c)*p.vis*this.opacity;p.lineMat.color.copy(base);p.lineMat.opacity=op*p.vis*this.opacity;
    p.head.position.copy(tip);p.head.scale.setScalar(Math.max(1e-4,unit*T.MathUtils.lerp(3,4.2,on)*grow));p.head.visible=grow>0&&p.vis>0;p.stem.visible=p.vis>0;
    const pos=p.stem.geometry.getAttribute('position') as T.BufferAttribute;pos.setXYZ(0,p.anchor.x,p.anchor.y,p.anchor.z);pos.setXYZ(1,tip.x,tip.y,tip.z);pos.needsUpdate=true;p.stem.geometry.computeBoundingSphere();

@@ -1,10 +1,10 @@
 import {fingerprint,forgetPins,useStructurePins,type PublishedPin} from './published-pins';
 import type {Session} from '@supabase/supabase-js';
-import {storedSession,watchSession} from './community/cloud';
+import {cloud,rpc,storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
 import {SignInDialog} from './community/sign-in-dialog';
 import {PlaceSteps,type Refusal} from './community/place-card';
-import {dropDraft,keepDraft,keptDrafts,submit,toSaved,unusable,type Draft} from './community/placing';
+import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
 import {registerAtlasTools} from './agent-tools';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -92,25 +92,44 @@ export default function Home(){
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
  // Placing a pin (films K7–K9): a draft for the open structure. Every suggestion is a point.
+ const draftRef=useRef<string|null>(null);
  const [draft,setDraft]=useState<Draft|null>(null),[refused,setRefused]=useState<Refusal|null>(null),[saveState,setSaveState]=useState<'idle'|'saving'|'saved'>('idle'),[saveError,setSaveError]=useState(''),[invalidTris,setInvalidTris]=useState<number[]>([]);
  const [openProposal,setOpenProposal]=useState<string|null>(null);
+ // Pins kept on this device (signed out, or not sent yet): drawn on the model in mint, marked Draft in the list, and
+ // opened again where they were left.
+ const [kept,setKept]=useState<Saved[]>(keptDrafts),syncKept=()=>setKept(keptDrafts());
+ const keptHere=useMemo(()=>selected&&state.isolate&&selectedParts.length===1?kept.filter(k=>k.mesh===selected.id):[],[kept,selected?.id,state.isolate,selectedParts.length]);
+ const scenePins=useMemo(()=>{const mine=keptHere.filter(k=>k.request!==draft?.request).map(k=>({id:`draft:${k.request}`,label:k.label,latinName:k.latin,description:k.description,anchor:k.anchor,kind:'draft' as const}));
+  return mine.length?[...shown.pins,...mine]:shown.pins;},[shown.pins,keptHere,draft?.request]);
+ const resume=(k:Saved)=>{setDraft(reopen(k));setRefused(null);setSaveState('idle');setSaveError('');void unusable(k.mesh).then(setInvalidTris);track('draft_started',{kind:k.kind,practice:0});};
+ // "Pin saved" (film K10), and your own name, so your pins read "Added by you".
+ const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[nameEdit,setNameEdit]=useState<string|null>(null),[nameNote,setNameNote]=useState('');
+ const saveName=async()=>{const v=nameEdit?.trim()??'';if(v.length<2)return;setNameNote('');
+  try{await rpc('pg_set_profile',{p_name:v});setMe(v);setNameEdit(null);setNameNote('Saved');track('public_name_set',{first:me?0:1});}catch{setNameNote('That didn’t save. Please try again.');}};
+ const signOut=async()=>{await (await cloud()).auth.signOut();track('signed_out');setAbout(false);setToast('Signed out');};
+ useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),2400);return()=>clearTimeout(t);},[toast]);
+ useEffect(()=>{setMe(null);if(session)void myName(session).then(setMe).catch(()=>{});},[session]);
  useEffect(()=>{setDraft(null);},[selected?.id,state.isolate]);
+ draftRef.current=draft?.request??null;
  const startDraft=(d:Pick<Draft,'kind'|'landmark'|'supersedes'|'label'|'latin'|'description'>)=>{if(!selected)return;
+  const left=d.landmark&&keptHere.find(k=>k.landmark===d.landmark&&k.kind===d.kind);if(left){resume(left);return;}
   setDraft({...d,request:crypto.randomUUID(),mesh:selected.id,anchor:null,note:''});setRefused(null);setSaveState('idle');setSaveError('');setInvalidTris([]);
   void unusable(selected.id).then(setInvalidTris);track('draft_started',{kind:d.kind,practice:0});};
  const cancelDraft=()=>{if(draft)track('draft_cancelled',{stage:draft.anchor?'placed':'placing'});setDraft(null);};
  const savePin=async()=>{if(!draft?.anchor||saveState!=='idle')return;setSaveState('saving');setSaveError('');
   try{const saved=toSaved(draft,await fingerprint());
    // Signed out: kept on this device, then sign-in is offered (Later keeps it here).
-   if(!session){keepDraft(saved);setSaveState('saved');setTimeout(()=>{setCloudOn(true);setAsk('pin');track('sign_in_prompted',{reason:'save'});},250);return;}
-   const id=await submit(saved,session);setSaveState('saved');forgetPins(saved.mesh);
+   if(!session){keepDraft(saved);syncKept();setSaveState('saved');setTimeout(()=>{setCloudOn(true);setAsk('pin');track('sign_in_prompted',{reason:'save'});},250);return;}
+   const id=await submit(saved,session);dropDraft(saved.request);syncKept();setSaveState('saved');forgetPins(saved.mesh);void myName(session).then(setMe);
+   setTimeout(()=>setToast('Pin saved'),700);
    setTimeout(()=>{setDraft(null);setPinsVersion(v=>v+1);setOpenProposal(id);if(saved.landmark)setSelectedPin(saved.landmark);},700);
   }catch(e){setSaveState('idle');setSaveError(e instanceof Error&&/name/.test(e.message)?e.message:'That didn’t save. Please try again.');}};
  // A new part has no feature id until it is saved: open it once its pin arrives.
  useEffect(()=>{if(!openProposal)return;const p=shown.pins.find(x=>x.proposal===openProposal);if(p){setSelectedPin(p.id);setOpenProposal(null);}},[shown.pins,openProposal]);
  // After sign-in, pins kept on this device are sent, then forgotten here.
  useEffect(()=>{if(!session)return;const list=keptDrafts();if(!list.length)return;
-  void (async()=>{for(const k of list){try{await submit(k,session);dropDraft(k.request);forgetPins(k.mesh);}catch{/* kept for the next try */}}setPinsVersion(v=>v+1);
+  void (async()=>{let sent=0,open:string|null=null;for(const k of list){try{const id=await submit(k,session);dropDraft(k.request);forgetPins(k.mesh);sent++;if(k.request===draftRef.current)open=id;}catch{/* kept for the next try */}}
+   syncKept();setPinsVersion(v=>v+1);void myName(session).then(setMe);if(sent)setToast(sent>1?`${sent} pins saved`:'Pin saved');if(open)setOpenProposal(open);
    // A pin saved just before signing in is now sent: its step card closes.
    setDraft(d=>d&&!keptDrafts().some(k=>k.request===d.request)?null:d);})();},[session]);
  const selectPin=(id:string,source:'list'|'model')=>{setSelectedPin(id);const p=shown.pins.find(x=>x.id===id);if(p)track('home_pin_selected',{kind:p.kind??'published',source});};
@@ -245,10 +264,21 @@ export default function Home(){
     {aboutFeedback?<FeedbackForm source="about" context={feedbackContext} onSent={()=>markFeedback('sent')}/>:<button type="button" className="btn-quiet feedback-open" onClick={()=>{setAboutFeedback(true);track('feedback_opened',{ui_source:'about'});}}>Write feedback</button>}</section>
    <div className="stats-choice"><span className="t-body">Share usage statistics<small className="t-meta">Visits, features used and load speed. Searches keep only anatomy words, plus the words of searches that find nothing.</small></span><Switch checked={stats} onCheckedChange={on=>{setStats(on);setStatsEnabled(on);}} aria-label="Share usage statistics"/></div>
   </div>,
+  // Signed in only: who you are, the name on your pins (the Google first name until changed), and signing out.
+  account:session?<div className="about-copy account">
+   <p className="t-meta">Signed in as {session.user.email}</p>
+   <form className="account-name" onSubmit={e=>{e.preventDefault();void saveName();}}>
+    <label className="t-meta" htmlFor="pin-name">Name on your pins</label>
+    <div className="account-row"><input id="pin-name" className="field" value={nameEdit??me??''} onChange={e=>setNameEdit(e.target.value)} maxLength={60} autoComplete="given-name"/>
+     {nameEdit!==null&&nameEdit.trim()!==(me??'')&&<button type="submit" className="btn-quiet" disabled={nameEdit.trim().length<2}>Save</button>}</div>
+    {nameNote&&<p className="t-meta" role="status">{nameNote}</p>}
+   </form>
+   <button type="button" className="btn-quiet account-out" onClick={()=>void signOut()}>Sign out</button>
+  </div>:null,
  };
 
  return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
-  {atlas&&<AnatomyScene pins={shown.pins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;selectPin(id,'model');setDetails(true);}}
+  {atlas&&<AnatomyScene pins={scenePins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;if(id.startsWith('draft:')){const k=keptHere.find(x=>`draft:${x.request}`===id);if(k)resume(k);return;}selectPin(id,'model');setDetails(true);}}
    placing={mode==='place'&&draft?{anchor:draft.anchor,invalid:invalidTris}:null}
    onPlace={r=>{if('refused' in r){setRefused(r.refused);track('pin_refused',{reason:r.refused,practice:0});return;}setRefused(null);if(!r.moved)track('pin_placed',{kind:draft?.anchor?'moved':'placed',practice:0});setDraft(d=>d&&{...d,anchor:r.anchor});}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={id=>choosePart(id,'tap')} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
   <AnimatePresence>{lighting&&<LightPad key="light" light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}</AnimatePresence>
@@ -292,7 +322,7 @@ export default function Home(){
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} pinHref={pinHref}
-   needsPin={shown.needsPin} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
+   needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
    onSuggest={x=>startDraft({kind:'correction',landmark:x.id,supersedes:x.proposal??null,label:x.label,latin:x.latinName,description:x.description})}
    placeView={draft&&<PlaceSteps phone={phone} draft={draft} structure={facts?.title??''} refused={refused} state={saveState} error={saveError}
@@ -302,6 +332,7 @@ export default function Home(){
    onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
+  <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>
   <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{if(ask==='pin')setDraft(null);else later.current=true;setAsk(null);}}/>}</AnimatePresence>
   <AnimatePresence>{feedbackPrompt&&<FeedbackPrompt key="feedback" phone={phone} context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}</AnimatePresence>
   {featureTip&&<Tip target='[data-tip-target="features"]' side={phone?'top':'left'} onDone={()=>{track('home_tip_dismissed',{tip:'features'});seeTips('entry','features');}}><strong>New: parts & features</strong>See where each part of this structure sits, or pin one that’s missing.</Tip>}

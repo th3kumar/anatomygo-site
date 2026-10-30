@@ -3,8 +3,8 @@ import {AnimatePresence,m,useDragControls} from 'motion/react';
 import {ChevronDown,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
 
-export type AboutTab='about'|'feedback';
-const LABEL:Record<AboutTab,string>={about:'About',feedback:'Feedback'};
+export type AboutTab='about'|'feedback'|'account';
+const LABEL:Record<AboutTab,string>={about:'About',feedback:'Feedback',account:'Account'};
 const page=(side:number)=>({initial:{opacity:0,x:8*side},animate:{opacity:1,x:0,transition:tween('out',DUR.enter,DUR.enterDelay)},exit:{opacity:0,x:-8*side,transition:tween('in',DUR.leave)}});
 
 /** About AnatomyGo, in the structure card's own shell: the right-hand panel on a desktop and a bottom sheet on a phone,
