@@ -1,6 +1,8 @@
 import {useEffect,useId,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {X} from 'lucide-react';
+import {m,useDragControls} from 'motion/react';
+import {ChevronDown,X} from 'lucide-react';
+import {DUR,spring,tween} from './motion';
 import {Textarea} from '@/components/ui/textarea';
 import {Input} from '@/components/ui/input';
 import {track,bucket} from './analytics';
@@ -25,35 +27,47 @@ async function send(message:string,email:string,source:FeedbackSource,context:Fe
  if(!r.ok)throw Error(/Too many/.test(await r.text().catch(()=>''))?'Lots of messages are arriving right now. Please try again in a minute.':FAILED);
 }
 
-/** The form itself, shared by the pop-up card and the About sheet. */
-export function FeedbackForm({source,context,onSent,secondary}:{source:FeedbackSource;context:()=>FeedbackContext;onSent?:()=>void;secondary?:{label:string;onClick:()=>void}}){
+/** The form itself, shared by the pop-up card and About. */
+export function FeedbackForm({source,context,onSent}:{source:FeedbackSource;context:()=>FeedbackContext;onSent?:()=>void}){
  const id=useId(),[message,setMessage]=useState(''),[email,setEmail]=useState(''),[state,setState]=useState<'idle'|'sending'|'sent'>('idle'),[error,setError]=useState('');
  const text=message.trim(),address=email.trim(),badEmail=!!address&&!EMAIL.test(address);
- if(state==='sent')return <div className="feedback-done" role="status"><strong>Thank you.</strong><p>We read every message.{address?' If we have a question, we’ll write to you.':''}</p>{secondary&&<button className="feedback-later" onClick={secondary.onClick}>Close</button>}</div>;
+ if(state==='sent')return <m.div className="feedback-done" role="status" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={tween('out',DUR.enter)}><strong className="t-title">Thank you.</strong><p className="t-body2">We read every message.{address?' We’ll write if we have a question.':''}</p></m.div>;
  const submit=async(e:React.FormEvent)=>{e.preventDefault();if(text.length<2||badEmail||state==='sending')return;setState('sending');setError('');
   try{await send(text,address,source,context());setState('sent');track('feedback_sent',{ui_source:source,kind:address?'with_email':'no_email',count:bucket(text.length)});onSent?.();}
   catch(err){setState('idle');setError(err instanceof Error?err.message:FAILED);track('feedback_failed',{ui_source:source});}};
  return <form className="feedback-form" onSubmit={submit} noValidate>
-  <label htmlFor={`${id}-message`} className="feedback-sr">Your feedback</label>
-  <Textarea id={`${id}-message`} value={message} onChange={e=>setMessage(e.target.value)} maxLength={2000} rows={4} placeholder="What worked, what didn’t, what you’d love to see next…"/>
-  <label htmlFor={`${id}-email`}>Email, if you’d like a reply <span>(optional)</span></label>
-  <Input id={`${id}-email`} type="email" inputMode="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} maxLength={254} placeholder="you@example.com" aria-invalid={badEmail||undefined} aria-describedby={`${id}-hint`}/>
-  <p id={`${id}-hint`} className={`feedback-hint ${badEmail?'is-error':''}`}>{badEmail?'That email doesn’t look complete.':'Only used to reply to you.'}</p>
-  {error&&<p className="feedback-error" role="alert">{error}</p>}
-  <div className="feedback-actions">{secondary&&<button type="button" className="feedback-later" onClick={secondary.onClick}>{secondary.label}</button>}<button type="submit" className="feedback-send" disabled={text.length<2||badEmail||state==='sending'}>{state==='sending'?'Sending…':'Send feedback'}</button></div>
+  <label htmlFor={`${id}-message`} className="sr-only">Your feedback</label>
+  <Textarea id={`${id}-message`} value={message} onChange={e=>setMessage(e.target.value)} maxLength={2000} rows={4} placeholder="What helped, what didn’t, what’s missing?"/>
+  <label htmlFor={`${id}-email`} className="t-meta">Email for a reply <span>· optional</span></label>
+  <Input id={`${id}-email`} type="email" inputMode="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} maxLength={254} placeholder="you@example.com" aria-invalid={badEmail||undefined} aria-describedby={badEmail?`${id}-hint`:undefined}/>
+  {badEmail&&<p id={`${id}-hint`} className="feedback-hint">That email looks incomplete.</p>}
+  {error&&<p className="feedback-hint" role="alert">{error}</p>}
+  <button type="submit" className="btn-accent feedback-send" disabled={text.length<2||badEmail||state==='sending'}>{state==='sending'?'Sending…':'Send'}</button>
  </form>;
 }
 
-/** The pop-up: a small card that never blocks the model (a bottom sheet on phones that rises above the keyboard). */
-export function FeedbackPrompt({context,onClose}:{context:()=>FeedbackContext;onClose:(sent:boolean)=>void}){
- const id=useId(),[sent,setSent]=useState(false);
+/** The pop-up, in the structure card's shell: a small card at the bottom right on a desktop, a bottom sheet on a phone
+ * that rises above the keyboard and closes when pulled down. It never covers the model's middle or moves the camera. */
+export function FeedbackPrompt({phone,context,onClose}:{phone:boolean;context:()=>FeedbackContext;onClose:(sent:boolean)=>void}){
+ const id=useId(),[sent,setSent]=useState(false),drag=useDragControls();
  useEffect(()=>{const vv=window.visualViewport;if(!vv)return;const fit=()=>document.documentElement.style.setProperty('--keyboard',`${Math.max(0,innerHeight-vv.height-vv.offsetTop)}px`);vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);fit();return()=>{vv.removeEventListener('resize',fit);vv.removeEventListener('scroll',fit);document.documentElement.style.removeProperty('--keyboard');};},[]);
  const close=()=>onClose(sent);
- return createPortal(<section className="feedback-card glass" role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}>
-  <button className="feedback-close" onClick={close} aria-label="Close feedback"><X size={16}/></button>
-  {!sent&&<><div className="eyebrow">FEEDBACK</div><h2 id={`${id}-title`} className="feedback-title">How is AnatomyGo working for you?</h2>
-  <p className="feedback-copy">We’re a small team building this for learners. Your thoughts help us improve.</p></>}
-  {sent&&<h2 id={`${id}-title`} className="feedback-sr">Feedback sent</h2>}
-  <FeedbackForm source="prompt" context={context} onSent={()=>{setSent(true);try{localStorage.setItem('anatomygo.feedback',JSON.stringify({state:'sent',at:new Date().toISOString().slice(0,10)}));}catch{}}} secondary={sent?{label:'Close',onClick:close}:{label:'Not now',onClick:close}}/>
- </section>,document.body);
+ const body=<div className="card-body">
+  <div className="card-head" onPointerDown={phone?e=>drag.start(e):undefined}>
+   <div className="card-row"><p className="t-meta">Feedback</p>{phone&&<button type="button" className="card-x" onClick={close} aria-label="Close feedback"><ChevronDown size={18}/></button>}</div>
+   {sent?<h2 id={`${id}-title`} className="sr-only">Feedback sent</h2>:<h2 id={`${id}-title`} className="t-title card-title">How’s AnatomyGo working for you?</h2>}
+  </div>
+  <div className="card-page feedback-page"><FeedbackForm source="prompt" context={context} onSent={()=>{setSent(true);try{localStorage.setItem('anatomygo.feedback',JSON.stringify({state:'sent',at:new Date().toISOString().slice(0,10)}));}catch{}}}/></div>
+ </div>;
+ return createPortal(phone
+  ?<m.section className="sheet scard is-sheet feedback-card" role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}
+    drag="y" dragControls={drag} dragListener={false} dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.7}}
+    onDragEnd={(_,i)=>{if(i.offset.y>90||i.velocity.y>600)close();}}
+    initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet}>
+    <span className="grab-zone" onPointerDown={e=>drag.start(e)}><span className="grab" aria-hidden="true"/></span>{body}
+   </m.section>
+  :<m.section className="panel scard feedback-card" role="dialog" aria-modal="false" aria-labelledby={`${id}-title`}
+    initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} exit={{opacity:0,scale:.98,transition:tween('in',.18)}} transition={{...spring.card,opacity:tween('out',.22)}}>
+    <button type="button" className="card-corner" onClick={close} aria-label="Close feedback" title="Close"><span className="card-corner-icon" aria-hidden="true"><X size={17}/></span></button>{body}
+   </m.section>,document.body);
 }

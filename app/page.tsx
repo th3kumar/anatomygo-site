@@ -233,7 +233,7 @@ export default function Home(){
   {phone
    ?<>
     <Arrive ready={chromeReady&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
-    {<Arrive ready={chromeReady&&!panel&&!inspecting&&!about&&!lighting} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
+    {<Arrive ready={chromeReady&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
      {!lighting&&<Hint id={hintId} className="hint-phone">{state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
      <div className="bottom-row">{panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>}<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
     </Arrive>}
@@ -252,7 +252,7 @@ export default function Home(){
    onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
-  {feedbackPrompt&&<FeedbackPrompt context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}
+  <AnimatePresence>{feedbackPrompt&&<FeedbackPrompt key="feedback" phone={phone} context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}</AnimatePresence>
   {featureTip&&<Tip target='[data-tip-target="features"]' side={phone?'top':'left'} onDone={()=>{track('home_tip_dismissed',{tip:'features'});seeTips('entry','features');}}><strong>New: parts & features</strong>See where each part of this structure sits, or pin one that’s missing.</Tip>}
   {entryTip&&<Tip target='[data-tip-target="entry"]' side="bottom" onDone={()=>{track('home_tip_dismissed',{tip:'entry'});seeTips('entry');}}><strong>New: Playground</strong>Pin the parts & features of any structure, and vote on other people’s pins.</Tip>}
  </main></MotionConfig></LazyMotion>;
