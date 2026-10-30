@@ -199,6 +199,11 @@ button svg,a svg{flex-shrink:0}
 .card-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px}
 .card-x{width:var(--hit);height:var(--hit);margin:-12px -14px -12px 0;display:grid;place-items:center;border-radius:999px;color:var(--text-3);flex:none}
 .card-x:hover{color:var(--text);background:var(--fill-hover)}
+/* Desktop: the card's one corner control (close, or back on a feature); rows leave room for it. */
+.card-corner{position:absolute;z-index:3;top:20px;right:20px;width:36px;height:36px;display:grid;place-items:center;border-radius:999px;color:var(--text-3);transition:color .15s,background .15s}
+.card-corner:hover{color:var(--text);background:var(--fill-hover)}
+.card-corner-icon{display:grid;place-items:center}
+.scard:not(.is-sheet) .card-row{padding-right:40px}
 .card-title{margin-top:-4px}
 .cap::first-letter{text-transform:uppercase}
 .clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

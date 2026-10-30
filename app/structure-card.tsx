@@ -77,7 +77,7 @@ export function StructureCard(p:Props){
  // content scroll. Dragged below its resting height it closes.
  const scroller=useRef<HTMLElement|null>(null),[fit,setFit]=useState(0),[full,setFull]=useState(false);
  // In focus and on a feature the card minimises instead of closing: leaving the structure is the Body button's job.
- const canMini=mode!=='peek',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
+ const canMini=phone&&mode!=='peek',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
  useEffect(()=>{if(!canMini)setMini(false);},[canMini]);useEffect(()=>{setMini(false);},[facts.reference]);
  useEffect(()=>{p.onMinimise?.(mini);},[mini]);
  useLayoutEffect(()=>{if(!phone)return;const probe=document.createElement('div');probe.style.cssText='position:fixed;height:env(safe-area-inset-bottom);visibility:hidden';document.body.appendChild(probe);setSafe(probe.offsetHeight);probe.remove();},[phone]);
@@ -117,7 +117,8 @@ export function StructureCard(p:Props){
   void e;};
  const size=phone?{}:mini?{width:360,height:mode==='feature'?110:68}:{width:mode==='peek'?416:392,height:deskH};
 
- const close=canMini?<button type="button" className="card-x" onClick={()=>setMini(true)} aria-label="Minimise" title="Minimise"><ChevronDown size={18}/></button>:<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
+ // Phones: each page has its own control (minimise in focus). Desktop: one corner button for the whole card (below).
+ const close=!phone?null:canMini?<button type="button" className="card-x" onClick={()=>setMini(true)} aria-label="Minimise" title="Minimise"><ChevronDown size={18}/></button>:<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
 
  // Peek and focus share this header; it leaves with the focus body when a feature opens.
  const header=mode!=='feature'&&<m.div key={`head-${facts.reference}`} ref={head} className="card-head" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
@@ -172,7 +173,7 @@ export function StructureCard(p:Props){
  const feature=pin&&<m.div key={`f-${pin.id}`} className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit"
   drag={phone?'x':false} dragDirectionLock dragSnapToOrigin dragElastic={.35}
   onDragEnd={(_,i)=>{const w=(sheet.current?.offsetWidth??innerWidth)*.3;const fwd=i.offset.x<-w||i.velocity.x<-600,to=fwd?next:i.offset.x>w||i.velocity.x>600?prev:null;if(to){swipe.current=i.offset.x;go(to,fwd?1:-1);}}}>
-  <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}><ChevronLeft size={14}/>{facts.title} · Parts</button>{close}</div>
+  <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}>{phone&&<ChevronLeft size={14}/>}{facts.title} · Parts</button>{close}</div>
   {phone&&<p className="t-meta">Feature · {index+1} of {p.pins.length}</p>}
   <h2 className="t-title card-title cap">{pin.label}</h2>
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
@@ -202,6 +203,12 @@ export function StructureCard(p:Props){
   <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:mode==='feature'&&feature?feature:focus}</AnimatePresence></div>
  </>;}
  const body=<AnimatePresence mode="popLayout" initial={false}>{mini?miniBar:full_}</AnimatePresence>;
+ // Desktop: one corner button that follows the depth. On a feature it is a back arrow (to the structure); on the
+ // structure it turns into a cross (to the whole body); the icons turn into each other as you move.
+ const back=mode==='feature';
+ const corner=<button type="button" className="card-corner" onClick={back?p.onPinClose:p.onClose} aria-label={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Back to the whole body'} title={back?`Back to ${facts.title}`:mode==='peek'?'Close':'Whole body'}>
+  <AnimatePresence initial={false} mode="popLayout"><m.span key={back?'back':'close'} className="card-corner-icon" initial={{opacity:0,rotate:back?-90:90,scale:.6}} animate={{opacity:1,rotate:0,scale:1,transition:spring.snappy}} exit={{opacity:0,rotate:back?90:-90,scale:.6,transition:tween('in',.12)}}>{back?<ChevronLeft size={19}/>:<X size={17}/>}</m.span></AnimatePresence>
+ </button>;
 
  if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${full&&open>rest+8?'is-full':''} ${mini?'is-mini':''}`} data-inset="bottom" data-inset-size={(mini?MINI:rest)||undefined} role="dialog" aria-label={facts.title}
   style={{height:target?height:'auto'}} initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet}
@@ -211,6 +218,6 @@ export function StructureCard(p:Props){
  </m.section>;
  return <m.section className={`panel scard ${mini?'is-mini':''}`} data-inset={mini?undefined:'right'} data-inset-size={mode==='peek'?416:392} role="dialog" aria-label={facts.title}
   initial={{opacity:0,x:16,...size}} animate={{opacity:1,x:0,...size}} exit={{opacity:0,scale:.98,transition:tween('in',.18)}} transition={{...spring.card,opacity:tween('out',.22)}}>
-  {body}
+  {corner}{body}
  </m.section>;
 }

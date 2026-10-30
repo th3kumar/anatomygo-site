@@ -21,10 +21,11 @@
  --fill:rgba(20,22,26,.04);--fill-2:rgba(20,22,26,.06);--fill-hover:rgba(20,22,26,.05);--fill-on:rgba(255,255,255,.9);
  --scrim:rgba(20,22,26,.24);
  /* Glass. The films use no backdrop blur; --blur stays 0 on phones (WebGL underneath). */
- --panel:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,.5) 45%),rgba(255,255,255,.4);
+ --panel:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.56) 45%),rgba(255,255,255,.42);
  --panel-solid:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.82) 45%),rgba(250,250,248,.92);
  --panel-line:rgba(20,22,26,.08);
- --panel-shadow:0 24px 60px rgba(40,40,50,.12),inset 0 1px 0 rgba(255,255,255,.9);
+ /* One hairline and a soft stack of shadows (close, mid, far) read as a single refined edge. */
+ --panel-shadow:0 0 0 .5px rgba(20,22,26,.05),0 1px 2px rgba(40,40,50,.05),0 6px 16px rgba(40,40,50,.06),0 22px 48px rgba(40,40,50,.08),inset 0 1px 0 rgba(255,255,255,.6);
  --sheet:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.55) 40%),rgba(250,250,248,.8);
  --sheet-shadow:0 -16px 40px rgba(40,40,50,.1),inset 0 1px 0 #fff;
  --chip:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.6));
@@ -62,10 +63,10 @@
  --hair:rgba(255,255,255,.10);--hair-2:rgba(255,255,255,.06);--hair-3:rgba(255,255,255,.14);
  --fill:rgba(255,255,255,.05);--fill-2:rgba(255,255,255,.06);--fill-hover:rgba(255,255,255,.06);--fill-on:rgba(255,255,255,.13);
  --scrim:rgba(10,11,13,.48);
- --panel:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 45%),rgba(30,32,37,.58);
- --panel-solid:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 45%),rgba(30,32,37,.92);
- --panel-line:rgba(255,255,255,.10);
- --panel-shadow:0 24px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);
+ --panel:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015) 45%),rgba(30,32,37,.62);
+ --panel-solid:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015) 45%),rgba(30,32,37,.92);
+ --panel-line:rgba(255,255,255,.07);
+ --panel-shadow:0 0 0 .5px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.16),0 6px 16px rgba(0,0,0,.18),0 22px 48px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.045);
  --sheet:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02) 40%),rgba(30,32,37,.84);
  --sheet-shadow:0 -16px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);
  --chip:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02)),rgba(30,32,37,.55);
