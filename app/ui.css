@@ -336,3 +336,11 @@ button svg,a svg{flex-shrink:0}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:var(--t-theme);animation-timing-function:var(--ease-cam)}
 
 @media(prefers-reduced-motion:reduce){.learn-more::before{animation:none;opacity:.5}.app-dot,.app-dot::after{animation:none}}
+/* About: the structure card's shell, sized to its content. */
+.panel.about-card{width:392px;max-height:calc(100dvh - 128px)}
+.scard.is-sheet.about-card{max-height:calc(100dvh - 72px)}
+.about-page{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0;padding:16px 28px 28px}
+.scard.is-sheet .about-page{padding:14px 20px calc(20px + env(safe-area-inset-bottom))}
+.about-tab{height:auto;padding:4px 0 0}
+.about-tab .feedback-about{border-top:0;padding-top:0}
+.scard.is-sheet.about-card{backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
