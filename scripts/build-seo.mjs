@@ -123,9 +123,11 @@ const sitemap=()=>`<?xml version="1.0" encoding="UTF-8"?>
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const round=x=>x>=100?`${n(Math.floor(x/50)*50)}+`:n(x);
 const swap=(s,re,to)=>{if(!re.test(s))throw Error(`HTML: ${re} not found`);return s.replace(re,to);};
+// Bing reports a meta description outside 25–160 characters as an error, and search results cut longer ones off.
+function checkDescription(html,page){const d=html.match(/<meta name="description" content="([^"]*)"/)?.[1];const len=d===undefined?0:d.replace(/&[a-z]+;|&#\d+;/g,'x').length;if(len<25||len>160)throw Error(`${page}: meta description is ${len} characters; keep it between 25 and 160`);return html;}
 const ldJson=data=>`<!--seo:data--><script type="application/ld+json">${JSON.stringify(data).replace(/</g,'\\u003c')}</script><!--/seo:data-->`;
 function homepage(html,{stats}){
- const description=`A free 3D atlas of the human body: 2,234 bones, muscles, organs, vessels and nerves, with ${round(stats.features)} pinned landmarks and muscle origins and insertions. In your browser, no sign-up.`;
+ const description=`Free 3D human anatomy atlas: 2,234 structures, ${round(stats.features)} pinned landmarks, and muscle origins and insertions. In your browser, no sign-up.`;
  const data={'@context':'https://schema.org','@graph':[
   {'@type':'WebSite','@id':`${SITE}/#website`,name:'AnatomyGo',alternateName:'Anatomy Go',url:`${SITE}/`,inLanguage:'en'},
   {'@type':'WebApplication','@id':`${SITE}/#app`,name:'AnatomyGo',url:`${SITE}/`,description,applicationCategory:'EducationalApplication',operatingSystem:'Any (web browser with WebGL)',isAccessibleForFree:true,offers:{'@type':'Offer',price:'0',priceCurrency:'USD'},
@@ -174,8 +176,8 @@ try{
  await writeFile(`${dist}llms.txt`,llms(summary));
  await writeFile(`${dist}llms-full.txt`,llmsFull(summary));
  await writeFile(`${dist}sitemap.xml`,sitemap());
- await writeFile(`${dist}index.html`,homepage(await readFile(`${dist}index.html`,'utf8'),summary));
- await writeFile(`${dist}whats-new/index.html`,whatsNew(await readFile(`${dist}whats-new/index.html`,'utf8'),summary));
+ await writeFile(`${dist}index.html`,checkDescription(homepage(await readFile(`${dist}index.html`,'utf8'),summary),'index.html'));
+ await writeFile(`${dist}whats-new/index.html`,checkDescription(whatsNew(await readFile(`${dist}whats-new/index.html`,'utf8'),summary),'whats-new/index.html'));
  const {stats}=summary;console.log(`SEO files: ${n(stats.pins)} pins, ${n(stats.features)} features, ${n(stats.structures)} structures, ${stats.muscles.length} muscles, ${summary.list.length} entries in llms.txt`);
 }catch(e){
  if(process.env.SEO_STRICT)throw e;
