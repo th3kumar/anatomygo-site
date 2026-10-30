@@ -21,7 +21,7 @@ const GHOSTLESS=new Set(['arterial','venous','nervous','lymphatic','integumentar
 const STAGE={light:{clear:'#f1f0ec',alpha:0,ring:0x8c969f,ringOpacity:.4,inner:0xa4aeb8,innerOpacity:.16,marker:0x64748b},dark:{clear:'#151618',alpha:0,ring:0xffffff,ringOpacity:.1,inner:0xffffff,innerOpacity:.04,marker:0xa4a9b0}};
 /** What became of a tap made before the whole model had loaded (see the loading_tap event in page.tsx). */
 export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
-interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
+interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view'|'priority')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
 export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect}:Props){
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
  const published=useRef(pins),selectedPinRef=useRef(selectedPin),pickPin=useRef(onPinSelect);published.current=pins;selectedPinRef.current=selectedPin;pickPin.current=onPinSelect;
@@ -114,7 +114,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   // Parts arrive outside-in from the stream copy when this browser can use it (model-stream.ts), otherwise, or for
   // anything the stream fails to deliver, from the canonical chunks. Taps work from the first moment (a tap that a missing part might sit in front of is held, below); `outerIn` marks the outer body;
   // `ready` still means every part is in, as before.
-  const added=new Uint8Array(atlas.parts.length),partIndex=new Map(atlas.parts.map((p,i)=>[p.id,i]));let outerIn=false,viewShown=false,shown=0;
+  const added=new Uint8Array(atlas.parts.length),partIndex=new Map(atlas.parts.map((p,i)=>[p.id,i]));let outerIn=false,viewShown=false,shown=0,prioritySent=false;
   const addParts=(list:PartData[])=>{
    const groups=new Map<string,T.BufferGeometry[]>();
    for(const {index:i,positions,normals,indices} of list){
@@ -128,6 +128,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    }
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);const ghost=new T.Mesh(geometry,ghostMaterial);ghost.frustumCulled=false;ghost.renderOrder=2;scene.add(ghost);});
    lastState=null;dirty=true;retryTap();
+   // A linked structure is in: the page can show its focus view without waiting for the rest of the body.
+   if(!prioritySent&&first.current.length&&first.current.every(id=>{const i=partIndex.get(id);return i!==undefined&&!!added[i];})){prioritySent=true;milestone.current?.('priority');}
   };
   const report=(n:number)=>{n=Math.max(shown,Math.min(99,Math.floor(n)));if(n!==shown){shown=n;onProgress(n);}};
   const reached=(outer:boolean,view:boolean)=>{if(outer&&!outerIn){outerIn=true;milestone.current?.('outer');}if(view&&!viewShown){viewShown=true;milestone.current?.('view');}};

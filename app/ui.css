@@ -240,7 +240,7 @@ button svg,a svg{flex-shrink:0}
 .light-overlay{position:absolute;inset:0;z-index:25;touch-action:none;cursor:crosshair;background:radial-gradient(ellipse at 50% 45%,transparent 45%,var(--scrim) 160%)}
 .light-pad{position:absolute;left:330px;right:110px;top:120px;bottom:150px}
 .light-overlay .light-handle{position:absolute;width:48px;height:48px;border-radius:50%;background:var(--accent-strong);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.25),0 0 0 7px var(--accent-fill);cursor:grab}
-.light-bar{position:absolute;bottom:92px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:5px 5px 5px 16px;border-radius:999px;font-size:var(--fs-small);color:var(--text-2);white-space:nowrap;cursor:default;background:var(--panel-solid);border:1px solid var(--panel-line);box-shadow:var(--panel-shadow)}
+.light-bar{position:absolute;bottom:92px;left:0;right:0;margin:0 auto;width:max-content;display:flex;align-items:center;gap:4px;padding:5px 5px 5px 16px;border-radius:999px;font-size:var(--fs-small);color:var(--text-2);white-space:nowrap;cursor:default;background:var(--panel-solid);border:1px solid var(--panel-line);box-shadow:var(--panel-shadow)}
 .light-bar .light-reset{font-size:var(--fs-small);color:var(--text-2);min-height:36px;padding:0 12px}
 .light-bar .light-done{min-height:36px;padding:0 18px;border-radius:999px;background:var(--accent-fill);border:1px solid var(--accent-line);color:var(--accent-on)}
 
@@ -263,8 +263,10 @@ button svg,a svg{flex-shrink:0}
 .systems-sheet{display:flex;flex-direction:column;max-height:78dvh;touch-action:none}
 .systems-sheet .panel-head{padding-right:44px;min-height:24px}
 .systems-sheet .sys-list{touch-action:pan-y}
-.search-sheet{top:max(60px,calc(env(safe-area-inset-top) + 44px));display:flex;flex-direction:column;padding:0 10px}
-.search-top{display:flex;align-items:center;gap:12px;margin:26px 10px 6px}
+.search-sheet{top:max(60px,calc(env(safe-area-inset-top) + 44px));display:flex;flex-direction:column;padding:84px 10px 0}
+.search-pill-gap{flex:1;height:54px}
+/* The phone field sits outside the rising sheet (it flies there from the pill), fixed where the sheet leaves room. */
+.search-top{position:fixed;z-index:42;left:20px;right:20px;top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + 26px);display:flex;align-items:center;gap:12px}
 .search-top .search-field{flex:1}
 .search-cancel{min-height:var(--hit);font-size:var(--fs-body);color:var(--text-3)}
 .is-phone .card.about-sheet{left:0;right:0;top:auto;bottom:0;width:auto;max-height:92dvh;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:28px 20px calc(24px + env(safe-area-inset-bottom))}
@@ -288,7 +290,7 @@ button svg,a svg{flex-shrink:0}
 .is-phone .focus-actions{right:12px;top:max(14px,env(safe-area-inset-top))}
 
 /* Medium widths: the card and the Systems panel can't both fit. */
-@media(min-width:768px) and (max-width:1099px){body:has(.scard) .systems{display:none}.hint-dock{display:none}}
+@media(min-width:768px) and (max-width:1099px){.hint-dock{display:none}}
 
 /* Theme change: one smooth wash (View Transitions) */
 ::view-transition-old(root),::view-transition-new(root){animation-duration:var(--t-theme);animation-timing-function:var(--ease-cam)}

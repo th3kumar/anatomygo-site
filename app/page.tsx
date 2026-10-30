@@ -142,14 +142,18 @@ export default function Home(){
  useEffect(()=>{document.documentElement.classList.toggle('is-phone',phone);},[phone]);
  // "All" is the default view: every system but the body surface, which would hide everything else.
  // The structure card: peek after a tap, focus after Learn more (isolated), feature once a part is open.
+ const [returning,setReturning]=useState(false),[linkedReady,setLinkedReady]=useState(false);
  const [tab,setTab]=useState<CardTab>('about'),[hoverPin,setHoverPin]=useState<string|null>(null);
  const [focusOptions,setFocusOptions]=useState<Record<FocusToggle,boolean>>({neighbours:true,labels:true,behind:true});
  const mode:CardMode|null=!(details&&selectedParts.length>0)?null:!state.isolate?'peek':pin?'feature':'focus';
- const focused=mode==='focus'||mode==='feature';
+ // A structure link opens in focus, but its chrome waits until that structure has loaded (the bar under the wordmark shows the way).
+ const linkWaiting=linked.length>0&&!linkedReady&&!viewReady;
+ const focused=(mode==='focus'||mode==='feature')&&!linkWaiting;
  useEffect(()=>{setTab('about');setHoverPin(null);},[state.selected]);
  const clearing=useRef(0);
+ const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
  // Back to the body: the card and pins leave, the camera returns, and the structure keeps its tint for 1.2 s.
- const backToBody=()=>{setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},1200);};
+ const backToBody=()=>{setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
  const closeCard=()=>{if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
  const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more'});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
@@ -169,27 +173,29 @@ export default function Home(){
  const searchResults:Result[]=results.map(c=>{const sys=SYSTEMS.find(x=>x.id===parts.get(c.elements[0])?.system);return {id:c.id,name:capitalise(c.name),meta:`${sys?.name??'Structure'}${c.elements.length>1?` · ${c.elements.length} pieces`:''}`};});
  const chooseResult=(id:string)=>{const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search');};
  const tap=coarse?'Tap':'Click',inspecting=details&&selectedParts.length>0;
+ // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
+ const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
  const sceneState={...state,inspectorOpen:inspecting,neighbours:focusOptions.neighbours,behind:focusOptions.behind,labels:(!focusOptions.labels?'off':mode==='focus'&&tab==='about'?'soft':'full') as 'off'|'soft'|'full',hoverPin,frame:`${mode}:${tab}`};
  const hintId=state.explode>.8?'pan':inspecting?'switch':'learn';
  const systemsBody=<SystemsBody systems={activeSystems} allSet={systemIds} counts={counts} visible={state.visible} shown={visibleCount} explode={state.explode} onPreset={applyPreset} onToggle={toggle} onOnly={showOnly} onExplode={explodeTo}/>;
  return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
-  {atlas&&<AnatomyScene pins={shown.pins} selectedPin={selectedPin} onPinSelect={id=>{selectPin(id,'model');setDetails(true);}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={id=>choosePart(id,'tap')} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='view')setViewReady(true);else{usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
-  {lighting&&<LightPad light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}
+  {atlas&&<AnatomyScene pins={shown.pins} selectedPin={selectedPin} onPinSelect={id=>{selectPin(id,'model');setDetails(true);}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={id=>choosePart(id,'tap')} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
+  <AnimatePresence>{lighting&&<LightPad key="light" light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}</AnimatePresence>
   {/* The header, with the intro also in web/index.html's first frame: keep the two in step. */}
   <header className="topbar" data-inset="top">
    <AnimatePresence initial={false} mode="popLayout">{focused
     ?<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature'){setSelectedPin(null);setTab('parts');}else backToBody();}}/></m.div>
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={chromeReady?null:progress}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
-   {!phone&&<Arrive ready={chromeReady&&!focused} edge="top" order={1} className="top-search">{panel!=='search'&&<SearchPill onOpen={()=>openPanel('search')}/>}</Arrive>}
-   {phone&&focused?<Arrive ready edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive ready={chromeReady&&!focused} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
+   {!phone&&<Arrive ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
+   <AnimatePresence initial={false}>{phone&&focused?<Arrive key="focus-actions" ready delay={focusDelay} enter={.26} edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive key="page-actions" ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
     <ThemeButton dark={dark} onToggle={toggleTheme}/>
     {phone
      ?<GlassButton icon={<Info size={18}/>} onClick={()=>openAbout('top_bar')} aria-label={appBadge?'About this atlas. New: the Android app':'About this atlas'}>{appBadge&&<span className="app-dot" aria-hidden="true"/>}</GlassButton>
      :<GlassButton label="About" onClick={()=>openAbout('top_bar')} aria-label={appBadge?'About this atlas. New: the Android app':'About this atlas'}>{appBadge&&<span className="app-dot" aria-hidden="true"/>}</GlassButton>}
-   </Arrive>}
+   </Arrive>}</AnimatePresence>
   </header>
-  {!phone&&<Arrive ready={chromeReady&&!focused} edge="left" order={0} className={`panel systems ${focused?'is-away':''}`} data-inset={focused?undefined:'left'} role="region" aria-label="Systems">{systemsBody}</Arrive>}
+  {!phone&&<Arrive ready={chromeReady&&!focused&&!(mid&&inspecting)} delay={bodyDelay} edge="left" order={0} className="panel systems" data-inset={focused||(mid&&inspecting)?undefined:'left'} role="region" aria-label="Systems">{systemsBody}</Arrive>}
   <AnimatePresence>{phone&&panel==='layers'&&<>
    <m.div key="scrim" className="sheet-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={tween('out',.2)} onClick={()=>setPanel(null)}/>
    <m.section key="systems" className="sheet systems-sheet" role="dialog" aria-label="Systems" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet} drag="y" dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.6}} onDragEnd={(_,i)=>{if(i.offset.y>80||i.velocity.y>500)setPanel(null);}}>
@@ -199,16 +205,16 @@ export default function Home(){
   <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
-    <Arrive ready={chromeReady&&!focused} edge={sideways?'left':'right'} order={1} className={`view-dock is-phone ${focused?'is-away':''}`} data-inset={sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
-    {!inspecting&&<Arrive ready={chromeReady&&!panel} edge="bottom" order={3} className="bottom-bar" data-inset="bottom">
+    <Arrive ready={chromeReady&&!inspecting} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
+    {<Arrive ready={chromeReady&&!panel&&!inspecting&&!lighting} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
      {!lighting&&<Hint id={hintId} className="hint-phone">{state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
-     <div className="bottom-row"><SearchPill phone onOpen={()=>openPanel('search')}/><GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
+     <div className="bottom-row">{panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>}<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
     </Arrive>}
    </>
    :<>
-    {focused?<Arrive ready edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
-    :<Arrive ready={chromeReady} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}
-    {!lighting&&!focused&&<Arrive ready={chromeReady} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
+    <AnimatePresence initial={false}>{focused?<Arrive key="focus-dock" ready delay={focusDelay} edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
+    :<Arrive key="body-dock" ready={chromeReady} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
+    {<Arrive ready={chromeReady&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
   <p className="sr-only" role="status">{chromeReady?'':`Preparing the anatomy, ${progress}%`}</p>
   {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}

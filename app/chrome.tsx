@@ -1,15 +1,19 @@
 /** The explorer's fixed chrome, in the handoff's language: wordmark, glass buttons, the view pill and the one-line hint.
  * Pieces arrive with the T1 entrance: each rises 8 px from its own edge, 40 ms after the one before. */
-import type {ReactNode} from 'react';
-import {m} from 'motion/react';
+import {useRef,type ReactNode} from 'react';
+import {AnimatePresence,m} from 'motion/react';
 import {ChevronLeft,Eye,Layers,Lightbulb,Moon,Pause,RotateCcw,RotateCw,Sun,Tag} from 'lucide-react';
 import {DUR,tween,spring} from './motion';
 import type {View} from './anatomy';
 
-/** T1: chrome enters once the body is in view. `edge` is the side it comes from; `order` sets its place in the stagger. */
-export function Arrive({ready,edge,order,className,children,...rest}:{ready:boolean,edge:'top'|'bottom'|'left'|'right',order:number,className?:string,children:ReactNode}&Record<`data-${string}`,string>&{'aria-label'?:string,role?:string}){
- const d=edge==='top'?{y:-8}:edge==='bottom'?{y:8}:edge==='left'?{x:-8}:{x:8};
- return <m.div className={className} initial={{opacity:0,...d}} animate={ready?{opacity:1,x:0,y:0}:{opacity:0,...d}} transition={tween('out',.24,ready?order*DUR.chromeStagger:0)} {...rest}>{children}</m.div>;
+/** T1: chrome enters once the body is in view. `edge` is the side it comes from; `order` sets its place in the stagger and
+ * `delay` holds it back (after Back it waits for the camera to land). Leaving is a quicker fade in place, and hidden chrome
+ * is inert: it can't be clicked, tabbed to or read out while invisible. */
+export function Arrive({ready,edge,order,delay=0,enter=.24,leave=.18,className,children,...rest}:{ready:boolean,edge:'top'|'bottom'|'left'|'right',order:number,delay?:number,enter?:number,leave?:number,className?:string,children:ReactNode}&Record<`data-${string}`,string|undefined>&{'aria-label'?:string,role?:string}){
+ const d=edge==='top'?{y:-8}:edge==='bottom'?{y:8}:edge==='left'?{x:-8}:{x:8},seen=useRef(false),out=tween('in',leave);
+ // Until it has been shown it waits at its edge offset (also the start under AnimatePresence initial={false}); later leaves only fade.
+ const away=seen.current?{opacity:0,transition:out}:{opacity:0,...d,transition:out};if(ready)seen.current=true;
+ return <m.div className={className} inert={!ready} initial={{opacity:0,...d}} animate={ready?{opacity:1,x:0,y:0,transition:tween('out',enter,delay+order*DUR.chromeStagger)}:away} exit={{opacity:0,transition:out}} {...rest}>{children}</m.div>;
 }
 
 export function Wordmark({compact,progress}:{compact?:boolean,progress:number|null}){
@@ -45,9 +49,9 @@ export function ViewPill({view,explode,rotate,lighting,vertical,onView,onRotate,
  </nav>;
 }
 
-/** One quiet line of help. Changing text cross-fades; there is only ever one hint. */
+/** One quiet line of help. Changing text cross-fades in place (the old line pops out of the flow); there is only ever one hint. */
 export function Hint({id,children,className}:{id:string,children:ReactNode,className?:string}){
- return <m.p className={`hint-line ${className??''}`} key={id} initial={{opacity:0}} animate={{opacity:1}} transition={tween('out',DUR.enter,DUR.enterDelay)}>{children}</m.p>;
+ return <AnimatePresence mode="popLayout" initial={false}><m.p className={`hint-line ${className??''}`} key={id} initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24,.1)}} exit={{opacity:0,transition:tween('in',.16)}}>{children}</m.p></AnimatePresence>;
 }
 
 export type FocusToggle='neighbours'|'labels'|'behind';
@@ -61,7 +65,12 @@ export function FocusPill({view,options,onView,onToggle,compact}:{view:View,opti
  </nav>;
 }
 
-/** Back out of focus. Desktop shows the Esc key beside it; on phones its label follows where Back goes. */
+/** Back out of focus. Desktop shows the Esc key beside it; on phones its label follows where Back goes, and the button's
+ * width springs while the old label fades out and the new one in. */
 export function BackButton({label,onBack,esc}:{label:string,onBack:()=>void,esc?:boolean}){
- return <div className="back-row"><button type="button" className="gbtn back-button" onClick={onBack}><ChevronLeft size={18}/><m.span key={label} initial={{opacity:0}} animate={{opacity:1}} transition={tween('io',.24,.1)}>{label}</m.span></button>{esc&&<kbd className="kbd">Esc</kbd>}</div>;
+ // Radius as a number so the layout spring can correct it while the width scales (14 = --r-ctl).
+ return <div className="back-row"><m.button type="button" className="gbtn back-button" onClick={onBack} layout transition={{layout:spring.card}} whileTap={{scale:.97}} style={{borderRadius:14}}>
+  <m.span layout="position" style={{display:'grid'}}><ChevronLeft size={18}/></m.span>
+  <AnimatePresence mode="popLayout" initial={false}><m.span key={label} layout="position" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.2,.06)}} exit={{opacity:0,transition:tween('in',.12)}}>{label}</m.span></AnimatePresence>
+ </m.button>{esc&&<kbd className="kbd">Esc</kbd>}</div>;
 }
