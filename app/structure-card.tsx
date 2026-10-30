@@ -7,6 +7,7 @@ import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
 import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,SquarePen,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
+import {LANDSCAPE,useMedia} from './media';
 import type {PublishedPin} from './published-pins';
 
 export type CardMode='peek'|'focus'|'feature';
@@ -84,7 +85,9 @@ export function StructureCard(p:Props){
  useEffect(()=>{p.onMinimise?.(mini);},[mini]);
  useLayoutEffect(()=>{if(!phone)return;const probe=document.createElement('div');probe.style.cssText='position:fixed;height:env(safe-area-inset-bottom);visibility:hidden';document.body.appendChild(probe);setSafe(probe.offsetHeight);probe.remove();},[phone]);
  const MINI=(mode==='feature'?118:78)+safe;
- const top=Math.min(vh-72,vh*.92),rest=mode==='peek'?(peekH?peekH+12:0):Math.min(fit||vh*.47,vh*.62),open=Math.max(rest,Math.min(fit,top));
+ // A phone on its side has too little height for a half sheet: focus and features open as tall as they need and scroll inside.
+ const sideways=useMedia(LANDSCAPE)&&mode!=='peek';
+ const top=Math.min(vh-72,vh*.92),rest=mode==='peek'?(peekH?peekH+12:0):sideways?Math.min(fit||top,top):Math.min(fit||vh*.47,vh*.62),open=Math.max(rest,Math.min(fit,top));
  const target=mini?MINI:full&&open>rest+8?open:rest;
  useLayoutEffect(()=>{if(!phone)return;const measure=()=>{const s=sheet.current,sc=scroller.current;if(!s||mini)return;if(mode==='peek'){setFit(0);return;}if(!sc)return;
    // The content's own height (not the scroll box's), so a sheet with little to show can shrink to fit it.
@@ -220,7 +223,7 @@ export function StructureCard(p:Props){
   <m.span className="card-corner-icon" aria-hidden="true" initial={false} animate={back?{opacity:1,rotate:0,scale:1,transition:tween('out',.2,.1)}:{opacity:0,rotate:-20,scale:.7,transition:tween('in',.12)}}><ChevronLeft size={19}/></m.span>
  </button>;
 
- if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${full&&open>rest+8?'is-full':''} ${mini?'is-mini':''}`} data-inset="bottom" data-inset-size={(mini?MINI:rest)||undefined} role="dialog" aria-label={facts.title}
+ if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${(full&&open>rest+8)||sideways?'is-full':''} ${mini?'is-mini':''}`} data-inset="bottom" data-inset-size={(mini?MINI:rest)||undefined} role="dialog" aria-label={facts.title}
   style={{height:target?height:'auto'}} initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet}
   onPointerDown={down}>
   <span className="grab-zone"><span className="grab" aria-hidden="true"/></span>
