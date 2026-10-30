@@ -181,6 +181,8 @@ Measured against the live API, using public reads only.
   the same pins as today's four reads, in about half the bytes (FJ3152: 46 KB).
 - **App** (`app/supabase-rest.ts`): every read has an 8 s limit and one retry. The card and counts use the new
   functions, and fall back to today's reads while they're missing.
-- **Open:** whether Supabase's `postgres` role may delete from `auth.users` inside `pg_delete_my_account`. Check this on
+- **Deletion is on request only:** the person in About → Account, or the owner in the SQL editor with
+  `select playground_private.delete_account('their@gmail.com');`. Applying the migration deletes nothing.
+- **Open:** whether Supabase's `postgres` role may delete from `auth.users` inside `delete_account`. Check this on
   the project before applying. If it can't, the function stops before the last line and an admin deletes the sign-in
   in the dashboard.

@@ -49,6 +49,7 @@ select pg_temp.assert_true((select jsonb_agg(to_jsonb(c) order by c.mesh_id) fro
  ='[{"mesh_id":"bone","features":3,"pinned":2,"published":1},{"mesh_id":"muscle","features":1,"pinned":1,"published":0}]'::jsonb,'feature counts, archived left out');
 select pg_temp.assert_denied($q$update public.pg_landmarks set attaches_to='fossa' where id='origin'$q$,'permission denied');
 select pg_temp.assert_denied($q$select public.pg_delete_my_account()$q$,'permission denied');
+select pg_temp.assert_denied($q$select playground_private.delete_account('a@b.co')$q$,'permission denied');
 reset role;
 
 -- A signed-in visitor sees their own votes.
@@ -83,6 +84,15 @@ select pg_temp.assert_true(not exists(select 1 from public.pg_votes where voter_
 select pg_temp.assert_true((select count(*) from public.pg_proposals where id in (:'first',:'fossa') and author_id is null)=2,'pins kept without a name');
 select pg_temp.assert_true((public.pg_card('bone')->'pins'->0->'by')='null'::jsonb,'card shows no byline after deletion');
 select pg_temp.assert_true(jsonb_array_length(public.pg_published_pack('bone')->'pins')=1,'published pin still in the app pack');
+-- The owner answering an emailed request (SQL editor): by email, case-insensitive; signed-in visitors can't.
+update auth.users set email='Two@Example.com' where id='00000000-0000-0000-0000-000000000002';
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000003';
+select pg_temp.assert_denied($q$select playground_private.delete_account('two@example.com')$q$,'permission denied');
+reset role;
+select pg_temp.assert_denied($q$select playground_private.delete_account('nobody@example.com')$q$,'No account');
+select playground_private.delete_account(' two@example.com ');
+select pg_temp.assert_true(not exists(select 1 from auth.users where id='00000000-0000-0000-0000-000000000002') and (select author_id from public.pg_proposals where id=:'second') is null,'deleted by email, pin kept without a name');
 -- An admin can still move a linked feature: the link check only runs when the link itself changes.
 set local role authenticated;
 set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000003';

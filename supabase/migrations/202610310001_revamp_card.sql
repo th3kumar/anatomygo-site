@@ -63,22 +63,37 @@ create function public.pg_card(p_mesh text) returns jsonb language sql stable se
  from s;
 $$;
 
--- Account deletion, for erasure requests. Removes the person's votes, reports, comments, rate-limit records, name and
--- sign-in. Their pins stay for learners, without a name (author_id becomes null). Audit keeps only the bare ID.
-create function public.pg_delete_my_account() returns void language plpgsql security definer set search_path='' as $$
-declare uid uuid := playground_private.require_user();
+-- Account deletion, only ever on request: nothing runs when this migration is applied, and no existing sign-in changes.
+-- Removes the person's votes, reports, comments, rate-limit records, name and sign-in. Their pins stay for learners,
+-- without a name (author_id becomes null). The audit log keeps only the bare ID.
+-- Two ways in: the person themselves (pg_delete_my_account, from About → Account), or the owner answering an emailed
+-- request in the Supabase SQL editor: select playground_private.delete_account('their@gmail.com');
+-- Browser roles can't run the private one.
+create function playground_private.delete_account(p_user uuid) returns void language plpgsql security definer set search_path='' as $$
 begin
- perform pg_advisory_xact_lock(hashtextextended(uid::text,0));
- delete from public.pg_votes where voter_id=uid;
- delete from public.pg_reports where reporter_id=uid;
- delete from public.pg_comments where author_id=uid;
- update public.pg_proposals set author_id=null where author_id=uid;
- delete from public.pg_profiles where id=uid;
- delete from playground_private.actions where user_id=uid;
- delete from playground_private.admins where user_id=uid;
- insert into playground_private.audit(actor,action,target) values(null,'delete_account',uid::text);
- delete from auth.users where id=uid;
+ perform pg_advisory_xact_lock(hashtextextended(p_user::text,0));
+ delete from public.pg_votes where voter_id=p_user;
+ delete from public.pg_reports where reporter_id=p_user;
+ delete from public.pg_comments where author_id=p_user;
+ update public.pg_proposals set author_id=null where author_id=p_user;
+ delete from public.pg_profiles where id=p_user;
+ delete from playground_private.actions where user_id=p_user;
+ delete from playground_private.admins where user_id=p_user;
+ insert into playground_private.audit(actor,action,target) values(null,'delete_account',p_user::text);
+ delete from auth.users where id=p_user;
 end; $$;
+create function playground_private.delete_account(p_email text) returns void language plpgsql security definer set search_path='' as $$
+declare uid uuid;
+begin
+ select id into uid from auth.users where lower(email)=lower(btrim(p_email));
+ if uid is null then raise exception 'No account uses %',p_email; end if;
+ perform playground_private.delete_account(uid);
+end; $$;
+create function public.pg_delete_my_account() returns void language plpgsql security definer set search_path='' as $$
+begin
+ perform playground_private.delete_account(playground_private.require_user());
+end; $$;
+revoke all on function playground_private.delete_account(uuid),playground_private.delete_account(text) from public,anon,authenticated;
 
 -- Supabase lets every role run new functions by default; grant each one explicitly instead.
 revoke all on function public.pg_feature_counts(text[]),public.pg_card(text),public.pg_delete_my_account() from public,anon,authenticated;
