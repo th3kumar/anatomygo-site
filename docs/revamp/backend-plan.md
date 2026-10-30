@@ -110,3 +110,62 @@ People use anatomygo.in and the Playground while this is built, so every databas
 7. **Checked live after applying.** Home page pins on a structure, a Playground vote, and feedback sending. These are
    REST reads, not log queries, so they don't touch the log budget.
 8. **The owner applies it**, at a quiet hour, after reviewing the SQL.
+
+## 7. Audit, 31 Oct: more ways to make it faster, sturdier and better for search
+Measured against the live API, using public reads only.
+
+### Problems found
+1. **Silent 1,000-row cap.**
+   - The API returns at most 1,000 rows per request (checked: 1,000 of 1,562 came back). The Playground pages
+     through this. The home page's feature counts (`app/feature-counts.ts`) don't.
+   - A 50-structure selection already pulls 743 + 758 rows (126 KB) just to show three numbers. Past 1,000, the counts
+     go quietly wrong.
+   - Fix: `pg_feature_counts(p_meshes text[])` returns only the numbers, under 1 KB. Additive.
+2. **Deleting an account is impossible.**
+   - `pg_profiles`, `pg_votes` and `pg_reports` reference `auth.users` with no delete rule, so deleting a user in
+     Supabase fails.
+   - Erasure requests (India's DPDP Act, GDPR for EU visitors) can't be met.
+   - Fix: `pg_delete_my_account()` removes the person's votes, reports and comments and replaces their name with
+     "Former contributor". The pins stay for learners. Add "Delete my account" under About → Account. Additive.
+3. **New pins don't reach Google until someone deploys by hand.**
+   - `deploy.yml` runs only manually. The sitemap, `llms-full.txt` and the home page counts are rebuilt from the live
+     pins only at deploy.
+   - Fix: a nightly scheduled build that deploys only when the pin snapshot changed.
+4. **No copy of the community's work outside Supabase.**
+   - The 1,562 placements exist in one place.
+   - Fix: the nightly job also keeps the snapshot as a dated file. This is free.
+
+### Speed
+5. `pg_card` (2.1). The busiest structure (FJ3152) loads 40 KB of pack plus 59 KB of rows today, mostly duplicate
+   placements the card never shows.
+6. **Pins in the static build.** Moved up from "later" because of finding 3.
+   - Every API response is uncached today (`cf-cache-status: DYNAMIC`), so each card open reaches the database.
+   - With a nightly snapshot, pins draw with no request at all. The live read then adds only what changed since.
+7. **Timeouts and one retry on every Supabase call.** Today a stalled phone connection leaves the card loading for
+   ever. Add an 8 s timeout and one retry on network errors and 5xx responses. Front end only.
+8. **Policy tidy-up (after launch, optional).**
+   - Write `auth.uid()` and `pg_is_admin()` in policies as `(select …)`, so Postgres works them out once per query
+     instead of once per row. This is Supabase's own advisor rule.
+   - Same results, small gain at today's size. It edits existing policies, so it goes separately from the add-only
+     migration.
+
+### Search ranking
+9. **Structure pages.**
+   - 226 structures have pins, but the sitemap lists 3 URLs.
+   - Build a static page per structure at deploy (`/s/femur/`): title and Latin name, every landmark with its
+     description, origins and insertions, structured data, and "Open in 3D".
+   - This is the SEO audit's phase 2. Bone pages gain "Muscles attached to the femur" from `attaches_to` (2.2), which
+     matches a common search.
+10. **Honest dates.**
+    - The sitemap stamps every URL with the deploy day, so search engines learn to ignore it.
+    - Fix: `pg_seo_snapshot()` returns per structure its name, system, pins, attached muscles and **last change date**,
+      including approvals, which only the private audit table knows.
+    - One request for the build instead of paging three tables. The nightly snapshot (3, 4, 6) uses it too. Additive.
+
+### Checked and fine
+- **Indexes:** every column the site filters on is indexed.
+- **Bounded requests:** vote totals cap at 500 IDs.
+- **Rate limits** cover votes, pins, comments, reports and names.
+- **Feedback:** has a site-wide flood guard and drops double sends.
+- **Locking:** saving a pin locks in a safe order against admin moves.
+- **Signed-out access:** anonymous users can't write.
