@@ -13,7 +13,7 @@ import {Sheet,SheetContent,SheetTitle,SheetDescription} from '@/components/ui/sh
 import AnatomyScene from './scene';
 import {track,bucket,queryKind,statsEnabled,setStatsEnabled,secondsBucket,progressBucket,deviceHints,modelTransfer} from './analytics';
 import {preloadStream,storedChunks} from './model-stream';
-import {searchTerms,searchText} from './search-terms';
+import {aliasesFor,searchTerms,searchText} from './search-terms';
 import {FeedbackForm,FeedbackPrompt,type FeedbackContext} from './feedback';
 import {APP_SEEN,PLAY_PUBLIC,platform,playUrl} from './play';
 import LightPad from './light-pad';
@@ -24,6 +24,7 @@ import {Arrive,BackButton,FocusPill,GlassButton,Hint,ThemeButton,ViewPill,Wordma
 import {StructureCard,type CardFacts,type CardMode,type CardTab} from './structure-card';
 import {SystemsBody,presetSystems,type Preset} from './systems-panel';
 import {SearchPanel,SearchPill,type Result} from './search';
+import {useFeatureSearch} from './feature-search';
 import {LANDSCAPE,PHONE,useMedia} from './media';
 import {spring,tween} from './motion';
 // Touch screens pinch and tap; mice scroll and click.
@@ -93,8 +94,11 @@ export default function Home(){
  const entryTip=COACH_MARKS&&!triedPlayground&&settled&&!details&&!panel&&!about&&!lighting&&!tipsSeen.includes('entry')&&!tipsSeen.includes('features');
  useEffect(()=>{if(entryTip)track('home_tip_shown',{tip:'entry'});},[entryTip]);useEffect(()=>{if(featureTip)track('home_tip_shown',{tip:'features'});},[featureTip]);
  useEffect(()=>setSelectedPin(null),[state.selected]);
+ // A feature chosen in search: its structure opens in focus, and the feature opens as soon as its pins are in.
+ const [wantPin,setWantPin]=useState<string|null>(null);
+ useEffect(()=>{if(wantPin&&shown.pins.some(p=>p.id===wantPin)){selectPin(wantPin,'list');setWantPin(null);}},[shown.pins,wantPin]);
  const visibleCount=atlas?.parts.filter(p=>state.isolate?state.selected.includes(p.id):state.visible.includes(p.system)||state.selected.includes(p.id)).length??0;
- const results=useMemo(()=>{if(!atlas)return[];const term=query.toLowerCase().trim();if(!term)return ['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea'].map(name=>atlas.concepts.find(c=>c.name.toLowerCase()===name)).filter((x):x is Concept=>!!x);return atlas.concepts.filter(c=>c.name.toLowerCase().includes(term)||c.id.toLowerCase().includes(term)).sort((a,b)=>a.name.length-b.name.length).slice(0,80);},[atlas,query]);
+ const results=useMemo(()=>{if(!atlas)return[];const term=query.toLowerCase().trim();if(!term)return ['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea'].map(name=>atlas.concepts.find(c=>c.name.toLowerCase()===name)).filter((x):x is Concept=>!!x);const also=aliasesFor(term);return atlas.concepts.filter(c=>{const n=c.name.toLowerCase();return n.includes(term)||c.id.toLowerCase().includes(term)||also.some(a=>n.includes(a));}).sort((a,b)=>a.name.length-b.name.length).slice(0,80);},[atlas,query]);
  // A search that finds nothing, once typing pauses: the query's shape and length only, never its text. Longer versions of the same miss are not repeated.
 
  // Feedback. The card asks once per device: after three minutes of visible use, once the body is usable and the visitor
@@ -171,7 +175,11 @@ export default function Home(){
  // The theme button: the whole page eases to the other theme in one cross-fade (a View Transition where the browser has one).
  const toggleTheme=()=>{const next=dark?'light':'dark';track('appearance_changed',{mode:next});const apply=()=>flushSync(()=>setAppearance(next));const doc=document as Document&{startViewTransition?:(cb:()=>void)=>unknown};if(doc.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)doc.startViewTransition(apply);else apply();};
  const searchResults:Result[]=results.map(c=>{const sys=SYSTEMS.find(x=>x.id===parts.get(c.elements[0])?.system);return {id:c.id,name:capitalise(c.name),meta:`${sys?.name??'Structure'}${c.elements.length>1?` · ${c.elements.length} pieces`:''}`};});
- const chooseResult=(id:string)=>{const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search');};
+ const featureHits=useFeatureSearch(panel==='search'?query:'');
+ const featureResults:Result[]=featureHits.filter(h=>parts.has(h.mesh)).map(h=>({id:`f:${h.id}:${h.mesh}`,name:capitalise(h.label),meta:`On ${capitalise(parts.get(h.mesh)!.name)}`}));
+ const chooseResult=(id:string)=>{
+  if(id.startsWith('f:')){const [,pin,mesh]=id.split(':');if(!parts.has(mesh))return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length+featureResults.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choosePart(mesh,'search');setState(s=>({...s,isolate:true,explode:0,rotate:false}));setWantPin(pin);return;}
+  const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search');};
  const tap=coarse?'Tap':'Click',inspecting=details&&selectedParts.length>0;
  // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
  const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
@@ -202,7 +210,7 @@ export default function Home(){
     <span className="grab" aria-hidden="true"/><button type="button" className="sheet-close" onClick={()=>setPanel(null)} aria-label="Close systems"><X size={18}/></button>{systemsBody}
    </m.section>
   </>}</AnimatePresence>
-  <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
+  <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} features={featureResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
     <Arrive ready={chromeReady&&!inspecting} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>

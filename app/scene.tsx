@@ -1,7 +1,7 @@
 import {PublishedPinLayer} from './published-pin-layer';
 import {freeArea} from './insets';
 import {PinLabels} from './pin-labels';
-import {DUR,ease,reducedMotion} from './motion';
+import {DUR,ease,reducedMotion,springAt} from './motion';
 import {FocusBlur} from './focus-blur';
 import type {PublishedPin} from './published-pins';
 import {useEffect,useRef} from 'react';
@@ -99,6 +99,22 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const markers=new T.Points(markerGeometry,markerMaterial);markers.frustumCulled=false;markers.renderOrder=10;markers.visible=false;scene.add(markers);
   let staged:boolean|null=null;
   const stage=(dark:boolean)=>{const c=dark?STAGE.dark:STAGE.light;renderer.setClearColor(c.clear,c.alpha);const rim1=ring.material as T.MeshBasicMaterial,rim2=innerRing.material as T.MeshBasicMaterial;rim1.color.set(c.ring);rim1.opacity=c.ringOpacity;rim2.color.set(c.inner);rim2.opacity=c.innerOpacity;markerMaterial.color.set(c.marker);ghostMaterial.color.set(dark?0x8c969f:0x7d8892);focusFx.uGlowColour.value.setRGB(...(dark?[.5,.85,.69]:[.25,.63,.47]) as [number,number,number]);staged=dark;dirty=true;};
+  // Peek marker (handoff T2): a pin pops where the part was tapped and its name pops beside it; both leave on Learn more,
+  // on another selection, or when the selection clears.
+  const peekDot=new T.Mesh(new T.SphereGeometry(1,14,12),new T.MeshBasicMaterial({color:0xf4f5f6,toneMapped:false,transparent:true,depthTest:false}));peekDot.renderOrder=11;peekDot.visible=false;scene.add(peekDot);
+  const peekTag=document.createElement('div');peekTag.className='peek-tag';peekTag.hidden=true;el.appendChild(peekTag);
+  let peekMark:{i:number;p:T.Vector3;n:T.Vector3;at:number}|null=null,peekShown=0;
+  const placePeek=(s:SceneState,now:number)=>{
+   const m=peekMark,keep=!!m&&s.selected.length===1&&s.selected[0]===atlas.parts[m.i].id&&!s.isolate&&fp<.01&&amount<.05;
+   if(!keep){if(peekShown){peekShown=0;peekDot.visible=false;peekTag.hidden=true;}if(m&&s.selected[0]!==atlas.parts[m.i].id)peekMark=null;return false;}
+   const host=pickers[m.i];if(!host)return false;
+   const world=m.p.clone().add(host.position),unit=2*camera.position.distanceTo(world)*Math.tan(T.MathUtils.degToRad(camera.fov/2))/Math.max(1,el.clientHeight),t=(now-m.at)/1000,still=reducedMotion();
+   const pop=still?1:T.MathUtils.lerp(.6,1,Math.min(1,springAt('snappy',t))),fade=still?1:Math.min(1,t/.12);
+   peekDot.visible=true;peekDot.position.copy(world).addScaledVector(m.n,unit*2);peekDot.scale.setScalar(unit*4*pop);(peekDot.material as T.MeshBasicMaterial).opacity=fade;(peekDot.material as T.MeshBasicMaterial).color.set(shade.current?0xf4f5f6:0x2a2d31);
+   const v=peekDot.position.clone().project(camera),x=(v.x+1)*el.clientWidth/2,y=(1-v.y)*el.clientHeight/2;
+   const name=atlas.parts[m.i].name;if(peekTag.textContent!==name)peekTag.textContent=name.charAt(0).toUpperCase()+name.slice(1);
+   const tt=still?1:Math.max(0,t-.04);peekTag.hidden=false;peekTag.style.opacity=String(Math.min(1,tt/.12));peekTag.style.transform=`translate(${(x+14).toFixed(1)}px,${y.toFixed(1)}px) translateY(-50%) scale(${(still?1:T.MathUtils.lerp(.92,1,Math.min(1,springAt('snappy',tt)))).toFixed(3)})`;
+   peekShown=1;return t<.6;};
   const hover=document.createElement('div');hover.className='part-hover';hover.setAttribute('role','tooltip');hover.hidden=true;el.appendChild(hover);
   type Target={index:number;x:number;y:number;left:number;right:number;top:number;bottom:number};let targets:Target[]=[];
   const projected=new T.Vector3();
@@ -189,8 +205,10 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    const freeW=Math.max(120,area.right-area.left),freeH=Math.max(120,area.bottom-area.top);
    const bodyDistance=Math.max(BODY.height/2/tan*(h/freeH),BODY.width/2/tan/camera.aspect*(w/freeW));
    const reservedHeight=mobile?350:270;const availableAspect=Math.max(.35,(w-(mobile?40:340))/Math.max(160,h-reservedHeight));const atlasDistance=Math.max(packingHeight,packingWidth/availableAspect)/(2*tan)*(h/Math.max(160,h-reservedHeight))*1.08;
-   const distance=T.MathUtils.lerp(bodyDistance,Math.max(.2,atlasDistance),extent);if(extent>.8)view='front';
-   const direction=view==='front'?new T.Vector3(0,.02,1):view==='back'?new T.Vector3(0,.02,-1):view==='side'?new T.Vector3(1,.02,0):new T.Vector3(.35,.06,1).normalize();
+   const distance=T.MathUtils.lerp(bodyDistance,Math.max(.2,atlasDistance),extent);
+   const viewDir=view==='front'?new T.Vector3(0,.02,1):view==='back'?new T.Vector3(0,.02,-1):view==='side'?new T.Vector3(1,.02,0):new T.Vector3(.35,.06,1).normalize();
+   // Exploding turns the camera towards the front gradually (35% to 75%), rather than cutting to it at one point.
+   const toFront=T.MathUtils.smoothstep(amount,.35,.75),direction=viewDir.clone().lerp(new T.Vector3(0,.02,1),toFront).normalize();
    // Centred on the screen as in the handoff, moved sideways only as far as a panel would otherwise cover the body.
    const bodyPx=BODY.width*h/(2*tan*bodyDistance),cx=freeW<bodyPx?(area.left+area.right)/2:Math.min(Math.max(w/2,area.left+bodyPx/2),area.right-bodyPx/2);
    const keep=1-Math.min(1,extent*1.5);
@@ -207,11 +225,14 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const HOLD_MS=3000;
   let pendingTap:{ray:T.Ray;x:number;y:number;touch:boolean;camera:T.Matrix4;at:number}|null=null;const offset=new T.Vector3();
   const resolveTap=(x:number,y:number,touch:boolean,at=performance.now()):'held'|'answered'|'missed'=>{
-   let nearest=Infinity,found=-1;const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
-   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(fp>.5&&!selectedData[i*4+2])||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;}});
+   let nearest=Infinity,found=-1;const best:{hit:T.Intersection|null}={hit:null};const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
+   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(fp>.5&&!selectedData[i*4+2])||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;best.hit=hits[0];}});
    if(!ready)for(let i=0;i<atlas.parts.length;i++){if(added[i]||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))continue;worldBox.copy(bounds[i]).translate(offset.set(data[i*4],data[i*4+1],data[i*4+2]));if(raycaster.ray.intersectBox(worldBox,hitPoint)&&hitPoint.distanceTo(raycaster.ray.origin)<nearest){pendingTap={ray:raycaster.ray.clone(),x,y,touch,camera:camera.matrixWorld.clone(),at};return 'held';}}
    const pinHit=publishedLayer.hit(raycaster);if(pinHit&&pinHit.distance<=nearest){pickPin.current(pinHit.object.userData.pinId);return 'answered';}
-   if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;select.current(atlas.parts[found].id);return 'answered';}
+   if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;
+    // The peek's marker: a small pin and the part's name where the tap landed (in the part's own frame, so it follows an explode).
+    const h=best.hit,n=h?.face?.normal;peekMark=h&&pickers[found]?{i:found,p:h.point.clone().sub(pickers[found]!.position),n:n?n.clone().transformDirection(pickers[found]!.matrixWorld):new T.Vector3(0,0,1),at:performance.now()}:null;
+    select.current(atlas.parts[found].id);return 'answered';}
    return 'missed';
   };
   function retryTap(){if(!pendingTap)return;const t=pendingTap;pendingTap=null;const waitMs=performance.now()-t.at;if(waitMs>HOLD_MS){loadingTap.current?.({result:'dropped',reason:'timeout',waitMs});return;}if(!t.camera.equals(camera.matrixWorld)){loadingTap.current?.({result:'dropped',reason:'moved',waitMs});return;}raycaster.ray.copy(t.ray);if(resolveTap(t.x,t.y,t.touch,t.at)!=='held')loadingTap.current?.({result:'resolved',waitMs});}
@@ -274,7 +295,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     if(!s.isolate)fit(s.view,amount,lastView?DURATION.view:0);
     else if(isoShot&&s.view!==lastView){const v=VIEWS[s.view]??VIEWS['three-quarter'],d=camera.position.distanceTo(controls.target);isoShot={target:controls.target.clone(),pos:controls.target.clone().addScaledVector(v.clone().normalize(),d),off:[...off]};flyTo(isoShot,DURATION.view);}
     lastView=s.view;lastReset=s.reset;}
-   if(moving&&!s.isolate&&!fp)fit(amount>.5?'front':s.view,Math.max(0,(amount-.3)/.7));
+   if(moving&&!s.isolate&&!fp)fit(s.view,Math.max(0,(amount-.3)/.7));
    const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect+':'+(s.frame??''):'';
    if(isolateKey!==lastIsolate){
     if(s.isolate){const box=new T.Box3();atlas.parts.forEach((p,i)=>{if(s.selected.includes(p.id))box.union(bounds[i]);});
@@ -330,6 +351,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    const labelled=!!pinHost&&published.current.length>0;
    labels.set(labelled?published.current.map(p=>({id:p.id,label:p.label})):[]);
    if(dirty&&labelled)labels.update(publishedLayer.points(),camera,el.clientWidth,el.clientHeight,{selected:selectedPinRef.current,mode:s.labels??'full',behind:s.behind??true,hover:s.hoverPin??null,delay:publishedLayer.delay+.16});
+   if(placePeek(s,performance.now())||peekShown&&dirty)dirty=true;
    if(dirty){placeLights();const drawStart=performance.now();
     const blur=fpTween&&focusBlur.enabled&&!reducedMotion()?Math.sin(Math.PI*fp):0;
     if(blur>.02){focusBlur.render(scene,camera,blur,()=>{const off=[ghostGroup,publishedLayer.group,contact,markers].filter(o=>o.visible);off.forEach(o=>{o.visible=false;});focusFx.uSubjectOnly.value=1;focusFx.uOverlay.value=Math.min(1,blur*5);renderer.render(scene,camera);focusFx.uSubjectOnly.value=0;off.forEach(o=>{o.visible=true;});});slowFrames.push(performance.now()-drawStart);}
@@ -339,7 +361,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    if(popping)dirty=true;
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();peekTag.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }
