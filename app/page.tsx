@@ -3,6 +3,7 @@ import type {Session} from '@supabase/supabase-js';
 import {cloud,rpc,storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
 import {SignInDialog} from './community/sign-in-dialog';
+import {Profile} from './community/account';
 import {PlaceSteps,type Refusal} from './community/place-card';
 import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
@@ -103,9 +104,8 @@ export default function Home(){
   return mine.length?[...shown.pins,...mine]:shown.pins;},[shown.pins,keptHere,draft?.request]);
  const resume=(k:Saved)=>{setDraft(reopen(k));setRefused(null);setSaveState('idle');setSaveError('');void unusable(k.mesh).then(setInvalidTris);track('draft_started',{kind:k.kind,practice:0});};
  // "Pin saved" (film K10), and your own name, so your pins read "Added by you".
- const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[nameEdit,setNameEdit]=useState<string|null>(null),[nameNote,setNameNote]=useState('');
- const saveName=async()=>{const v=nameEdit?.trim()??'';if(v.length<2)return;setNameNote('');
-  try{await rpc('pg_set_profile',{p_name:v});setMe(v);setNameEdit(null);setNameNote('Saved');track('public_name_set',{first:me?0:1});}catch{setNameNote('That didn’t save. Please try again.');}};
+ const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null);
+ const saveName=async(v:string)=>{await rpc('pg_set_profile',{p_name:v});setMe(v);track('public_name_set',{first:me?0:1});};
  const signOut=async()=>{await (await cloud()).auth.signOut();track('signed_out');setAbout(false);setToast('Signed out');};
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),2400);return()=>clearTimeout(t);},[toast]);
  useEffect(()=>{setMe(null);if(session)void myName(session).then(setMe).catch(()=>{});},[session]);
@@ -264,17 +264,6 @@ export default function Home(){
     {aboutFeedback?<FeedbackForm source="about" context={feedbackContext} onSent={()=>markFeedback('sent')}/>:<button type="button" className="btn-quiet feedback-open" onClick={()=>{setAboutFeedback(true);track('feedback_opened',{ui_source:'about'});}}>Write feedback</button>}</section>
    <div className="stats-choice"><span className="t-body">Share usage statistics<small className="t-meta">Visits, features used and load speed. Searches keep only anatomy words, plus the words of searches that find nothing.</small></span><Switch checked={stats} onCheckedChange={on=>{setStats(on);setStatsEnabled(on);}} aria-label="Share usage statistics"/></div>
   </div>,
-  // Signed in only: who you are, the name on your pins (the Google first name until changed), and signing out.
-  account:session?<div className="about-copy account">
-   <p className="t-meta">Signed in as {session.user.email}</p>
-   <form className="account-name" onSubmit={e=>{e.preventDefault();void saveName();}}>
-    <label className="t-meta" htmlFor="pin-name">Name on your pins</label>
-    <div className="account-row"><input id="pin-name" className="field" value={nameEdit??me??''} onChange={e=>setNameEdit(e.target.value)} maxLength={60} autoComplete="given-name"/>
-     {nameEdit!==null&&nameEdit.trim()!==(me??'')&&<button type="submit" className="btn-quiet" disabled={nameEdit.trim().length<2}>Save</button>}</div>
-    {nameNote&&<p className="t-meta" role="status">{nameNote}</p>}
-   </form>
-   <button type="button" className="btn-quiet account-out" onClick={()=>void signOut()}>Sign out</button>
-  </div>:null,
  };
 
  return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
@@ -319,7 +308,8 @@ export default function Home(){
    </>}
   <p className="sr-only" role="status">{chromeReady?'':`Preparing the anatomy, ${progress}%`}</p>
   {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}
-  <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
+  <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
+   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} pinHref={pinHref}
    needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}

@@ -26,7 +26,7 @@ export function PlaceSteps({phone,draft,structure,refused,state,error,onName,onN
   </ol>
   {error&&<p className="t-meta step-why" role="alert">{error}</p>}
   {/* One row: the way out on the left, the main action on the right. */}
-  <div className="step-actions">
+  <div className="action-row">
    {state!=='saved'&&<button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>}
    <m.button type="button" className={`btn-accent save-pin ${state==='saved'?'is-wide':''}`} disabled={!ready||state!=='idle'} onClick={onSave} whileTap={ready?{scale:.98}:undefined}>{state==='saved'?'✓ Saved':state==='saving'?'Saving…':'Save pin'}</m.button>
   </div>
