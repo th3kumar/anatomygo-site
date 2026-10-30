@@ -175,10 +175,14 @@ button svg,a svg{flex-shrink:0}
 .error-card{position:absolute;z-index:60;left:50%;top:50%;transform:translate(-50%,-50%);width:min(360px,calc(100vw - 32px));padding:24px;display:flex;flex-direction:column;gap:16px;align-items:flex-start}
 
 /* Structure card (app/structure-card.tsx): peek 400 wide, focus 372 × 600, anchored top-right; a sheet on phones. */
-.scard{position:absolute;z-index:30;top:96px;right:32px;overflow:hidden;color:var(--text)}
-.card-page{display:flex;flex-direction:column;gap:16px;padding:28px;width:100%}
-.card-focus,.card-feature{height:100%}
-.card-peek{padding:28px 30px 30px;gap:10px}
+.scard{position:absolute;z-index:30;top:96px;right:32px;overflow:hidden;color:var(--text);display:flex;flex-direction:column}
+/* The header stays from peek to focus; pages change in the body under it (exiting pages are lifted out of the flow). */
+.card-head{display:flex;flex-direction:column;gap:6px;padding:28px 28px 0;flex:none}
+.card-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.card-page{display:flex;flex-direction:column;gap:16px;padding:16px 28px 28px;width:100%}
+.card-focus,.card-feature{flex:1;min-height:0}
+.card-feature{padding-top:28px}
+.card-peek{padding:10px 28px 28px;gap:10px}
 .card-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px}
 .card-x{width:var(--hit);height:var(--hit);margin:-12px -14px -12px 0;display:grid;place-items:center;border-radius:999px;color:var(--text-3);flex:none}
 .card-x:hover{color:var(--text);background:var(--fill-hover)}
@@ -187,8 +191,10 @@ button svg,a svg{flex-shrink:0}
 .clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card-peek .learn-more{margin-top:16px}
 .card-tabs{margin-top:4px}
-.card-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0 -10px;padding:4px 10px;scrollbar-width:none;position:relative;display:flex;flex-direction:column;gap:16px}
-.tab-page{display:flex;flex-direction:column;gap:18px;padding-top:4px}
+.card-scroll{flex:1;min-height:0;position:relative;overflow:hidden;margin:0 -10px}
+.card-scroll.is-plain{overflow-y:auto;overscroll-behavior:contain;padding:4px 10px;scrollbar-width:none;display:flex;flex-direction:column;gap:16px}
+.card-foot-slot{position:relative;flex:none}
+.tab-page{display:flex;flex-direction:column;gap:18px;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:8px 10px 4px;scrollbar-width:none}
 .card-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:10px}
 .card-tiles .t-body{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row-end{display:flex;align-items:center;gap:8px;flex:none}
@@ -282,10 +288,17 @@ button svg,a svg{flex-shrink:0}
 }
 
 /* Phone: the card is a bottom sheet whose height springs between detents. */
-.scard.is-sheet{position:fixed;top:auto;left:0;right:0;bottom:0;padding:0;display:flex;flex-direction:column;touch-action:pan-y}
-.scard.is-sheet .card-page{padding:22px 20px calc(18px + env(safe-area-inset-bottom))}
-.scard.is-sheet .card-peek{padding:22px 24px calc(22px + env(safe-area-inset-bottom))}
+.scard.is-sheet{position:fixed;top:auto;left:0;right:0;bottom:0;padding:0;display:flex;flex-direction:column;touch-action:none}
+/* Until the sheet is fully up, a drag on the content moves the sheet; once it is, the content scrolls. */
+.scard.is-sheet .tab-page,.scard.is-sheet .card-scroll.is-plain{overflow:hidden}
+.scard.is-sheet.is-full .tab-page,.scard.is-sheet.is-full .card-scroll.is-plain{overflow-y:auto;touch-action:pan-y}
+.scard.is-sheet .card-head{padding:24px 20px 0}
+.scard.is-sheet .card-page{padding:12px 20px calc(18px + env(safe-area-inset-bottom))}
+.scard.is-sheet .card-feature{padding-top:24px}
+.scard.is-sheet .card-peek{padding:8px 20px calc(22px + env(safe-area-inset-bottom))}
 .grab-zone{position:absolute;left:0;right:0;top:0;height:26px;z-index:2;touch-action:none;cursor:grab}
+/* Dragging the sheet never selects text. */
+.scard.is-sheet{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .is-phone .back-dock{left:12px;top:max(14px,env(safe-area-inset-top))}
 .is-phone .focus-actions{right:12px;top:max(14px,env(safe-area-inset-top))}
 

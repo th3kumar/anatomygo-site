@@ -1,8 +1,10 @@
 /** The structure card (handoff T2–T8, M2–M8): one glass card that is a peek after a tap, grows into the focus card on
  * Learn more (About and Parts), and pages to a feature when a part is chosen. On phones it is a bottom sheet that
- * springs between detents; drag it down to close it, swipe a feature sideways for the next one. */
-import {useRef,useState,type ReactNode} from 'react';
-import {AnimatePresence,m,useDragControls} from 'motion/react';
+ * springs between detents; drag it down to close it, swipe a feature sideways for the next one.
+ * The header (kind, close, title) stays put from peek to focus; only what is under it changes. Pages push the way you
+ * travel, worked out from what changed, so every path (buttons, Esc, pins on the model) moves the same way. */
+import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
+import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
 import {ArrowUpRight,ChevronLeft,ChevronRight,Plus,SquarePen,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
 import type {PublishedPin} from './published-pins';
@@ -11,12 +13,22 @@ export type CardMode='peek'|'focus'|'feature';
 export type CardTab='about'|'parts';
 export interface CardFacts {kind:string;title:string;description:string;curated:boolean;system:string;side:string|null;pieces:number;features:number|null;reference:string}
 
-/** Pages slide 24 px the way you travel; tabs push 8 px. Leaving is quick, arriving follows a beat later. */
-const page=(dir:number,px=24)=>({
- initial:{opacity:0,x:px*dir},
- animate:{opacity:1,x:0,transition:tween('out',DUR.enter,DUR.enterDelay)},
- exit:{opacity:0,x:-px*dir,transition:tween('in',DUR.leave)},
-});
+/** How the card got here: d is the direction of travel (+1 forward, -1 back, 0 a swap in place), `from` the mode it
+ * left, `swipe` the finger's offset when a phone swipe committed the change. */
+interface Nav {d:number;from:CardMode|null;swipe:number|null;width:number}
+
+/** Pages: 24 px the way you travel; a committed swipe carries both pages on with the finger. From the peek, the focus
+ * body does not slide: its parts rise into place under the header that stays. */
+const pageV:Variants={
+ enter:(c:Nav)=>c.swipe!==null?{opacity:1,x:c.d*c.width+c.swipe}:c.from==='peek'||c.d===0?{opacity:0,x:0}:{opacity:0,x:24*c.d},
+ center:(c:Nav)=>({opacity:1,x:0,transition:c.swipe!==null?spring.settle:tween('out',DUR.enter,DUR.enterDelay)}),
+ exit:(c:Nav)=>c.swipe!==null?{opacity:1,x:-c.d*c.width,transition:spring.settle}:c.d===0||c.from===null?{opacity:0,transition:tween('in',DUR.leave)}:{opacity:0,x:-24*c.d,transition:tween('in',DUR.leave)},
+};
+/** The focus body's pieces rise 6 px, 40 ms apart, as the card grows from the peek. */
+const rise=(i:number,fromPeek:boolean)=>fromPeek?{initial:{opacity:0,y:6},animate:{opacity:1,y:0,transition:tween('out',.22,.12+i*.04)}}:{};
+/** Tabs keep their sides: About lives to the left of Parts, so each always leaves and arrives on its own side. */
+const tabPage=(side:number)=>({initial:{opacity:0,x:8*side},animate:{opacity:1,x:0,transition:tween('out',DUR.enter,DUR.enterDelay)},exit:{opacity:0,x:8*side,transition:tween('in',DUR.leave)}});
+const fade={initial:{opacity:0},animate:{opacity:1,transition:tween('out',DUR.enter,DUR.enterDelay)},exit:{opacity:0,transition:tween('in',DUR.leave)}};
 
 interface Props {
  mode:CardMode;phone:boolean;facts:CardFacts;tab:CardTab;
@@ -25,26 +37,77 @@ interface Props {
  contributeHref:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
+ /** The phone sheet's resting height, so the camera can frame the space above it. */
+ onRest?:(h:number)=>void;
 }
 
 export function StructureCard(p:Props){
  const {mode,phone,facts,tab}=p;
- const sheet=useRef<HTMLElement>(null),drag=useDragControls(),[dir,setDir]=useState(1);
+ const sheet=useRef<HTMLElement>(null);
  const index=p.pin?p.pins.findIndex(x=>x.id===p.pin!.id):-1,prev=index>0?p.pins[index-1]:null,next=index>=0&&index<p.pins.length-1?p.pins[index+1]:null;
- const go=(to:PublishedPin|null,d:number)=>{if(!to)return;setDir(d);p.onPin(to.id);};
 
- // Desktop: peek 400 wide, focus 372 × up to 600, anchored at the right edge. Phone: sheet detents (handoff boards).
+ // Direction of travel, from what changed since the last render (refs, so every path that changes mode is covered).
+ const was=useRef({mode:null as CardMode|null,index:-1,ref:''}),nav=useRef<Nav>({d:0,from:null,swipe:null,width:0}),swipe=useRef<number|null>(null);
+ if(was.current.mode!==mode||was.current.index!==index||was.current.ref!==facts.reference){
+  const w=was.current,d=w.ref!==facts.reference&&w.mode===mode?0:w.mode==='focus'&&mode==='feature'?1:w.mode==='feature'&&mode==='focus'?-1:w.mode==='feature'&&mode==='feature'?Math.sign(index-w.index)||1:0;
+  nav.current={d,from:w.mode,swipe:mode==='feature'&&w.mode==='feature'?swipe.current:null,width:sheet.current?.offsetWidth??(typeof innerWidth==='number'?innerWidth:390)};
+  swipe.current=null;was.current={mode,index,ref:facts.reference};
+ }
+ const c=nav.current,fromPeek=c.from==='peek'&&mode==='focus';
+ const go=(to:PublishedPin|null)=>{if(to)p.onPin(to.id);};
+
+ // The peek's height, measured, so Learn more springs between two numbers instead of from 'auto'.
+ const head=useRef<HTMLDivElement>(null),peekBody=useRef<HTMLDivElement>(null),[peekH,setPeekH]=useState(0);
+ useLayoutEffect(()=>{if(mode!=='peek')return;const measure=()=>{const h=(head.current?.offsetHeight??0)+(peekBody.current?.offsetHeight??0);if(h)setPeekH(h+2);};measure();const ro=new ResizeObserver(measure);[head.current,peekBody.current].forEach(e=>e&&ro.observe(e));return()=>ro.disconnect();},[mode,facts.reference]);
+
+ // Where the Parts list was scrolled, so coming back from a feature returns to the same row.
+ const partsScroll=useRef(0);
+ useLayoutEffect(()=>{partsScroll.current=0;},[facts.reference]);
+
  const vh=typeof innerHeight==='number'?innerHeight:800;
- const deskH:number|'auto'=mode==='peek'?'auto':Math.min(600,vh-96-32);
- const phoneH:number|'auto'=mode==='peek'?'auto':mode==='focus'&&tab==='parts'?Math.min(vh*.65,560):Math.min(vh*.47,420);
- const size=phone?{height:phoneH}:{width:mode==='peek'?416:392,height:deskH};
+ const deskH:number|'auto'=mode==='peek'?peekH||'auto':Math.min(600,vh-96-32);
 
- const meta=<p className="t-meta">{facts.kind}{facts.side?` · ${facts.side}`:''}</p>;
+ // Phone: a real bottom sheet. It is as tall as its content up to a resting height; with more to show, dragging it up
+ // (by the handle, the header or the content) raises the whole sheet towards full height, and only then does the
+ // content scroll. Dragged below its resting height it closes.
+ const scroller=useRef<HTMLElement|null>(null),[fit,setFit]=useState(0),[full,setFull]=useState(false);
+ const top=Math.min(vh-72,vh*.92),rest=mode==='peek'?(peekH?peekH+12:0):Math.min(fit||vh*.47,vh*.62),open=Math.max(rest,Math.min(fit,top));
+ const target=full&&open>rest+8?open:rest;
+ useLayoutEffect(()=>{if(!phone)return;const measure=()=>{const s=sheet.current,sc=scroller.current;if(!s)return;if(mode==='peek'){setFit(0);return;}if(!sc)return;
+   // The content's own height (not the scroll box's), so a sheet with little to show can shrink to fit it.
+   const kids=Array.from(sc.children) as HTMLElement[];if(!kids.length)return;const cs=getComputedStyle(sc),first=kids[0].getBoundingClientRect().top,last=Math.max(...kids.map(k=>k.getBoundingClientRect().bottom));
+   setFit(Math.ceil(s.offsetHeight-sc.clientHeight+(last-first)+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)));};
+  measure();const ro=new ResizeObserver(measure);const sc=scroller.current;if(sc){ro.observe(sc);for(const ch of Array.from(sc.children))ro.observe(ch);}return()=>ro.disconnect();});
+ useEffect(()=>{setFull(false);},[mode,tab,facts.reference,index]);
+ useEffect(()=>{if(phone&&rest)p.onRest?.(Math.round(rest/16)*16);},[phone,rest]);
+ const height=useMotionValue(0),dragging=useRef(false);
+ useEffect(()=>{if(!phone||!target)return;if(!height.get()){height.set(target);return;}if(!dragging.current)animate(height,target,spring.sheet);},[phone,target]);
+ const gesture=useRef<{y0:number;x0:number;h0:number;handle:boolean;on:boolean;last:number;at:number;v:number}|null>(null);
+ const down=(e:React.PointerEvent)=>{if(!phone||e.button>0)return;const el=e.target as Element;const handle=!!el.closest('.grab-zone,.card-head,.card-row,.card-tabs');
+  const sc=scroller.current;if(!handle&&full&&sc&&sc.scrollTop>0)return;gesture.current={y0:e.clientY,x0:e.clientX,h0:height.get(),handle,on:false,last:e.clientY,at:performance.now(),v:0};};
+ const move=(e:React.PointerEvent)=>{const g=gesture.current;if(!g)return;const dy=e.clientY-g.y0,dx=e.clientX-g.x0;
+  if(!g.on){if(Math.abs(dy)<6&&Math.abs(dx)<6)return;if(Math.abs(dx)>Math.abs(dy)){gesture.current=null;return;}
+   // On the content, an upward drag of a sheet that is already full is a scroll, not a drag.
+   if(!g.handle&&full&&dy<0){gesture.current=null;return;}g.on=true;dragging.current=true;(e.currentTarget as Element).setPointerCapture(e.pointerId);}
+  const now=performance.now();g.v=(e.clientY-g.last)/Math.max(1,now-g.at)*1000;g.last=e.clientY;g.at=now;
+  height.set(Math.max(60,Math.min(open+24,g.h0-dy)));};
+ const up=(e:React.PointerEvent)=>{const g=gesture.current;gesture.current=null;if(!g?.on)return;dragging.current=false;
+  // The tap that ends a drag must not open a row.
+  const stop=(ev:Event)=>{ev.stopPropagation();ev.preventDefault();};addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>removeEventListener('click',stop,{capture:true}),0);
+  const h=height.get(),v=g.v;if(h<rest*.72||(v>900&&h<rest)){p.onBack();return;}
+  const toFull=open>rest+8&&(v<-500||(v<500&&h>(rest+open)/2));setFull(toFull);animate(height,toFull?open:rest,{...spring.sheet,velocity:-v});
+  void e;};
+ const size=phone?{}:{width:mode==='peek'?416:392,height:deskH};
+
  const close=<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
 
- const peek=<m.div key="peek" className="card-page card-peek" {...page(1,0)}>
-  <div className="card-row">{meta}{close}</div>
+ // Peek and focus share this header; it leaves with the focus body when a feature opens.
+ const header=mode!=='feature'&&<m.div key={`head-${facts.reference}`} ref={head} className="card-head" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+  <div className="card-row"><p className="t-meta">{facts.kind}{facts.side?` · ${facts.side}`:''}</p>{close}</div>
   <h2 className="t-title card-title">{facts.title}</h2>
+ </m.div>;
+
+ const peek=<m.div key={`peek-${facts.reference}`} ref={peekBody} className="card-page card-peek" custom={c} variants={pageV} initial="enter" animate="center" exit={{opacity:0,transition:tween('in',.12)}}>
   <p className="t-body2 clamp-2">{facts.description}</p>
   <button type="button" className="learn-more" onClick={p.onLearnMore}><span className="learn-more-in">Learn more<ChevronRight size={18}/></span></button>
  </m.div>;
@@ -54,7 +117,8 @@ export function StructureCard(p:Props){
   {(['about','parts'] as CardTab[]).map(t=><button type="button" role="tab" key={t} aria-selected={tab===t} className={`tab ${tab===t?'is-on':''}`} onClick={()=>p.onTab(t)}>{t==='about'?'About':'Parts'}</button>)}
  </div>;
 
- const about=<m.div key="about" className="tab-page" {...page(-1,8)}>
+ // Each tab scrolls on its own, so switching never shows the other tab's scroll position.
+ const about=<m.div key="about" className="tab-page" {...tabPage(-1)} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='about')scroller.current=el;}}>
   <p className="t-body">{facts.description}</p>
   {!facts.curated&&<p className="t-meta">A general note on the {facts.system.toLowerCase()} system. A description of this structure is still to be written.</p>}
   <div className="card-tiles">
@@ -64,50 +128,54 @@ export function StructureCard(p:Props){
   </div>
  </m.div>;
 
- const parts=<m.div key="parts" className="tab-page" {...page(1,8)}>
+ const parts=<m.div key="parts" className="tab-page" {...tabPage(1)} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='parts')scroller.current=el;if(el&&!el.dataset.placed){el.dataset.placed='1';el.scrollTop=partsScroll.current;}}} onScroll={e=>{partsScroll.current=(e.target as HTMLDivElement).scrollTop;}}>
   {p.members.length>1
    ?<div className="list">{p.members.slice(0,60).map(x=><button type="button" key={x.id} className="row" onClick={()=>p.onMember(x.id)}><span className="cap">{x.name}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :p.pinsLoading?<div className="list" aria-busy="true">{[0,1,2,3].map(i=><span key={i} className="row skeleton"/>)}</div>
-   :p.pins.length?<div className="list" onPointerLeave={()=>p.onHoverPin(null)}>{p.pins.map(x=><button type="button" key={x.id} className="row" onPointerEnter={()=>p.onHoverPin(x.id)} onFocus={()=>p.onHoverPin(x.id)} onClick={()=>{setDir(1);p.onPin(x.id);}}><span className="cap">{x.label}</span><ChevronRight size={16} className="chev"/></button>)}</div>
+   :p.pins.length?<div className="list" onPointerLeave={()=>p.onHoverPin(null)}>{p.pins.map(x=><button type="button" key={x.id} className="row" onPointerEnter={()=>p.onHoverPin(x.id)} onFocus={()=>p.onHoverPin(x.id)} onClick={()=>p.onPin(x.id)}><span className="cap">{x.label}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :<p className="t-body2">{p.pinsError||'No parts pinned on this structure yet.'}</p>}
  </m.div>;
 
- const foot=(line:string,label:string,source:string,icon:ReactNode)=><div className="card-foot">
-  <div className="contrib"><p className="t-meta">{line}</p><a className="pill" href={p.contributeHref} onClick={()=>p.onContribute(source)}>{icon}{label}</a></div>
+ const foot=(line:string,source:string,icon:ReactNode)=><>
+  <div className="contrib"><p className="t-meta">{line}</p><a className="pill" href={p.contributeHref} onClick={()=>p.onContribute(source)}>{icon}Contribute</a></div>
   {!phone&&<p className="t-meta foot-links">{p.counterpart&&<button type="button" className="link-quiet" onClick={p.onCounterpart}>{p.counterpart.name} ›</button>}<a className="link-quiet" href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noreferrer">Source <ArrowUpRight size={12}/></a></p>}
- </div>;
+ </>;
+ // The footer changes with the tab: it cross-fades (and on phones, where About has none, it opens and closes).
+ const footer=tab==='about'?(phone?null:<m.div key="foot-about" className="card-foot" {...fade}>{foot('Something to add? Write it in your name.','about',<Plus size={14}/>)}</m.div>)
+  :<m.div key="foot-parts" className="card-foot" {...(phone?{initial:{opacity:0,height:0},animate:{opacity:1,height:'auto',transition:tween('out',DUR.enter)},exit:{opacity:0,height:0,transition:tween('in',DUR.leave)}}:fade)}>{foot('Missed a part? Add it in your name.','parts',<Plus size={14}/>)}</m.div>;
 
- const focus=<m.div key="focus" className="card-page card-focus" {...page(-dir)}>
-  <div className="card-row">{meta}{close}</div>
-  <h2 className="t-title card-title">{facts.title}</h2>
-  {tabs}
-  <div className="card-scroll"><AnimatePresence mode="popLayout" initial={false}>{tab==='about'?about:parts}</AnimatePresence></div>
-  {tab==='about'?!phone&&foot('Something to add? Write it in your name.','Contribute','about',<Plus size={14}/>):foot('Missed a part? Add it in your name.','Contribute','parts',<Plus size={14}/>)}
+ const focus=<m.div key={`focus-${facts.reference}`} className="card-page card-focus" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
+  <m.div {...rise(0,fromPeek)}>{tabs}</m.div>
+  <m.div className="card-scroll" {...rise(1,fromPeek)}><AnimatePresence mode="popLayout" initial={false}>{tab==='about'?about:parts}</AnimatePresence></m.div>
+  <m.div className="card-foot-slot" {...rise(2,fromPeek)}><AnimatePresence mode="popLayout" initial={false}>{footer}</AnimatePresence></m.div>
  </m.div>;
 
  const pin=p.pin;
- const feature=pin&&<m.div key={`f-${pin.id}`} className="card-page card-feature" {...page(dir)}
-  drag={phone?'x':false} dragSnapToOrigin dragElastic={.35} onDragEnd={(_,i)=>{const w=innerWidth*.3;if(i.offset.x<-w||i.velocity.x<-600)go(next,1);else if(i.offset.x>w||i.velocity.x>600)go(prev,-1);}}>
+ const feature=pin&&<m.div key={`f-${pin.id}`} className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit"
+  drag={phone?'x':false} dragDirectionLock dragSnapToOrigin dragElastic={.35}
+  onDragEnd={(_,i)=>{const w=(sheet.current?.offsetWidth??innerWidth)*.3;const to=i.offset.x<-w||i.velocity.x<-600?next:i.offset.x>w||i.velocity.x>600?prev:null;if(to){swipe.current=i.offset.x;go(to);}}}>
   <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}><ChevronLeft size={14}/>{facts.title} · Parts</button>{close}</div>
   {phone&&<p className="t-meta">Feature · {index+1} of {p.pins.length}</p>}
   <h2 className="t-title card-title cap">{pin.label}</h2>
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
-  <div className="card-scroll">
+  <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='feature')scroller.current=el;}}>
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
    <div className="tile vote-tile"><p className="t-body2">Looks right?</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a></div>
    <p className="t-meta byline"><span className="avatar" aria-hidden="true">{(pin.by??'A').charAt(0).toUpperCase()}</span>{pin.kind==='community'?(pin.by===null?'Starter pin':pin.by?`Added by the community · ${pin.by}`:'Added by the community'):'Published'}</p>
   </div>
   {!phone&&<div className="contrib"><p className="t-meta">Pin in the wrong spot? Help fix it.</p><a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a></div>}
-  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone?<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>:<span/>}{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
+  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}{phone?<a className="pill" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}><SquarePen size={14}/>Contribute</a>:<span/>}{next?<button type="button" className="link-quiet" onClick={()=>go(next)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
  </m.div>;
 
- const body=<AnimatePresence mode="popLayout" initial={false}>{mode==='peek'?peek:mode==='feature'&&feature?feature:focus}</AnimatePresence>;
+ const body=<>
+  <AnimatePresence mode="popLayout" initial={false} custom={c}>{header}</AnimatePresence>
+  <div className="card-body"><AnimatePresence mode="popLayout" initial={false} custom={c}>{mode==='peek'?peek:mode==='feature'&&feature?feature:focus}</AnimatePresence></div>
+ </>;
 
- if(phone)return <m.section ref={sheet} className="sheet scard is-sheet" data-inset="bottom" data-inset-size={typeof phoneH==='number'?phoneH:undefined} role="dialog" aria-label={facts.title}
-  initial={{y:'100%'}} animate={{y:0,...size}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet}
-  drag="y" dragControls={drag} dragListener={false} dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.7}}
-  onDragEnd={(_,i)=>{if(i.offset.y>(sheet.current?.offsetHeight??400)*.2||i.velocity.y>700)p.onBack();}}>
-  <span className="grab-zone" onPointerDown={e=>drag.start(e)}><span className="grab" aria-hidden="true"/></span>
+ if(phone)return <m.section ref={sheet} className={`sheet scard is-sheet ${full&&open>rest+8?'is-full':''}`} data-inset="bottom" data-inset-size={rest||undefined} role="dialog" aria-label={facts.title}
+  style={{height:target?height:'auto'}} initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet}
+  onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+  <span className="grab-zone"><span className="grab" aria-hidden="true"/></span>
   {body}
  </m.section>;
  return <m.section className="panel scard" data-inset="right" data-inset-size={mode==='peek'?416:392} role="dialog" aria-label={facts.title}
