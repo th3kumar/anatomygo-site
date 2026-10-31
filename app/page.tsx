@@ -9,6 +9,7 @@ import {Profile} from './community/account';
 import {copy,pinLink} from './community/share';
 import {useFeatureDetail,type Spot} from './community/feature-detail';
 import {FeatureExtras} from './community/feature-extras';
+import {ReviewQueue} from './community/admin';
 import {PlaceSteps,type Refusal} from './community/place-card';
 import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
@@ -99,11 +100,13 @@ export default function Home(){
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
  // Other spots for the open feature: choosing one shows it on the model, and the card's vote and byline follow it.
  // A suggestion is a point, so a chosen spot never carries the reviewed pin's line or area.
+ const [pendingAlt,setPendingAlt]=useState<string|null>(null);
  const [alt,setAlt]=useState<Spot|null>(null),[detailVersion,setDetailVersion]=useState(0),[geometry,setGeometry]=useState<string|null>(null);
  useEffect(()=>{void fingerprint().then(setGeometry).catch(()=>{});},[]);
  useEffect(()=>{setAlt(null);},[selectedPin]);
  const viewPin=useMemo(()=>pin&&alt&&alt.proposal!==pin.proposal?{...pin,proposal:alt.proposal,label:alt.label||pin.label,latinName:alt.latinName||pin.latinName,description:alt.description,anchor:alt.anchor,by:alt.by,at:alt.at,upvotes:alt.upvotes,kind:'community' as const,shape:null}:pin,[pin,alt]);
  const detail=useFeatureDetail(pin?.id??null,viewPin?.proposal??null,geometry,detailVersion);
+ useEffect(()=>{if(!pendingAlt)return;const s=detail.spots.find(x=>x.proposal===pendingAlt);if(s){setAlt(s);setPendingAlt(null);}},[detail.spots,pendingAlt]);
  // A shared pin's link (?structure=…&pin=…) opens on that feature once its pins arrive. Older Playground links name
  // the placement rather than the feature, so either is matched.
  const [linkPin,setLinkPin]=useState(()=>{const q=new URLSearchParams(location.search);return q.get('structure')?q.get('pin'):null;});
@@ -122,7 +125,7 @@ export default function Home(){
   return mine.length?[...base,...mine]:base;},[shown.pins,keptHere,draft?.request,viewPin,pin]);
  const resume=(k:Saved)=>{setDraft(reopen(k));setRefused(null);setSaveState('idle');setSaveError('');void unusable(k.mesh).then(setInvalidTris);track('draft_started',{kind:k.kind,practice:0});};
  // "Pin saved" (film K10), and your own name, so your pins read "Added by you".
- const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[admin,setAdmin]=useState(false);
+ const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[admin,setAdmin]=useState(false),[review,setReview]=useState(false);
  useEffect(()=>{setAdmin(false);if(session)void rpc<boolean>('pg_is_admin',{}).then(v=>setAdmin(!!v)).catch(()=>{});},[session]);
  const postRemark=async(text:string)=>{if(!viewPin?.proposal)return false;if(!session){setCloudOn(true);setAsk('comment');track('sign_in_prompted',{reason:'comment'});return false;}
   try{await rpc('pg_comment',{p_proposal:viewPin.proposal,p_body:text,p_request:crypto.randomUUID()});setDetailVersion(v=>v+1);return true;}catch{setToast('That didn’t post. Please try again.');return false;}};
@@ -342,7 +345,7 @@ export default function Home(){
   <p className="sr-only" role="status">{chromeReady?'':`Preparing the anatomy, ${progress}%`}</p>
   {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
-   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
+   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={viewPin??null} counterpart={counterpart} pinHref={pinHref}
    menu={menuFor}
@@ -360,6 +363,8 @@ export default function Home(){
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
   <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>
+  <AnimatePresence>{review&&atlas&&<ReviewQueue key="review" structures={atlas.parts} onClose={()=>setReview(false)}
+   onOpen={(mesh,landmark,proposal)=>{setReview(false);choosePart(mesh,'link');setState(s=>({...s,isolate:true,explode:0}));setDetails(true);setLinkPin(landmark);setPendingAlt(proposal);}}/>}</AnimatePresence>
   <AnimatePresence>{act&&<Dialog key="act" title={act.kind==='report'?'Report this pin':'Delete your pin?'} line={act.kind==='report'?'What’s wrong? If it’s on the wrong part, say which.':'It disappears for everyone.'} onClose={()=>setAct(null)}>
    {act.kind==='report'&&<textarea className="field note" value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000} rows={3} aria-label="What’s wrong?" autoFocus={!phone}/>}
    {actError&&<p className="t-meta dialog-problem" role="alert">{actError}</p>}

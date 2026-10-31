@@ -451,3 +451,19 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 /* Phone sheets are solid: there is no blur over the model on phones, so text and fields stay readable (the sheet's
    own sheen stays on top). */
 .scard.is-sheet{background-color:var(--ground-flat)}
+/* Review queue (admins) */
+.queue-tabs{margin-top:16px}
+.queue{display:flex;flex-direction:column;margin-top:8px;overflow-y:auto;min-height:0;max-height:52dvh}
+.queue-row{display:flex;flex-direction:column;gap:3px;padding:14px 0;border-bottom:1px solid var(--hair-2)}
+.queue-reports{color:var(--destructive)}
+.queue-links{display:flex;gap:18px;margin-top:6px}
+.queue-links button:disabled{opacity:.4}
+.queue-ask{margin-top:8px}
+.queue-ask .action-row{margin-top:10px}
+.queue-pages{display:flex;justify-content:space-between;margin-top:10px}
+.queue-tools{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+.queue-map{display:flex;justify-content:space-between;align-items:center}
+.profile-admin{margin-top:28px;min-height:var(--hit)}
+.profile-admin+.profile-out{margin-top:4px}
+.queue-tools .field{flex:none}
+.panel.dialog{background-color:var(--ground-flat)}

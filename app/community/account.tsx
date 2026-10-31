@@ -16,7 +16,7 @@ export function ProfileRow({name,onOpen}:{name:string;onOpen:()=>void}){
  </button>;
 }
 
-export function Profile({name,email,onSave,onSignOut}:{name:string;email:string;onSave:(name:string)=>Promise<void>;onSignOut:()=>void}){
+export function Profile({name,email,onSave,onSignOut,onReview}:{name:string;email:string;onSave:(name:string)=>Promise<void>;onSignOut:()=>void;onReview?:()=>void}){
  const [edit,setEdit]=useState<string|null>(null),[busy,setBusy]=useState(false),[note,setNote]=useState('');
  const value=edit?.trim()??'',ok=value.length>=2&&value!==name;
  const save=async()=>{if(!ok)return;setBusy(true);setNote('');try{await onSave(value);setEdit(null);}catch{setNote('That didn’t save. Please try again.');}finally{setBusy(false);}};
@@ -36,6 +36,7 @@ export function Profile({name,email,onSave,onSignOut}:{name:string;email:string;
      </m.form>}
   </AnimatePresence>
   {note&&<p className="t-meta profile-error" role="alert">{note}</p>}
+  {onReview&&<button type="button" className="t-meta link-accent profile-admin" onClick={onReview}>Review queue</button>}
   <button type="button" className="t-meta link-quiet profile-out" onClick={onSignOut}>Sign out</button>
  </div>;
 }
