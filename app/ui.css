@@ -486,3 +486,8 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .pager>.tab-page{flex:0 0 100%;min-width:0}
 .pager-clip{flex:1;min-height:0;overflow:hidden;margin:0 -20px}
 .pager-clip .about-tab{padding:4px 20px 0}
+/* Previous / next feature: the name may be cut short, the arrow never is. */
+.step{display:inline-flex;align-items:center;gap:4px;max-width:100%;min-width:0}
+.step-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step-chev{flex:none;color:var(--text-2)}
+.mini-steps .step:last-child,.prev-next .step:last-child{justify-content:flex-end}

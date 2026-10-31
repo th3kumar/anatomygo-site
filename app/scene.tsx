@@ -106,7 +106,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   markerMaterial.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (distance(gl_PointCoord, vec2(0.5)) > 0.5) discard;');};
   const markers=new T.Points(markerGeometry,markerMaterial);markers.frustumCulled=false;markers.renderOrder=10;markers.visible=false;scene.add(markers);
   let staged:boolean|null=null;
-  const stage=(dark:boolean)=>{const c=dark?STAGE.dark:STAGE.light;renderer.setClearColor(c.clear,c.alpha);const rim1=ring.material as T.MeshBasicMaterial,rim2=innerRing.material as T.MeshBasicMaterial;rim1.color.set(c.ring);rim1.opacity=c.ringOpacity;rim2.color.set(c.inner);rim2.opacity=c.innerOpacity;markerMaterial.color.set(c.marker);ghostMaterial.color.set(dark?0x8c969f:0x7d8892);focusFx.uGlowColour.value.setRGB(...(dark?[.5,.85,.69]:[.25,.63,.47]) as [number,number,number]);staged=dark;dirty=true;};
+  const stage=(dark:boolean)=>{const c=dark?STAGE.dark:STAGE.light;renderer.setClearColor(c.clear,c.alpha);const rim1=ring.material as T.MeshBasicMaterial,rim2=innerRing.material as T.MeshBasicMaterial;rim1.color.set(c.ring);rim1.opacity=c.ringOpacity;rim2.color.set(c.inner);rim2.opacity=c.innerOpacity;markerMaterial.color.set(c.marker);ghostMaterial.color.set(dark?0x8c969f:0x7d8892);shellMaterial.color.set(dark?0x8c969f:0x7d8892);focusFx.uGlowColour.value.setRGB(...(dark?[.5,.85,.69]:[.25,.63,.47]) as [number,number,number]);staged=dark;dirty=true;};
   // Peek marker (handoff T2): a pin pops where the part was tapped and its name pops beside it; both leave on Learn more,
   // on another selection, or when the selection clears.
   const peekDot=new T.Mesh(new T.SphereGeometry(1,14,12),new T.MeshBasicMaterial({color:0xf4f5f6,toneMapped:false,transparent:true,depthTest:false}));peekDot.renderOrder=11;peekDot.visible=false;scene.add(peekDot);
@@ -136,7 +136,10 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   // that draws the structure sharp over the blurred surroundings.
   const focusFx={uDissolve:{value:0},uGlow:{value:0},uTint:{value:1},uSubjectOnly:{value:0},uOverlay:{value:1},uGlowColour:{value:new T.Color(.5,.85,.69)}};
   const DITHER='float bayer4(vec2 p){ ivec2 q=ivec2(mod(p,4.)); int i=q.x+q.y*4; float m[16]=float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.); return (m[i]+.5)/16.; }\n';
-  const materialFor=(system:string,ghost=false)=>{
+    // Kinds: the body itself; 'ghost', a neighbour's glass in focus; 'shell-depth' and 'shell', the search x-ray (the rest of
+  // the body as one layer of glass, its nearest surface only, so layers never add up to an opaque block again).
+  const materialFor=(system:string,kind:'body'|'ghost'|'shell-depth'|'shell'='body')=>{
+   const ghost=kind!=='body',shell=kind==='shell'||kind==='shell-depth';
    const m=ghost
     // Neighbours in focus, as in the Playground: subdued grey glass that never hides the structure.
     ?new T.MeshStandardMaterial({color:0x8c969f,transparent:true,opacity:.2,depthWrite:false,roughness:.9,side:T.DoubleSide,envMap:env.texture,envMapIntensity:RIG.environment})
@@ -146,15 +149,20 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     shader.vertexShader='attribute float partIndex; uniform sampler2D partState; uniform sampler2D selectionState; uniform float stateWidth; varying float partVisible; varying float partSelected; varying float partGhost; varying float partSubject;\n'+shader.vertexShader;
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec2 stateUv = vec2((partIndex + 0.5) / stateWidth, 0.5); vec4 state = texture2D(partState, stateUv); transformed += state.xyz; partVisible = state.w; vec4 sel = texture2D(selectionState, stateUv); partSelected = sel.r; partGhost = sel.g; partSubject = sel.b;');
     shader.fragmentShader='uniform float uDissolve; uniform float uGlow; uniform float uTint; uniform float uSubjectOnly; uniform float uOverlay; uniform vec3 uGlowColour; varying float partVisible; varying float partSelected; varying float partGhost; varying float partSubject;\n'+DITHER+shader.fragmentShader;
-    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',ghost?'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partGhost < 0.5 || uSubjectOnly > 0.5) discard;':'#include <clipping_planes_fragment>\nfloat vis = uSubjectOnly > 0.5 ? partSubject * uOverlay : partVisible * mix(1.0, 1.0 - uDissolve, 1.0 - partSubject);\nif (vis < bayer4(gl_FragCoord.xy)) discard;');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',shell?'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partSubject > 0.5 || uSubjectOnly > 0.5) discard;':ghost?'#include <clipping_planes_fragment>\nif (partVisible < 0.5 || partGhost < 0.5 || uSubjectOnly > 0.5) discard;':'#include <clipping_planes_fragment>\nfloat vis = uSubjectOnly > 0.5 ? partSubject * uOverlay : partVisible * mix(1.0, 1.0 - uDissolve, 1.0 - partSubject);\nif (vis < bayer4(gl_FragCoord.xy)) discard;');
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat leave = uDissolve * (1.0 - partSubject); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(.299,.587,.114))) * .7, leave * .8);\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.212, 0.686, 0.434), partSelected * 0.55 * uTint);');
     if(!ghost)shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat rim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.4);\ngl_FragColor.rgb += uGlowColour * rim * uGlow * partSubject;');
    };
    // Both kinds share one onBeforeCompile, whose source text three.js uses as the program's cache key: without its own
    // key the neighbours' glass could be handed the body's program (which discards neighbours) and never show.
-   m.customProgramCacheKey=()=>ghost?'anatomy-part-ghost':'anatomy-part';materials.push(m);return m;
+   if(kind==='shell-depth'){m.colorWrite=false;m.transparent=false;m.depthWrite=true;}
+   m.customProgramCacheKey=()=>`anatomy-part-${kind}`;materials.push(m);return m;
   };
-  const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)])),ghostMaterial=materialFor('ghost',true) as T.MeshStandardMaterial;
+  const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)])),ghostMaterial=materialFor('ghost','ghost') as T.MeshStandardMaterial;
+  // The search x-ray: after the body (whose other parts dissolve away), the depth of its nearest surface, then glass drawn
+  // on that surface only. Shown while `see` is above zero.
+  const shellDepth=materialFor('shell-depth','shell-depth'),shellMaterial=materialFor('shell','shell') as T.MeshStandardMaterial;
+  const shellGroup=new T.Group();shellGroup.visible=false;scene.add(shellGroup);let see=0;
   // Neighbours: one glass mesh per neighbouring part, rebuilt only when the set changes.
   const ghostGroup=new T.Group();scene.add(ghostGroup);let ghostKey='';
   // Only parts that have arrived count towards the key, so neighbours still streaming in are added when they land.
@@ -174,7 +182,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     g.setAttribute('partIndex',new T.BufferAttribute(new Float32Array(p.vertexCount).fill(i),1));
     const list=groups.get(p.system)??[];list.push(g);groups.set(p.system,list);
    }
-   groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);});
+   groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);
+    if(system==='integumentary')return;const depth=new T.Mesh(geometry,shellDepth),glass=new T.Mesh(geometry,shellMaterial);depth.frustumCulled=glass.frustumCulled=false;depth.renderOrder=1;glass.renderOrder=3;shellGroup.add(depth,glass);});
    lastState=null;dirty=true;retryTap();
    // A linked structure is in: the page can show its focus view without waiting for the rest of the body.
    if(!prioritySent&&first.current.length&&first.current.every(id=>{const i=partIndex.get(id);return i!==undefined&&!!added[i];})){prioritySent=true;milestone.current?.('priority');}
@@ -251,8 +260,10 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const HOLD_MS=3000;
   let pendingTap:{ray:T.Ray;x:number;y:number;touch:boolean;camera:T.Matrix4;at:number}|null=null;const offset=new T.Vector3();
   const resolveTap=(x:number,y:number,touch:boolean,at=performance.now()):'held'|'answered'|'missed'=>{
-   let nearest=Infinity,found=-1;const best:{hit:T.Intersection|null}={hit:null};const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
-   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(fp>.5&&!selectedData[i*4+2])||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;best.hit=hits[0];}});
+   let nearest=Infinity,found=-1;const best:{hit:T.Intersection|null;seen:{i:number;hit:T.Intersection}|null}={hit:null,seen:null};const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
+   pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(fp>.5&&!selectedData[i*4+2])||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hits=raycaster.intersectObject(mesh,false);if(hits[0]&&see>.5&&selectedData[i*4+2]&&(!best.seen||hits[0].distance<best.seen.hit.distance))best.seen={i,hit:hits[0]};if(hits[0]&&hits[0].distance<nearest){nearest=hits[0].distance;found=i;best.hit=hits[0];}});
+   // In the search x-ray the chosen structure shows through the glass, so a tap on it keeps it rather than the glass in front.
+   if(best.seen){nearest=best.seen.hit.distance;found=best.seen.i;best.hit=best.seen.hit;}
    if(!ready)for(let i=0;i<atlas.parts.length;i++){if(added[i]||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))continue;worldBox.copy(bounds[i]).translate(offset.set(data[i*4],data[i*4+1],data[i*4+2]));if(raycaster.ray.intersectBox(worldBox,hitPoint)&&hitPoint.distanceTo(raycaster.ray.origin)<nearest){pendingTap={ray:raycaster.ray.clone(),x,y,touch,camera:camera.matrixWorld.clone(),at};return 'held';}}
    const pinHit=publishedLayer.hit(raycaster);if(pinHit&&pinHit.distance<=nearest){pickPin.current(pinHit.object.userData.pinId);return 'answered';}
    if(found<0&&amount>.45)found=findTarget(x,y,touch?24:16);if(found>=0&&added[found]){hover.hidden=true;
@@ -277,7 +288,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const focusBlur=new FocusBlur(renderer,()=>el.clientWidth<768);
   // Everything the first Learn more draws for the first time (the blur, the neighbours' glass), compiled ahead: once the
   // body is in, and again as soon as a part is chosen (the peek always comes first).
-  let warmed=false;const warmFocus=()=>{if(disposed||warmed)return;const g=pickers.find(Boolean);if(!g)return;warmed=true;const probe=new T.Mesh(g.geometry,ghostMaterial);probe.frustumCulled=false;ghostGroup.add(probe);const pins=publishedLayer.warmup(g.geometry);pins.objects.forEach(o=>scene.add(o));const was=ghostGroup.visible;ghostGroup.visible=true;focusBlur.warm(scene,camera);ghostGroup.visible=was;ghostGroup.remove(probe);pins.objects.forEach(o=>scene.remove(o));dirty=true;};
+  let warmed=false;const warmFocus=()=>{if(disposed||warmed)return;const g=pickers.find(Boolean);if(!g)return;warmed=true;const probe=new T.Mesh(g.geometry,ghostMaterial);probe.frustumCulled=false;ghostGroup.add(probe);const pins=publishedLayer.warmup(g.geometry);pins.objects.forEach(o=>scene.add(o));const was=ghostGroup.visible,wasShell=shellGroup.visible;ghostGroup.visible=shellGroup.visible=true;focusBlur.warm(scene,camera);ghostGroup.visible=was;shellGroup.visible=wasShell;ghostGroup.remove(probe);pins.objects.forEach(o=>scene.remove(o));dirty=true;};
   const VIEWS:Record<string,T.Vector3>={front:new T.Vector3(0,.02,1),back:new T.Vector3(0,.02,-1),side:new T.Vector3(1,.02,0),'three-quarter':new T.Vector3(.35,.06,1)};
   let tick=0,lastDrawnTick=-2,lastDrawn=0,perfSent=false;const gaps:number[]=[],costs:number[]=[];const median=(a:number[])=>[...a].sort((x,y)=>x-y)[a.length>>1];
   const animate=()=>{
@@ -351,7 +362,11 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
      if(slowFrames.length>5&&[...slowFrames].sort((a,b)=>a-b)[slowFrames.length>>1]>28)focusBlur.enabled=false;slowFrames.length=0;
      if(to===1&&floatPending&&!reducedMotion()){floatPending=false;floatAt=performance.now();floatStop=0;}
      if(to===0){bodyShot=null;isoShot=null;lastState=null;tintFadeAt=performance.now()+1000;}}}
-   {const sm=T.MathUtils.smoothstep,still=reducedMotion();focusFx.uDissolve.value=sm(fp,.05,.8);ghostMaterial.opacity=.2*sm(fp,.4,.95);ghostGroup.visible=fp>.001;
+   {const sm=T.MathUtils.smoothstep,still=reducedMotion();see=still?(s.seeThrough?1:0):T.MathUtils.damp(see,s.seeThrough?1:0,10,dt);if(Math.abs(see-(s.seeThrough?1:0))>.001)dirty=true;else see=s.seeThrough?1:0;
+    // The body's own dissolve is a dither, so it runs in the first few frames only; the glass fades in over the rest.
+    focusFx.uDissolve.value=Math.max(sm(fp,.05,.8),sm(see,0,.55));ghostMaterial.opacity=.2*sm(fp,.4,.95);ghostGroup.visible=fp>.001;
+    // The same glass as the neighbours in focus (and the Playground's): 20%.
+    shellMaterial.opacity=.2*see*(1-sm(fp,.1,.6));shellGroup.visible=shellMaterial.opacity>.001;
     focusFx.uGlow.value=still||!fpTween?0:Math.sin(Math.PI*fp)*.55;(contact.material as T.MeshBasicMaterial).opacity=1-sm(fp,0,.4);
     // While a pin is placed, the others step back to 45% (film K7).
     const back=placingRef.current?.45:1;publishedLayer.opacity=sm(fp,.7,1)*back;labels.root.style.opacity=String(sm(fp,.7,1)*back);

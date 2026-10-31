@@ -26,7 +26,7 @@ export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;
 export type View = 'three-quarter'|'front'|'back'|'side';
 /** What the 3D scene shows. In focus (isolate), `neighbours` keeps nearby parts as grey ghosts, `labels` sets how pin
  * labels show (soft on About, full on Parts), `behind` shows pins on the far side, `hoverPin` lifts one label. */
-export interface SceneState {inspectorOpen?:boolean;explode:number;visible:SystemId[];selected:string[];isolate:boolean;view:View;rotate:boolean;reset:number;frame?:string;neighbours?:boolean;labels?:'off'|'soft'|'full';behind?:boolean;hoverPin?:string|null}
+export interface SceneState {inspectorOpen?:boolean;explode:number;visible:SystemId[];selected:string[];isolate:boolean;view:View;rotate:boolean;reset:number;frame?:string;neighbours?:boolean;labels?:'off'|'soft'|'full';behind?:boolean;hoverPin?:string|null;seeThrough?:boolean}
 export const DEFAULT_VISIBLE:SystemId[] = ['cardiac','sensory','skeletal','muscular','arterial','venous','nervous','respiratory','digestive','urinary','lymphatic','endocrine','reproductive','connective'];
 export const EXPLANATIONS:Record<string,string> = {
  'heart':'A muscular pump in the chest. Its right side sends blood to the lungs; its left side sends blood through the systemic circulation.',

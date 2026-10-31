@@ -227,7 +227,7 @@ export function StructureCard(p:Props){
    <p className="t-meta byline">{pin.by&&<span className={`avatar ${pin.by===p.me?'is-you':''}`} aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{byline(pin,p.me)}</p>
    {p.extras}
   </div>
-  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}<span/>{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
+  <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet step" onClick={()=>go(prev,-1)} aria-label={`Previous feature: ${prev.label}`}><ChevronLeft size={18} className="step-chev"/><span className="cap step-label">{prev.label}</span></button>:<span/>}<span/>{next?<button type="button" className="link-quiet step" onClick={()=>go(next,1)} aria-label={`Next feature: ${next.label}`}><span className="cap step-label">{next.label}</span><ChevronRight size={18} className="step-chev"/></button>:<span/>}</div>
  </m.div>;
 
  const [all,setAll]=useState(false);useEffect(()=>{setAll(false);},[facts.reference,mode]);
@@ -258,8 +258,8 @@ export function StructureCard(p:Props){
   <div className="mini-text"><p className="t-meta">{mode==='feature'&&p.pin?`Feature · ${index+1} of ${p.pins.length}`:mode==='contribute'?facts.title:`${facts.kind}${facts.side?` · ${facts.side}`:''}`}</p><p className="mini-title cap">{mode==='feature'&&p.pin?p.pin.label:mode==='contribute'?'Contribute':facts.title}</p></div>
   <span className="card-x mini-open" aria-hidden="true"><ChevronUp size={18}/></span>
   {mode==='feature'&&(prev||next)&&<div className="mini-steps t-meta">
-   {prev?<button type="button" className="link-quiet" onClick={e=>{e.stopPropagation();go(prev,-1);}} aria-label={`Previous feature: ${prev.label}`}>‹ <span className="cap">{prev.label}</span></button>:<span/>}
-   {next?<button type="button" className="link-quiet" onClick={e=>{e.stopPropagation();go(next,1);}} aria-label={`Next feature: ${next.label}`}><span className="cap">{next.label}</span> ›</button>:<span/>}
+   {prev?<button type="button" className="link-quiet step" onClick={e=>{e.stopPropagation();go(prev,-1);}} aria-label={`Previous feature: ${prev.label}`}><ChevronLeft size={18} className="step-chev"/><span className="cap step-label">{prev.label}</span></button>:<span/>}
+   {next?<button type="button" className="link-quiet step" onClick={e=>{e.stopPropagation();go(next,1);}} aria-label={`Next feature: ${next.label}`}><span className="cap step-label">{next.label}</span><ChevronRight size={18} className="step-chev"/></button>:<span/>}
   </div>}
  </m.div>;
  const full_=<m.div key="full" className="card-full" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.22,.06)}} exit={{opacity:0,transition:tween('in',.1)}}>{body0()}</m.div>;

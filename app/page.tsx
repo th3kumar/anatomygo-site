@@ -237,10 +237,13 @@ export default function Home(){
   if(!s.chosen&&atlas&&term&&results.length&&term!==s.reported){s.reported=term;track('search_abandoned',{query_kind:queryKind(term),result_count:bucket(results.length),search_terms:searchTerms(term,atlas)});}
  },[panel]);
  useEffect(()=>{const term=query.trim();if(!atlas||!term||results.length)return;const t=setTimeout(()=>{if(missed.current&&term.startsWith(missed.current))return;missed.current=term;track('search_no_result',{query_kind:queryKind(term),count:bucket(term.length),search_terms:searchTerms(term,atlas),search_text:searchText(term)});},1200);return()=>clearTimeout(t);},[atlas,query,results.length]);
- const choose=(c:Concept,source:string)=>{visit.current.structures.add(c.id);track('structure_selected',{source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ // Picked from search: the rest of the body turns to glass so the structure shows wherever it sits (until Learn more,
+ // another pick, or closing).
+ const [seeThrough,setSeeThrough]=useState(false);
+ const choose=(c:Concept,source:string)=>{setSeeThrough(source==='search');visit.current.structures.add(c.id);track('structure_selected',{source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  useEffect(()=>{if(!atlas)return;return registerAtlasTools(atlas,c=>flushSync(()=>choose(c,'agent')));},[atlas]);
- const choosePart=(id:string,source:string)=>{const p=parts.get(id);if(!p)return;visit.current.structures.add(id);track('structure_selected',{source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
- const toggle=(id:SystemId)=>{visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
+ const choosePart=(id:string,source:string)=>{const p=parts.get(id);if(!p)return;setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ const toggle=(id:SystemId)=>{setSeeThrough(false);visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
  const reset=()=>{track('view_reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
  useEffect(()=>{if(!atlas)return;const q=new URLSearchParams(location.search),id=q.get('structure');if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')!=='0')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
  const failed=(message:string)=>{setError(message);if(/WebGL/.test(message))track('renderer_failed',{reason:'webgl'});else if(/paused/.test(message))track('renderer_failed',{reason:'context_lost'});else track('atlas_download_failed',{stage:'models'});};
@@ -265,8 +268,8 @@ export default function Home(){
  const clearing=useRef(0);
  const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
  // Back to the body: the card and pins leave, the camera returns, and the structure keeps its tint for 1.2 s.
- const backToBody=()=>{setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
- const closeCard=()=>{if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
+ const backToBody=()=>{setSeeThrough(false);setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
+ const closeCard=()=>{setSeeThrough(false);if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
  const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more'});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
@@ -276,7 +279,7 @@ export default function Home(){
  const facts:CardFacts|null=chosen&&selected?{kind:KIND[selected.system]??system?.name??'Structure',title:capitalise(chosen.name),description:explanation(chosen.name,selected.system),curated:!!EXPLANATIONS[chosen.name.toLowerCase()],system:system?.name??'Anatomy',side,pieces:selectedParts.length,features:featureCounts?featureCounts.pinned:null,reference:chosen.id}:null;
  const pinHref=(p:{proposal?:string})=>`/playground/?structure=${encodeURIComponent(selected?.id??'')}${p.proposal?`&pin=${encodeURIComponent(p.proposal)}`:''}&from=home_pin`;
  const systemIds=DEFAULT_VISIBLE.filter(id=>activeSystems.some(s=>s.id===id));
- const applyPreset=(p:Preset)=>{track('preset_applied',{preset:p});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:presetSystems(p,systemIds)}));};
+ const applyPreset=(p:Preset)=>{setSeeThrough(false);track('preset_applied',{preset:p});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:presetSystems(p,systemIds)}));};
  const showOnly=(id:SystemId)=>{track('preset_applied',{preset:'only',system_id:id});setDetails(false);setState(v=>({...v,visible:[id],isolate:false,selected:[]}));};
  const explodeTo=(value:number)=>{if(!exploded.current){exploded.current=true;track('explode_used');}setState(s=>{if(s.explode<=.8&&value>.8)preExplodeView.current=s.view;const view=s.explode>.8&&value<=.8?preExplodeView.current??s.view:value>.8?'front':s.view;return {...s,explode:value,view,rotate:false};});};
  const setView=(v:View)=>{track('camera_view',{view:v});setState(s=>({...s,view:v,reset:s.reset+1,rotate:false}));};
@@ -291,7 +294,7 @@ export default function Home(){
  const tap=coarse?'Tap':'Click',inspecting=details&&selectedParts.length>0;
  // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
  const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
- const sceneState={...state,inspectorOpen:inspecting,neighbours:focusOptions.neighbours,behind:focusOptions.behind,labels:(!focusOptions.labels?'off':mode==='focus'&&tab==='about'?'soft':'full') as 'off'|'soft'|'full',hoverPin,frame:`${mode}:${tab}:${focused?1:0}:${phone?sheetRest:0}:${cardMini?1:0}`};
+ const sceneState={...state,seeThrough:seeThrough&&state.selected.length>0&&state.explode<.05,inspectorOpen:inspecting,neighbours:focusOptions.neighbours,behind:focusOptions.behind,labels:(!focusOptions.labels?'off':mode==='focus'&&tab==='about'?'soft':'full') as 'off'|'soft'|'full',hoverPin,frame:`${mode}:${tab}:${focused?1:0}:${phone?sheetRest:0}:${cardMini?1:0}`};
  const hintId=state.explode>.8?'pan':inspecting?'switch':'learn';
  const systemsBody=<SystemsBody systems={activeSystems} allSet={systemIds} counts={counts} visible={state.visible} shown={visibleCount} explode={state.explode} onPreset={applyPreset} onToggle={toggle} onOnly={showOnly} onExplode={explodeTo}/>;
  const aboutPages={
