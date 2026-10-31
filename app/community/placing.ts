@@ -13,6 +13,12 @@ export interface Saved {request:string;mesh:string;kind:Draft['kind'];landmark:s
  /** What was typed, and the pin's own description it replaces, so a kept draft reopens as it was left. */
  note:string;base:string}
 
+/** A random ID for a request. crypto.randomUUID needs a secure page and iOS 15.4+; getRandomValues works everywhere. */
+export function uuid():string{
+ if(typeof crypto.randomUUID==='function'&&isSecureContext)return crypto.randomUUID();
+ const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+ const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
 const KEY='anatomygo.drafts';
 export function keptDrafts():Saved[]{try{const v=JSON.parse(localStorage.getItem(KEY)??'[]');return Array.isArray(v)?v:[];}catch{return [];}}
 function keep(list:Saved[]){try{if(list.length)localStorage.setItem(KEY,JSON.stringify(list));else localStorage.removeItem(KEY);}catch{/* private mode: the pin lasts this visit */}}

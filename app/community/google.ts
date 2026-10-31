@@ -2,6 +2,7 @@
  * and opens its small window. The ID token it returns is exchanged with Supabase; the nonce ties it to this button.
  * It needs only this site's domain to be allowed in the Google client, so it works on / as it does on /playground/. */
 import {cloud} from './cloud';
+import {uuid} from './placing';
 
 interface GoogleId {initialize(options:Record<string,unknown>):void;renderButton(parent:HTMLElement,options:Record<string,unknown>):void}
 declare global {interface Window {google?:{accounts:{id:GoogleId}}}}
@@ -22,7 +23,7 @@ async function sha256(text:string){const d=await crypto.subtle.digest('SHA-256',
 
 /** Draws Google's button into `parent`. A click there signs in; `onDone` gets null or the reason it failed. */
 export async function showGoogleButton(parent:HTMLElement,look:{dark:boolean;width:number},onDone:(error:string|null)=>void,onChosen=()=>{}){
- const [id,c]=await Promise.all([load(),cloud()]),nonce=crypto.randomUUID();
+ const [id,c]=await Promise.all([load(),cloud()]),nonce=uuid();
  id.initialize({client_id:client,nonce:await sha256(nonce),ux_mode:'popup',use_fedcm_for_button:true,itp_support:true,context:'signin',
   callback:async({credential}:{credential:string})=>{onChosen();const {error}=await c.auth.signInWithIdToken({provider:'google',token:credential,nonce});onDone(error?error.message:null);}});
  parent.replaceChildren();

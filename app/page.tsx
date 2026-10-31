@@ -12,7 +12,7 @@ import {useFeatureDetail,type Spot} from './community/feature-detail';
 import {FeatureExtras} from './community/feature-extras';
 import {ReviewQueue} from './community/admin';
 import {PlaceSteps,type Refusal} from './community/place-card';
-import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
+import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,uuid,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
 import {registerAtlasTools} from './agent-tools';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -139,7 +139,7 @@ export default function Home(){
  const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[admin,setAdmin]=useState(false),[review,setReview]=useState(false);
  useEffect(()=>{setAdmin(false);if(session)void rpc<boolean>('pg_is_admin',{}).then(v=>setAdmin(!!v)).catch(()=>{});},[session]);
  const postRemark=async(text:string)=>{if(!viewPin?.proposal)return false;if(!session){setCloudOn(true);setAsk('comment');track('sign_in_prompted',{reason:'comment'});return false;}
-  try{await rpc('pg_comment',{p_proposal:viewPin.proposal,p_body:text,p_request:crypto.randomUUID()});setDetailVersion(v=>v+1);return true;}catch{setToast('That didn’t post. Please try again.');return false;}};
+  try{await rpc('pg_comment',{p_proposal:viewPin.proposal,p_body:text,p_request:uuid()});setDetailVersion(v=>v+1);return true;}catch{setToast('That didn’t post. Please try again.');return false;}};
  const removeRemark=async(id:string)=>{try{await rpc('pg_remove_comment',{p_comment:id});track('comment_deleted');setDetailVersion(v=>v+1);}catch{setToast('That didn’t delete. Please try again.');}};
  // The pin's ⋯ menu: vote down, report (signed in), delete your own unpublished pin. Each asks in a small dialog.
  const [act,setAct]=useState<{kind:'report'|'delete';pin:PublishedPin}|null>(null),[reason,setReason]=useState(''),[actBusy,setActBusy]=useState(false),[actError,setActError]=useState('');
@@ -160,7 +160,7 @@ export default function Home(){
  draftRef.current=draft?.request??null;
  const startDraft=(d:Pick<Draft,'kind'|'landmark'|'supersedes'|'label'|'latin'|'description'>)=>{if(!selected)return;
   const left=d.landmark&&keptHere.find(k=>k.landmark===d.landmark&&k.kind===d.kind);if(left){resume(left);return;}
-  setDraft({...d,request:crypto.randomUUID(),mesh:selected.id,anchor:null,note:''});setRefused(null);setSaveState('idle');setSaveError('');setInvalidTris([]);
+  setDraft({...d,request:uuid(),mesh:selected.id,anchor:null,note:''});setRefused(null);setSaveState('idle');setSaveError('');setInvalidTris([]);
   void unusable(selected.id).then(setInvalidTris);track('draft_started',{kind:d.kind,practice:0});};
  const cancelDraft=()=>{if(draft)track('draft_cancelled',{stage:draft.anchor?'placed':'placing'});setDraft(null);};
  const savePin=async()=>{if(!draft?.anchor||saveState!=='idle')return;setSaveState('saving');setSaveError('');
