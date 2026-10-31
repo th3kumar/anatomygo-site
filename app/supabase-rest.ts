@@ -3,6 +3,8 @@
  * after a short pause; a cancel from the caller is never retried. */
 export class RestError extends Error {constructor(message:string,readonly status:number){super(message);}}
 const TIMEOUT=8000,PAUSE=600;
+// RPCs this visit found missing (a migration not applied yet): asked once, then the caller goes straight to its older reads.
+const missing=new Set<string>();
 
 export function supabaseConfig(){
  const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -12,6 +14,7 @@ export function supabaseConfig(){
 /** GET `path` (a table query), or POST `body` to it (an `rpc/…` call). */
 export async function rest<R>(path:string,{body,signal}:{body?:unknown;signal?:AbortSignal}={}):Promise<R>{
  const config=supabaseConfig();if(!config)throw new RestError('Supabase is not set up on this copy of the site.',0);
+ if(missing.has(path))throw new RestError('HTTP 404',404);
  for(let attempt=0;;attempt++){
   const timer=new AbortController(),stop=()=>timer.abort();
   signal?.addEventListener('abort',stop,{once:true});
@@ -19,6 +22,7 @@ export async function rest<R>(path:string,{body,signal}:{body?:unknown;signal?:A
   try{
    const r=await fetch(`${config.url}/rest/v1/${path}`,{method:body===undefined?'GET':'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:timer.signal});
    if(r.ok)return await r.json() as R;
+   if(r.status===404&&path.startsWith('rpc/'))missing.add(path);
    if(r.status<500||attempt)throw new RestError(`HTTP ${r.status}`,r.status);
   }catch(e){
    if(signal?.aborted)throw e;

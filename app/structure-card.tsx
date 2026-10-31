@@ -128,7 +128,10 @@ export function StructureCard(p:Props){
  useLayoutEffect(()=>{if(!phone)return;const measure=()=>{const s=sheet.current,sc=scroller.current;if(!s||mini)return;if(mode==='peek'){setFit(0);return;}if(!sc)return;
    // The content's own height (not the scroll box's), so a sheet with little to show can shrink to fit it.
    const kids=Array.from(sc.children) as HTMLElement[];if(!kids.length)return;const cs=getComputedStyle(sc),first=kids[0].getBoundingClientRect().top,last=Math.max(...kids.map(k=>k.getBoundingClientRect().bottom));
-   setFit(Math.ceil(s.offsetHeight-sc.clientHeight+(last-first)+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)));};
+   // Fractional sizes, and a change under a pixel ignored: whole-pixel offsetHeight/clientHeight of a sheet whose height
+   // springs in fractions flipped the fit by 1 px every frame, so the spring never came to rest.
+   const next=Math.ceil(s.getBoundingClientRect().height-sc.getBoundingClientRect().height+(last-first)+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom));
+   setFit(f=>Math.abs(f-next)<=1?f:next);};
   measure();const ro=new ResizeObserver(measure);const sc=scroller.current;if(sc){ro.observe(sc);for(const ch of Array.from(sc.children))ro.observe(ch);}return()=>ro.disconnect();});
  useEffect(()=>{setFull(false);},[mode,tab,facts.reference,index]);
  useEffect(()=>{if(phone&&rest)p.onRest?.(Math.round((mini?MINI:rest)/16)*16);},[phone,rest,mini]);

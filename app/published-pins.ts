@@ -15,7 +15,9 @@ let meta:Promise<ModelMeta>|undefined;
 export function modelMeta(){return meta??=fetch('/models/playground-geometry.json').then(r=>{if(!r.ok)throw Error('Model metadata unavailable');return r.json() as Promise<ModelMeta>;}).then(x=>{if(typeof x?.geometry!=='string'||x.geometry.length!==64)throw Error('Model metadata invalid');return x;}).catch(e=>{meta=undefined;throw e;});}
 /** The model's geometry fingerprint: placements are stored against it, so a pin can't land on a different model. */
 export function fingerprint(){return modelMeta().then(x=>x.geometry);}
-const validAnchor=(a:{triangle:number;u:number;v:number}|undefined)=>!!a&&Number.isInteger(a.triangle)&&a.triangle>=0&&Number.isFinite(a.u)&&Number.isFinite(a.v)&&a.u>=0&&a.v>=0&&a.u+a.v<=1;
+// u+v may pass 1 by a rounding step (1.0000000000000002 on a starter pin of the right ulna, which made the whole pack
+// fail), so it gets that much slack.
+const validAnchor=(a:{triangle:number;u:number;v:number}|undefined)=>!!a&&Number.isInteger(a.triangle)&&a.triangle>=0&&Number.isFinite(a.u)&&Number.isFinite(a.v)&&a.u>=0&&a.v>=0&&a.u+a.v<=1+1e-9;
 export function validatePublishedPack(value:unknown,mesh:string,expectedGeometry:string):PublishedPin[]{
  const p=value as Pack;
  if(!p||p.schema!==1||p.meshId!==mesh||p.geometry!==expectedGeometry||!Array.isArray(p.pins)||p.pins.length>100)throw Error('Published pins do not match this model.');

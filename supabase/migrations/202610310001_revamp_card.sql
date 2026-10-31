@@ -1,7 +1,9 @@
 -- The revamp's reads and account deletion. Add-only: no existing table, function, policy or grant changes, so the live
 -- site and Playground behave exactly as before. Undo: supabase/rollback/202610310001_revamp_card.sql.
+-- One transaction: if any statement fails (a lock not free within 3 s), nothing is applied and it can simply be run again.
+begin;
 -- Give up rather than queue behind live reads if a table lock isn't free at once.
-set lock_timeout='3s';
+set local lock_timeout='3s';
 
 -- A muscle's attachment feature ("Origin: subscapular fossa" on subscapularis) can point at the bone's own feature
 -- (subscapular fossa on the scapula). Set by admins and pilot rounds; browser roles can't write pg_landmarks.
@@ -99,3 +101,5 @@ revoke all on function playground_private.delete_account(uuid),playground_privat
 revoke all on function public.pg_feature_counts(text[]),public.pg_card(text),public.pg_delete_my_account() from public,anon,authenticated;
 grant execute on function public.pg_feature_counts(text[]),public.pg_card(text) to anon,authenticated;
 grant execute on function public.pg_delete_my_account() to authenticated;
+
+commit;
