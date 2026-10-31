@@ -187,3 +187,9 @@ Measured against the live API, using public reads only.
   the project before applying. If it can't, that step fails and the whole deletion is undone, so nothing is left
   half-deleted. The fix is then to drop that line and delete the sign-in with the dashboard's Delete user, which works
   once the other rows are gone.
+
+## 9. Ready for launch, 31 Oct
+- **Runbook:** `go-live-backend.md` has the order, the checks to run before and after applying, the undo, and how it
+  was tested on a full copy of the live data.
+- **1.1 is not needed.** The revamp signs in with the Google one-tap button (as the live Playground does), not the
+  redirect flow, so Supabase's redirect URLs stay as they are.
