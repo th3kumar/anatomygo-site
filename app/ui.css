@@ -468,3 +468,9 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .profile-admin+.profile-out{margin-top:4px}
 .queue-tools .field{flex:none}
 .panel.dialog{background-color:var(--ground-flat)}
+/* Loading: one card in the middle while the model streams in (Preparing the anatomy, what is arriving, the percentage). */
+.panel.loader{position:fixed;z-index:50;left:50%;top:50%;translate:-50% -50%;width:min(320px,calc(100vw - 48px));padding:18px 20px 20px;display:flex;flex-direction:column;gap:4px;background-color:var(--ground-flat);pointer-events:none}
+.loader-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.loader-pc{font-variant-numeric:tabular-nums}
+.loader-bar{display:block;height:4px;margin-top:12px;border-radius:2px;background:var(--hair-3);overflow:hidden}
+.loader-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);transform-origin:0 50%;transition:transform .4s var(--ease-out)}
