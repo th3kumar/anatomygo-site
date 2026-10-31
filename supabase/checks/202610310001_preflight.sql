@@ -24,8 +24,8 @@ select check_name, case when passed then 'ok' else 'STOP' end as result, detail 
   'a long-running query would make the migration wait (it gives up after 3 s and can be run again)'
 ) c
 union all
--- For the record (no pass/fail): the anchor rule in production, and pins on its edge. One starter pin on the right
--- ulna has u+v = 1.0000000000000002, which the repository's constraint would not allow.
+-- For the record (no pass/fail): the anchor rule in production, and pins past its edge. (On 31 Oct there were none: a
+-- right-ulna pin whose u+v reads 1.0000000000000002 through the API is rounding in the API's 15-digit output.)
 select 'proposal constraint: '||conname, 'info', pg_get_constraintdef(oid) from pg_constraint where conrelid='public.pg_proposals'::regclass and contype='c'
 union all
 select 'pins with u+v over 1', 'info', count(*)::text from public.pg_proposals where u+v>1;
