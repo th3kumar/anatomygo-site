@@ -65,14 +65,22 @@ function llms({list,stats}){
  const muscles=list.filter(g=>g.system==='muscular'),others=list.filter(g=>g.system!=='muscular');
  return `# AnatomyGo
 
-> AnatomyGo (${SITE}) is a free 3D human anatomy atlas that runs in the browser, with no sign-up. It has 2,234 modelled bones, muscles, organs, vessels and nerves from BodyParts3D, plus ${n(stats.pins)} pins that mark ${n(stats.features)} named landmarks and features on ${n(stats.structures)} structures, including the origin and insertion areas of ${n(stats.muscles.length)} muscles. Built for medical, physiotherapy, nursing, dental and allied-health students and their teachers.
+> AnatomyGo (${SITE}) is a free 3D human anatomy atlas that runs in the browser and on Android. It is free for everyone: no premium tier, no subscription, no ads, and no sign-up needed to study. It has 2,234 modelled bones, muscles, organs, vessels and nerves from BodyParts3D, plus ${n(stats.pins)} pins that mark ${n(stats.features)} named landmarks and features on ${n(stats.structures)} structures, including the origin and insertion areas of ${n(stats.muscles.length)} muscles. Built for medical, physiotherapy, nursing, dental and allied-health students and their teachers.
 
 ## What makes it different
 
 - **Landmarks on the real 3D shape.** Each pin sits on the exact spot of the model: tubercles, foramina, fossae, lines and borders, each with a short description. Lines and areas are drawn as shapes, not only as points.
 - **Muscle origins and insertions as areas.** Muscles show where they attach: origins in red, insertions in blue, together with the bone landmark they attach to.
 - **Placed by measurement and checked against sources.** Most pins were placed by measuring the 3D model (joint lines, sutures, borders and contact with neighbouring structures) and checked against published anatomy references such as Gray's Anatomy, TeachMeAnatomy and peer-reviewed measurement studies. Every pin stays open to community review, and the app marks pins that have not been reviewed yet.
-- **Free and open.** Free on the web and on Android (Google Play). The 3D model is BodyParts3D (CC BY-SA 2.1 Japan, Database Center for Life Science).
+- **Free for everyone.** On the web and on Android (Google Play), with no premium tier, no subscription and no ads. The 3D model is BodyParts3D (CC BY-SA 2.1 Japan, Database Center for Life Science).
+
+## How students use it
+
+1. **Search a structure by name.** Picked from search, it shows through the rest of the body as glass, so deep structures such as the trachea or the heart are visible in place.
+2. **Learn more** shows it on its own, with its pinned landmarks on the model and its neighbouring structures as faint glass for orientation.
+3. **About and Parts.** About gives a short description; Parts lists every pinned landmark with its description. Open one to see it on the model, then step to the next with the arrows or a swipe.
+4. **On any device.** It works on phones, tablets and laptops, with swipeable tabs on phones.
+5. **Share and contribute.** Copy a link that opens the same structure or landmark. Signed in with Google, pin a missing landmark in your name, vote on others or comment; pins are reviewed before they are published.
 
 ## How to link to a structure
 
@@ -106,7 +114,7 @@ function llmsFull({list,stats}){
  };
  return `# AnatomyGo: pinned anatomy features
 
-> Every landmark, origin and insertion pinned on the AnatomyGo 3D atlas (${SITE}), in plain text. ${n(stats.pins)} pins on ${n(stats.features)} features of ${n(stats.structures)} structures, updated ${today}. Each structure links to the free 3D explorer, which opens on that structure with its pins. Left and right sides are listed together. Most pins were placed by measuring the 3D model and checked against published anatomy references; all pins stay open to community review.
+> Every landmark, origin and insertion pinned on the AnatomyGo 3D atlas (${SITE}), in plain text. The explorer is free for everyone (no premium tier, no subscription, no ads). ${n(stats.pins)} pins on ${n(stats.features)} features of ${n(stats.structures)} structures, updated ${today}. Each structure links to the free 3D explorer, which opens on that structure with its pins. Left and right sides are listed together. Most pins were placed by measuring the 3D model and checked against published anatomy references; all pins stay open to community review.
 
 ${list.map(block).join('\n')}
 `;
@@ -132,7 +140,7 @@ function homepage(html,{stats}){
   {'@type':'WebApplication','@id':`${SITE}/#app`,name:'AnatomyGo',url:`${SITE}/`,description,applicationCategory:'EducationalApplication',operatingSystem:'Any (web browser with WebGL)',isAccessibleForFree:true,offers:{'@type':'Offer',price:'0',priceCurrency:'USD'},
    audience:{'@type':'EducationalAudience',educationalRole:'student',audienceType:'Medical, physiotherapy, nursing, dental and allied-health students and teachers'},
    about:[{'@type':'Thing',name:'Human anatomy'},{'@type':'Thing',name:'Anatomical landmarks'},{'@type':'Thing',name:'Muscle origins and insertions'}],
-   featureList:['2,234 modelled structures from BodyParts3D',`${n(stats.pins)} pins on ${n(stats.features)} anatomical landmarks and features`,`Origin and insertion areas of ${n(stats.muscles.length)} muscles`,'Isolate, hide and explode any structure','Free, no sign-up'],
+   featureList:['2,234 modelled structures from BodyParts3D',`${n(stats.pins)} pins on ${n(stats.features)} anatomical landmarks and features`,`Origin and insertion areas of ${n(stats.muscles.length)} muscles`,'Search shows a structure in place, with the rest of the body as glass','Isolate, hide and explode any structure','Works on phones, tablets and laptops','Free for everyone: no premium tier, no subscription, no ads, no sign-up'],
    sameAs:['https://play.google.com/store/apps/details?id=com.anatomygo'],dateModified:today}]};
  const about=`<section class="sr-only" aria-label="About AnatomyGo"><h2>Pinned landmarks, origins and insertions</h2><p>${n(stats.pins)} pins mark ${n(stats.features)} landmarks and features on ${n(stats.structures)} structures, each placed on the 3D model and described. Muscle origins are shown in red and insertions in blue. Most pins were placed by measuring the model and checked against published anatomy references, and every pin stays open to community review.</p><p>Muscles with mapped origins and insertions: ${esc(stats.muscles.join(', '))}. <a href="/whats-new/#origins-insertions">See each muscle's origin and insertion</a>.</p></section>`;
  html=swap(html,/<meta name="description" content="[^"]*"\/>/,`<meta name="description" content="${esc(description)}"/>`);

@@ -42,3 +42,7 @@ a:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-fill)}
 .footer{padding:4px 6px;font-size:var(--fs-small);line-height:1.6;color:var(--text-3);text-align:center}
 .footer p{margin:0 0 4px}
 .footer a{color:var(--text-2)}
+.news{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column}
+.news li{padding:10px 0;border-top:1px solid var(--hair-2);font-size:var(--fs-body);line-height:1.55;color:var(--text-2)}
+.news li:first-child{border-top:0}
+.news b{font-weight:600;color:var(--text)}
