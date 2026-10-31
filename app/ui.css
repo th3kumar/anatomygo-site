@@ -177,7 +177,8 @@ button svg,a svg{flex-shrink:0}
 .hint-line b{font-weight:400;color:var(--text)}
 
 /* Error */
-.error-card{position:absolute;z-index:60;left:50%;top:50%;transform:translate(-50%,-50%);width:min(360px,calc(100vw - 32px));padding:24px;display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.error-card{position:absolute;z-index:60;left:50%;top:50%;transform:translate(-50%,-50%);width:min(360px,calc(100vw - 32px));padding:28px;display:flex;flex-direction:column;gap:8px;align-items:stretch;text-align:center;background-color:var(--ground-flat)}
+.error-card .btn-accent{margin-top:16px}
 
 /* Structure card (app/structure-card.tsx): peek 400 wide, focus 372 × 600, anchored top-right; a sheet on phones. */
 .scard{position:absolute;z-index:30;top:96px;right:32px;overflow:hidden;color:var(--text);display:flex;flex-direction:column}

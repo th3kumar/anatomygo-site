@@ -49,6 +49,11 @@ const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],isolate:
 // A load still running in this tab; if it is there when the page starts again, the last load never finished (a reload, or on phones usually the browser closing the tab for memory).
 const LOADING='anatomygo.loading';
 const fpsBucket=(fps:number)=>fps<20?'0_19':fps<30?'20_29':fps<45?'30_44':fps<58?'45_57':'58_plus';
+/** A failure in plain words: a lost connection reads as one, never as the browser's own text ("Failed to fetch"). */
+function problem(error:string):[string,string]{
+ if(/fetch|network|load failed|timed? ?out|http \d|could not load|offline/i.test(error))return ['The 3D model didn’t load','Check your connection, then try again.'];
+ return ['The 3D viewer stopped',error];
+}
 export default function Home(){
  const detailTitle=useRef<HTMLHeadingElement>(null),ready=useRef(false),usable=useRef(false),exploded=useRef(false),preExplodeView=useRef<View|null>(null);
  const {choice,dark}=useAppearance();
@@ -319,7 +324,7 @@ export default function Home(){
     ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature'){setSelectedPin(null);setTab('parts');}else backToBody();}}/></m.div>
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={chromeReady?null:progress}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
-   {!phone&&<Arrive ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
+   {!phone&&<Arrive ready={chromeReady&&!error&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
    <AnimatePresence initial={false}>{phone&&focused?<Arrive key="focus-actions" ready delay={focusDelay} enter={.26} edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive key="page-actions" ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
     <ThemeButton dark={dark} onToggle={toggleTheme}/>
     {phone
@@ -327,7 +332,7 @@ export default function Home(){
      :<GlassButton label="About" onClick={()=>openAbout('top_bar')} aria-label={appBadge?'About this atlas. New: the Android app':'About this atlas'}>{appBadge&&<span className="app-dot" aria-hidden="true"/>}</GlassButton>}
    </Arrive>}</AnimatePresence>
   </header>
-  {!phone&&<Arrive ready={chromeReady&&!focused&&!(mid&&inspecting)} delay={bodyDelay} edge="left" order={0} className="panel systems" data-inset={focused||(mid&&inspecting)?undefined:'left'} role="region" aria-label="Systems">{systemsBody}</Arrive>}
+  {!phone&&<Arrive ready={chromeReady&&!error&&!focused&&!(mid&&inspecting)} delay={bodyDelay} edge="left" order={0} className="panel systems" data-inset={focused||(mid&&inspecting)?undefined:'left'} role="region" aria-label="Systems">{systemsBody}</Arrive>}
   <AnimatePresence>{phone&&panel==='layers'&&<>
    <m.div key="scrim" className="sheet-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={tween('out',.2)} onClick={()=>setPanel(null)}/>
    <m.section key="systems" className="sheet systems-sheet" role="dialog" aria-label="Systems" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet} drag="y" dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.6}} onDragEnd={(_,i)=>{if(i.offset.y>80||i.velocity.y>500)setPanel(null);}}>
@@ -337,19 +342,19 @@ export default function Home(){
   <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} features={featureResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
-    <Arrive ready={chromeReady&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
-    {<Arrive ready={chromeReady&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
+    <Arrive ready={chromeReady&&!error&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
+    {<Arrive ready={chromeReady&&!error&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
      {!lighting&&<Hint id={hintId} className="hint-phone">{state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
      <div className="bottom-row">{panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>}<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
     </Arrive>}
    </>
    :<>
     <AnimatePresence initial={false}>{focused?<Arrive key="focus-dock" ready delay={focusDelay} edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
-    :<Arrive key="body-dock" ready={chromeReady} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
-    {<Arrive ready={chromeReady&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
+    :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
+    {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
   <p className="sr-only" role="status">{chromeReady?'':`Preparing the anatomy, ${progress}%`}</p>
-  {error&&<div className="panel error-card" role="alert"><p className="t-body">{error}</p><button type="button" className="btn-quiet" onClick={()=>location.reload()}>Reload</button></div>}
+  {error&&(()=>{const [title,line]=problem(error);return <div className="panel error-card" role="alert"><h2 className="t-title">{title}</h2><p className="t-body2">{line}</p><button type="button" className="btn-accent" onClick={()=>location.reload()}>Try again</button></div>;})()}
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
    profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
