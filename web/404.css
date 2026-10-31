@@ -1,0 +1,11 @@
+/* Page not found, in the app's own look (app/tokens.css). */
+@import '../app/tokens.css';
+html{font-family:var(--font);-webkit-font-smoothing:antialiased;color:var(--text);background:var(--ground-flat);color-scheme:light}
+html.dark{color-scheme:dark}
+body{margin:0;min-height:100dvh;display:grid;place-items:center;background:var(--ground) fixed}
+.lost{max-width:420px;padding:32px 16px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.eyebrow{margin:0;font-size:var(--fs-small);color:var(--text-3)}
+h1{margin:8px 0 0;font-size:var(--fs-title);font-weight:600;letter-spacing:-.01em}
+.line{margin:8px 0 0;font-size:var(--fs-body);line-height:1.55;color:var(--text-2)}
+.primary{margin-top:24px;display:inline-flex;align-items:center;min-height:48px;padding:0 22px;border-radius:var(--r-ctl);font-size:15px;font-weight:600;text-decoration:none;background:var(--accent-fill);border:1px solid var(--accent-line);color:var(--accent-on)}
+.primary:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-fill)}
