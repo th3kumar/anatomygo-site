@@ -47,7 +47,9 @@ interface Props {
  /** Copies the pin's link; true when it reached the clipboard. */
  onShare:(pin:PublishedPin)=>Promise<boolean>;
  /** The ⋯ menu's actions for a pin (vote down, report, delete). */
- menu:(pin:PublishedPin)=>MenuItem[];onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ menu:(pin:PublishedPin)=>MenuItem[];
+ /** Under the byline: other spots and comments. */
+ extras?:ReactNode;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
@@ -220,6 +222,7 @@ export function StructureCard(p:Props){
     <div className="list">{p.needsPin.slice(0,2).map(f=><button type="button" key={f.id} className="row" onClick={()=>p.onPlace(f)}><span className="cap">{f.label}</span><span className="t-meta pin-it">Pin it ›</span></button>)}</div></>}
    {p.voteError&&<p className="t-meta vote-error" role="alert">{p.voteError}</p>}
    <p className="t-meta byline">{pin.by&&<span className={`avatar ${pin.by===p.me?'is-you':''}`} aria-hidden="true">{pin.by.charAt(0).toUpperCase()}</span>}{byline(pin,p.me)}</p>
+   {p.extras}
   </div>
   <div className="prev-next t-meta">{prev?<button type="button" className="link-quiet" onClick={()=>go(prev,-1)}>‹ <span className="cap">{prev.label}</span></button>:<span/>}<span/>{next?<button type="button" className="link-quiet" onClick={()=>go(next,1)}><span className="cap">{next.label}</span> ›</button>:<span/>}</div>
  </m.div>;

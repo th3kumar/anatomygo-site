@@ -433,3 +433,21 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .pin-menu-item.is-danger{color:var(--destructive)}
 .pin-menu-check{color:var(--accent-text)}
 .card-row .pin-menu-trigger{margin-left:auto}
+/* Under a feature: other spots and comments, as quiet rows that fold open. */
+.feature-extras{display:flex;flex-direction:column;margin-top:4px}
+.fold{border-top:1px solid var(--hair-2)}
+.fold-row{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;font-size:var(--fs-body);color:var(--text);text-align:left}
+.fold-chev{color:var(--text-3);transition:rotate .2s var(--ease-out)}
+.fold-row[aria-expanded=true] .fold-chev{rotate:180deg}
+.fold-body{overflow:hidden}
+.fold-inner{display:flex;flex-direction:column;gap:12px;padding:0 0 14px}
+.spot-row .spot-who{display:flex;align-items:center;gap:10px}
+.spot-row.is-on .t-meta:last-child{color:var(--accent-text)}
+.remark{display:flex;flex-direction:column;gap:2px}
+.remark strong{color:var(--text);font-weight:600}
+.field.remark-field{resize:none;line-height:1.5}
+.remark-send{display:flex;justify-content:flex-end}
+.remark-send .btn-accent{width:auto;height:40px;padding:0 20px}
+/* Phone sheets are solid: there is no blur over the model on phones, so text and fields stay readable (the sheet's
+   own sheen stays on top). */
+.scard.is-sheet{background-color:var(--ground-flat)}

@@ -7,6 +7,8 @@ import {Dialog} from './community/dialog';
 import type {MenuItem} from './community/pin-menu';
 import {Profile} from './community/account';
 import {copy,pinLink} from './community/share';
+import {useFeatureDetail,type Spot} from './community/feature-detail';
+import {FeatureExtras} from './community/feature-extras';
 import {PlaceSteps,type Refusal} from './community/place-card';
 import {dropDraft,keepDraft,keptDrafts,myName,reopen,submit,toSaved,unusable,type Draft,type Saved} from './community/placing';
 import {flushSync} from 'react-dom';
@@ -95,6 +97,13 @@ export default function Home(){
   if(await votes.vote(pin.proposal,next)==='kept'&&next!==0&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
+ // Other spots for the open feature: choosing one shows it on the model, and the card's vote and byline follow it.
+ // A suggestion is a point, so a chosen spot never carries the reviewed pin's line or area.
+ const [alt,setAlt]=useState<Spot|null>(null),[detailVersion,setDetailVersion]=useState(0),[geometry,setGeometry]=useState<string|null>(null);
+ useEffect(()=>{void fingerprint().then(setGeometry).catch(()=>{});},[]);
+ useEffect(()=>{setAlt(null);},[selectedPin]);
+ const viewPin=useMemo(()=>pin&&alt&&alt.proposal!==pin.proposal?{...pin,proposal:alt.proposal,label:alt.label||pin.label,latinName:alt.latinName||pin.latinName,description:alt.description,anchor:alt.anchor,by:alt.by,at:alt.at,upvotes:alt.upvotes,kind:'community' as const,shape:null}:pin,[pin,alt]);
+ const detail=useFeatureDetail(pin?.id??null,viewPin?.proposal??null,geometry,detailVersion);
  // A shared pin's link (?structure=…&pin=…) opens on that feature once its pins arrive. Older Playground links name
  // the placement rather than the feature, so either is matched.
  const [linkPin,setLinkPin]=useState(()=>{const q=new URLSearchParams(location.search);return q.get('structure')?q.get('pin'):null;});
@@ -109,10 +118,15 @@ export default function Home(){
  const [kept,setKept]=useState<Saved[]>(keptDrafts),syncKept=()=>setKept(keptDrafts());
  const keptHere=useMemo(()=>selected&&state.isolate&&selectedParts.length===1?kept.filter(k=>k.mesh===selected.id):[],[kept,selected?.id,state.isolate,selectedParts.length]);
  const scenePins=useMemo(()=>{const mine=keptHere.filter(k=>k.request!==draft?.request).map(k=>({id:`draft:${k.request}`,label:k.label,latinName:k.latin,description:k.description,anchor:k.anchor,kind:'draft' as const}));
-  return mine.length?[...shown.pins,...mine]:shown.pins;},[shown.pins,keptHere,draft?.request]);
+  const base=viewPin&&viewPin!==pin?shown.pins.map(x=>x.id===viewPin.id?viewPin:x):shown.pins;
+  return mine.length?[...base,...mine]:base;},[shown.pins,keptHere,draft?.request,viewPin,pin]);
  const resume=(k:Saved)=>{setDraft(reopen(k));setRefused(null);setSaveState('idle');setSaveError('');void unusable(k.mesh).then(setInvalidTris);track('draft_started',{kind:k.kind,practice:0});};
  // "Pin saved" (film K10), and your own name, so your pins read "Added by you".
- const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null);
+ const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null),[admin,setAdmin]=useState(false);
+ useEffect(()=>{setAdmin(false);if(session)void rpc<boolean>('pg_is_admin',{}).then(v=>setAdmin(!!v)).catch(()=>{});},[session]);
+ const postRemark=async(text:string)=>{if(!viewPin?.proposal)return false;if(!session){setCloudOn(true);setAsk('comment');track('sign_in_prompted',{reason:'comment'});return false;}
+  try{await rpc('pg_comment',{p_proposal:viewPin.proposal,p_body:text,p_request:crypto.randomUUID()});setDetailVersion(v=>v+1);return true;}catch{setToast('That didn’t post. Please try again.');return false;}};
+ const removeRemark=async(id:string)=>{try{await rpc('pg_remove_comment',{p_comment:id});track('comment_deleted');setDetailVersion(v=>v+1);}catch{setToast('That didn’t delete. Please try again.');}};
  // The pin's ⋯ menu: vote down, report (signed in), delete your own unpublished pin. Each asks in a small dialog.
  const [act,setAct]=useState<{kind:'report'|'delete';pin:PublishedPin}|null>(null),[reason,setReason]=useState(''),[actBusy,setActBusy]=useState(false),[actError,setActError]=useState('');
  const menuFor=(x:PublishedPin)=>{const mine=!!x.by&&x.by===me,items:MenuItem[]=[];if(!x.proposal)return items;
@@ -330,8 +344,10 @@ export default function Home(){
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
    profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
-   pin={pin??null} counterpart={counterpart} pinHref={pinHref}
+   pin={viewPin??null} counterpart={counterpart} pinHref={pinHref}
    menu={menuFor}
+   extras={viewPin&&<FeatureExtras key={viewPin.id} spots={detail.spots} current={viewPin.proposal??null} onPick={x=>{track('pin_alternative_viewed');setAlt(x);}}
+    remarks={detail.remarks} more={detail.more} onOlder={()=>void detail.older()} me={session?.user.id??null} admin={admin} onPost={postRemark} onRemove={id=>void removeRemark(id)}/>}
    onShare={async x=>{const ok=selected?await copy(pinLink(selected.id,x.id)):false;track('pin_shared',{source:'card',result:ok?'copied':'failed',published:x.kind==='published'?1:0});return ok;}}
    needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
