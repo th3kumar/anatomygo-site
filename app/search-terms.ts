@@ -16,6 +16,19 @@ sinuses six pack skeleton skin skull sole spine spinal spleen sternum stomach ta
 testicles thigh thighs throat thumb thyroid toe toes tongue tonsil tonsils tooth trap traps tricep triceps tummy uterus vagina
 vein veins vertebra vertebrae voice box waist windpipe womb wrist`.split(/\s+/);
 
+/** Everyday names → the atlas names they mean, so "kneecap" finds the patella. Only names the atlas has are listed
+ * (BodyParts3D has no latissimus dorsi, rectus abdominis or uterus, for example). */
+const ALIASES:Record<string,string[]>={kneecap:['patella'],collarbone:['clavicle'],'collar bone':['clavicle'],shinbone:['tibia'],'shin bone':['tibia'],shin:['tibia'],
+ thighbone:['femur'],'thigh bone':['femur'],breastbone:['sternum'],'breast bone':['sternum'],tailbone:['coccyx','coccygeus'],jawbone:['mandible'],jaw:['mandible'],
+ cheekbone:['zygomatic'],windpipe:['trachea'],gullet:['esophagus'],oesophagus:['esophagus'],'voice box':['larynx'],'shoulder blade':['scapula'],
+ 'heel bone':['calcaneus'],heel:['calcaneus'],pec:['pectoralis major'],pecs:['pectoralis major'],delt:['deltoid'],delts:['deltoid'],trap:['trapezius'],
+ traps:['trapezius'],glute:['gluteus'],glutes:['gluteus'],bicep:['biceps'],tricep:['triceps'],calf:['gastrocnemius','soleus'],calves:['gastrocnemius','soleus'],
+ quad:['rectus femoris','vastus'],quads:['rectus femoris','vastus'],hamstring:['biceps femoris','semitendinosus','semimembranosus'],
+ hamstrings:['biceps femoris','semitendinosus','semimembranosus'],'adams apple':['thyroid cartilage'],'adam s apple':['thyroid cartilage'],achilles:['calcaneal tendon'],
+ backbone:['vertebral column'],spine:['vertebral column'],skull:['cranium'],armpit:['axilla'],voicebox:['larynx']};
+/** What an everyday query means in atlas names, or nothing. "Adam's apple" and "Shin-bone" match too. */
+export function aliasesFor(query:string){return ALIASES[words(query).join(' ')]??[];}
+
 const words=(text:string)=>text.toLowerCase().normalize('NFKC').split(/[^\p{L}]+/u).filter(Boolean);
 let vocabulary:{atlas:Atlas;words:Set<string>}|null=null;
 function known(atlas:Atlas){

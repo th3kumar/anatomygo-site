@@ -8,7 +8,7 @@
 
 [![Website](https://img.shields.io/badge/web-anatomygo.in-458a85)](https://anatomygo.in) [![Google Play](https://img.shields.io/badge/Google_Play-AnatomyGo-263b48?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.anatomygo) [![Open Collective](https://img.shields.io/badge/Open_Collective-support_us-7fadf2?logo=opencollective&logoColor=white)](https://opencollective.com/anatomygo)
 
-<img src="public/og-home.png" width="820" alt="The AnatomyGo explorer: a 3D human body with the Systems panel open">
+<img src="public/og-home.png" width="820" alt="AnatomyGo: a 3D human body with the Systems panel open">
 
 </div>
 
@@ -17,7 +17,7 @@
 - **Explore 2,234 pieces in 15 systems.** Rotate, zoom and tap any structure to see what it is.
 - **Search, isolate and explode** the body to see where each part sits and what surrounds it.
 - **Open shared views** with study pins, and reveal answers quiz-style.
-- **Pin parts and features** in the [Playground](https://anatomygo.in/playground/), and vote on other people's pins.
+- **Pin parts and features** right on the model, and vote on or comment on other people's pins.
 
 No account is needed. It works on phones, tablets and computers.
 

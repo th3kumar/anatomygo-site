@@ -7,14 +7,15 @@
   },
   "scripts": {
     "dev": "node scripts/prepare-assets.mjs && vite --host 127.0.0.1 --port 3016",
-    "build": "node scripts/prepare-assets.mjs && vite build && npm --prefix playground run build && node scripts/build-seo.mjs",
+    "build": "node scripts/prepare-assets.mjs && vite build && node scripts/build-seo.mjs",
     "build:vercel": "npm run build",
-    "check": "tsc --noEmit && npm --prefix playground run typecheck",
+    "check": "node scripts/check-analytics.mjs && node scripts/check-contrast.mjs && tsc --noEmit && npm --prefix playground run typecheck",
     "build:viewer": "node scripts/prepare-assets.mjs && vite build"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@shadcn/react": "0.3.0",
+    "@supabase/supabase-js": "2.117.2",
     "@types/three": "^0.159.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -23,6 +24,7 @@
     "embla-carousel-react": "8.5.2",
     "input-otp": "1.4.2",
     "lucide-react": "1.31.0",
+    "motion": "12.43.0",
     "react": "19.2.6",
     "react-day-picker": "9.8.1",
     "react-dom": "19.2.6",

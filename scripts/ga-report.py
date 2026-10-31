@@ -24,7 +24,7 @@ import sys
 from datetime import date, timedelta
 
 MEASUREMENT_ID = "G-RFXTMB69WH"
-# Event parameters worth breaking down by. GA4 allows 50 event-scoped custom dimensions; these are 49.
+# Event parameters worth breaking down by. GA4 allows 50 event-scoped custom dimensions; these are all 50.
 # `source` stays for data before 21 Oct 2026: GA4 read it as a traffic source, so the site now sends `ui_source`.
 DIMENSIONS = ["source", "structure_id", "system_id", "practice", "step", "index", "start", "seconds", "kind", "result",
               "entry", "via", "first_visit", "device", "pins", "published", "features", "count", "query_kind", "result_count",
@@ -33,7 +33,11 @@ DIMENSIONS = ["source", "structure_id", "system_id", "practice", "step", "index"
               "ui_source", "view", "preset", "mode", "visible", "setting", "on", "vote",
               "progress", "cache", "memory", "net", "fps", "depth", "systems", "explode_max", "searches",
               # search words, 26 Oct 2026 (search-terms.ts): vocabulary words with "?" for others; cleaned text of failed searches
-              "search_terms", "search_text"]
+              "search_terms", "search_text",
+              # journeys, revamp (31 Oct 2026): what the body showed at each action. Every event also carries `step` and
+              # `method` (both registered above), `index` (a list row), `prev_action`, `list` and `order`, which are read
+              # in the BigQuery export instead, as the property has no slots left.
+              "layers"]
 METRICS = [("duration_ms", "Atlas load time", "MILLISECONDS"),
            ("load_ms", "Atlas load time while visible", "MILLISECONDS"),
            ("transfer_kb", "Model kilobytes downloaded", "STANDARD"),

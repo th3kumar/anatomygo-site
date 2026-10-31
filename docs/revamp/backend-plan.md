@@ -1,0 +1,195 @@
+# Backend plan for the revamp
+
+Written 31 Oct 2026, from the migrations in `supabase/migrations/`, the Playground client (`playground/src/cloud.ts`)
+and a read of the live tables (1,630 features, 1,562 community pins, 97 features without a published pin, 6 named
+contributors).
+
+**Short version:** the films need almost no new backend. Voting, pinning, comments, reports and the admin queue all
+exist as RPCs, and they are safe to replay. One small, additive migration and one sign-in setting are needed. Nothing
+existing changes, so the live Playground and the Android app keep working throughout.
+
+## 1. Needed
+
+### 1.1 Sign-in returns to `/`, not `/playground/`
+- Today Google sign-in comes back to `/playground/?structure=…` (phones) or `/playground/?auth=popup` (desktop window).
+- Add `https://anatomygo.in/**` to Supabase Auth → URL Configuration → Redirect URLs. Keep the `/playground/` entries
+  until the redirect page has been live for a few weeks.
+- The Google client's allowed origin is the domain, so it does not change.
+- This is a dashboard setting: the owner changes it, or approves Claude changing it.
+
+### 1.2 Signed-out votes and pins kept on the device (D2): no schema change
+- `pg_submit` takes a request ID and returns the same pin when it is sent again, so a replay never makes a double.
+- `pg_vote` overwrites the earlier vote, so replaying is harmless.
+- Limits are 300 votes and 60 pins per hour per person, far above any replay.
+- A pin needs a public name. See 1.4: it is set without asking.
+- A vote on a pin that was removed meanwhile fails with `Proposal is unavailable`; drop it without a message.
+
+### 1.3 The sign-in library loads only when needed
+- The main app reads Supabase with plain `fetch`. Sign-in needs `@supabase/supabase-js`, which is too big for the
+  first-load budget (JS increase under 40 kB gzipped).
+- Load it on first vote, Contribute, or Account, and right away only when a session is already stored.
+
+### 1.4 No name step: the Google first name is used
+- A pin needs a public name (`pg_profiles`, 2–60 characters). The films' flow has no room for a separate step, and
+  learners shouldn't be stopped mid-study.
+- On a person's first pin, the app quietly saves their **Google first name** (`given_name`, else the first word of
+  `full_name`) through `pg_set_profile`, then sends the pin. No dialog, no extra tap.
+- It is shown right away: the published pin reads "Added by Mantu · just now". About → Account has
+  "Name on your pins · Mantu · Change", a single field to change it.
+- **Never the email address.** Names in `pg_profiles` are public, and the part before the @ often holds a surname,
+  birth year or work handle.
+- Only if Google gives no name: one field, "Name on your pins", with Save. This is rare.
+- **No change to the database, and no backfill.** People who signed in before get their name the same way at their next
+  pin. Filling names for everyone who ever signed in would publish names of people who never pinned anything,
+  because the table is public.
+- **The live Playground stays compatible.** It still asks for a name when none exists. Once the new app has saved one,
+  the Playground finds it and skips its dialog.
+
+## 2. Recommended: one additive migration
+
+### 2.1 `pg_card(p_mesh)`: one request per card
+- Opening a structure today makes four requests, and the vote totals wait for the others: the model fingerprint,
+  `pg_published_pack`, the community pins, then `pg_vote_totals`.
+- `pg_card` returns everything at once: the published pins, the best community pin per feature with its votes,
+  the byline and date (for "Added by you · just now"), the signed-in user's own votes, and the features without a pin
+  ("Needs a pin").
+- This saves two round trips on every card. The benchmark showed slow networks are where the time goes.
+- `pg_published_pack` and `pg_vote_totals` stay for the Android app and old clients.
+
+### 2.2 `attaches_to`: "Muscles attached here"
+- Attachments are recorded on the **muscle** (260 features such as "Origin: subscapular fossa" on subscapularis).
+  Nothing links them to the bone's own feature (subscapular fossa on the scapula). Only 8 are written bone-side,
+  as "Insertion of …".
+- Add `pg_landmarks.attaches_to text references pg_landmarks(id)` (nullable).
+- Fill it with a matching script. Matches that are not exact go to a review list for the owner. Future pilot rounds set
+  it when they add an attachment.
+- `pg_card` on a bone then also returns the muscles attached to each feature.
+- Until it is filled, the card leaves the section out instead of guessing.
+
+### 2.3 Tests
+- Extend `supabase/tests/permissions.sql`: anon can call `pg_card`, it never returns hidden or archived rows,
+  and it returns only the caller's own votes.
+- `attaches_to` can't point at an archived feature, or at another feature on the same mesh.
+- Run with `PGHOST=127.0.0.1 supabase/tests/run.sh` on the local PostgreSQL. Never against production.
+
+## 3. Not needed
+- **Feature search:** reads `pg_landmarks` as it is. At 1,630 rows no index is needed. Revisit past 20,000.
+- **Share links, feedback, comments, reports, admin queue, withdraw:** the existing RPCs cover the films.
+- **Analytics:** GA only, no backend.
+- **Description, Type and Region tiles (D9):** stay as static data built with the site, not database fields.
+
+## 4. Later (optional)
+- **Pins in the static build:** a snapshot of published pins written at deploy, as `llms-full.txt` already is. Pins
+  would show instantly with no Supabase request. The live read would then only add newer community pins. Worth it
+  if the move to Cloudflare Pages happens (see the hosting plan).
+
+## 5. Order
+1. Write the migration and tests locally, and run them on local PostgreSQL.
+2. Switch `app/published-pins.ts` and `app/feature-counts.ts` to `pg_card` behind a fallback to the current requests,
+   so the app works before and after the migration is applied.
+3. Phase 5 front end: votes and drafts on the device, sign-in library on demand, the name step, replay after sign-in.
+4. **Owner's step:** apply the migration and add the redirect URL. This is the only production change, and it comes
+   right before launch.
+5. Matching script for `attaches_to`. The owner reviews the unsure matches, then it is applied.
+
+## 6. Keeping the live site safe
+People use anatomygo.in and the Playground while this is built, so every database change follows these rules:
+1. **Add only.** The migration adds one function (`pg_card`) and one nullable column (`attaches_to`).
+   - It doesn't change or drop any existing table, function, policy or permission.
+   - `pg_published_pack`, `pg_vote_totals`, `pg_submit` and `pg_vote` keep their exact signatures and behaviour.
+2. **No locks users would feel.** A nullable column with no default is a metadata-only change, and creating a function
+   locks nothing. Filling `attaches_to` updates about 260 rows in small batches.
+3. **Nothing live reads the new parts.** Live code names its columns (`cloud.ts`, `published-pins.ts`,
+   `feature-counts.ts`), so an extra column changes no response. The Android app makes no Supabase calls.
+4. **Old and new front ends both work.** The revamp falls back to today's requests when `pg_card` is missing, so the
+   migration can go live before, with or after the new site.
+5. **Tested first, locally.** `supabase/tests/run.sh` runs every migration on a throwaway local database, plus checks
+   that the old functions still answer as before.
+6. **Easy to undo.** A rollback file (`drop function pg_card; alter table pg_landmarks drop column attaches_to`) is
+   written alongside. Nothing old depends on either.
+7. **Checked live after applying.** Home page pins on a structure, a Playground vote, and feedback sending. These are
+   REST reads, not log queries, so they don't touch the log budget.
+8. **The owner applies it**, at a quiet hour, after reviewing the SQL.
+
+## 7. Audit, 31 Oct: more ways to make it faster, sturdier and better for search
+Measured against the live API, using public reads only.
+
+### Problems found
+1. **Silent 1,000-row cap.**
+   - The API returns at most 1,000 rows per request (checked: 1,000 of 1,562 came back). The Playground pages
+     through this. The home page's feature counts (`app/feature-counts.ts`) don't.
+   - A 50-structure selection already pulls 743 + 758 rows (126 KB) just to show three numbers. Past 1,000, the counts
+     go quietly wrong.
+   - Fix: `pg_feature_counts(p_meshes text[])` returns only the numbers, under 1 KB. Additive.
+2. **Deleting an account is impossible.**
+   - `pg_profiles`, `pg_votes` and `pg_reports` reference `auth.users` with no delete rule, so deleting a user in
+     Supabase fails.
+   - Erasure requests (India's DPDP Act, GDPR for EU visitors) can't be met.
+   - Fix: `pg_delete_my_account()` removes the person's votes, reports and comments and replaces their name with
+     "Former contributor". The pins stay for learners. Add "Delete my account" under About → Account. Additive.
+3. **New pins don't reach Google until someone deploys by hand.**
+   - `deploy.yml` runs only manually. The sitemap, `llms-full.txt` and the home page counts are rebuilt from the live
+     pins only at deploy.
+   - Fix: a nightly scheduled build that deploys only when the pin snapshot changed.
+4. **No copy of the community's work outside Supabase.**
+   - The 1,562 placements exist in one place.
+   - Fix: the nightly job also keeps the snapshot as a dated file. This is free.
+
+### Speed
+5. `pg_card` (2.1). The busiest structure (FJ3152) loads 40 KB of pack plus 59 KB of rows today, mostly duplicate
+   placements the card never shows.
+6. **Pins in the static build.** Moved up from "later" because of finding 3.
+   - Every API response is uncached today (`cf-cache-status: DYNAMIC`), so each card open reaches the database.
+   - With a nightly snapshot, pins draw with no request at all. The live read then adds only what changed since.
+7. **Timeouts and one retry on every Supabase call.** Today a stalled phone connection leaves the card loading for
+   ever. Add an 8 s timeout and one retry on network errors and 5xx responses. Front end only.
+8. **Policy tidy-up (after launch, optional).**
+   - Write `auth.uid()` and `pg_is_admin()` in policies as `(select …)`, so Postgres works them out once per query
+     instead of once per row. This is Supabase's own advisor rule.
+   - Same results, small gain at today's size. It edits existing policies, so it goes separately from the add-only
+     migration.
+
+### Search ranking
+9. **Structure pages.**
+   - 226 structures have pins, but the sitemap lists 3 URLs.
+   - Build a static page per structure at deploy (`/s/femur/`): title and Latin name, every landmark with its
+     description, origins and insertions, structured data, and "Open in 3D".
+   - This is the SEO audit's phase 2. Bone pages gain "Muscles attached to the femur" from `attaches_to` (2.2), which
+     matches a common search.
+10. **Honest dates.**
+    - The sitemap stamps every URL with the deploy day, so search engines learn to ignore it.
+    - Fix: `pg_seo_snapshot()` returns per structure its name, system, pins, attached muscles and **last change date**,
+      including approvals, which only the private audit table knows.
+    - One request for the build instead of paging three tables. The nightly snapshot (3, 4, 6) uses it too. Additive.
+
+### Checked and fine
+- **Indexes:** every column the site filters on is indexed.
+- **Bounded requests:** vote totals cap at 500 IDs.
+- **Rate limits** cover votes, pins, comments, reports and names.
+- **Feedback:** has a site-wide flood guard and drops double sends.
+- **Locking:** saving a pin locks in a safe order against admin moves.
+- **Signed-out access:** anonymous users can't write.
+
+## 8. Decided and built, 31 Oct
+- **Skipped for now (owner's call):** nightly deploy (3), the backup copy (4), pins in the static build (6), structure
+  pages (9) and sitemap dates (10). Policy tidy-up (8) waits until after launch.
+- **Built locally, not applied:** `supabase/migrations/202610310001_revamp_card.sql` adds `attaches_to` (2.2),
+  `pg_feature_counts` (1), `pg_card` (2.1) and `pg_delete_my_account` (2). The undo is
+  `supabase/rollback/202610310001_revamp_card.sql`.
+- **Tests:** `supabase/tests/revamp.sql`. The old suite also passes after the undo.
+- **Same pins as today:** checked on a copy of four real structures (FJ3152, FJ3288, FJ3365, FJ1504). `pg_card` picked
+  the same pins as today's four reads, in about half the bytes (FJ3152: 46 KB).
+- **App** (`app/supabase-rest.ts`): every read has an 8 s limit and one retry. The card and counts use the new
+  functions, and fall back to today's reads while they're missing.
+- **Deletion is on request only:** the person in About → Account, or the owner in the SQL editor with
+  `select playground_private.delete_account('their@gmail.com');`. Applying the migration deletes nothing.
+- **Open:** whether Supabase's `postgres` role may delete from `auth.users` inside `delete_account`. Check this on
+  the project before applying. If it can't, that step fails and the whole deletion is undone, so nothing is left
+  half-deleted. The fix is then to drop that line and delete the sign-in with the dashboard's Delete user, which works
+  once the other rows are gone.
+
+## 9. Ready for launch, 31 Oct
+- **Runbook:** `go-live-backend.md` has the order, the checks to run before and after applying, the undo, and how it
+  was tested on a full copy of the live data.
+- **1.1 is not needed.** The revamp signs in with the Google one-tap button (as the live Playground does), not the
+  redirect flow, so Supabase's redirect URLs stay as they are.

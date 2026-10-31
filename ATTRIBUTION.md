@@ -19,6 +19,10 @@ BodyParts3D represents an adult male reference anatomy based on TARO MRI and ana
 
 Some unreviewed Playground pins ("Starter pin") are suggestions derived from annotation line endpoints in Z-Anatomy – The libre 3D atlas of anatomy, licensed under CC BY-SA 4.0 (https://github.com/Z-Anatomy/Models-of-human-anatomy, revision 54dc1e215976dd3767b0f0db8781c735e0d96c73), itself derived from BodyParts3D. Endpoints were registered onto this site's own meshes; the resulting placement data is a derivative of Z-Anatomy and shares its CC BY-SA 4.0 terms. Latin feature names come from the Terminologia Anatomica 2 English/Latin table distributed in the same repository. Descriptions are original AnatomyGo text. Each imported pin's source, method and checks are kept in the import record; none is approved until an editor reviews it.
 
+## Typeface
+
+The interface uses Inter by Rasmus Andersson, under the SIL Open Font License 1.1, served from this site (`/fonts/`, licence in `/fonts/Inter-OFL.txt`).
+
 ## Historical assets (not included in the current release)
 
 Earlier repository revisions included female reference anatomy: Kristen Browne and Heidi Schlehlein, Human Reference Atlas / HuBMAP, *3D Reference Organ Set for Female v1.5* (2023). CC BY 4.0. Geometry adapted for this viewer.

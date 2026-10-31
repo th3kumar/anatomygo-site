@@ -74,7 +74,7 @@ function show(view:View){
  $('title').textContent=title;
  document.title=`${title} · AnatomyGo`;
  const n=view.pins.length;
- $('kind').textContent=n===0?'SHARED STRUCTURE':view.quiz?'QUIZ':'STUDY PINS';
+ $('kind').textContent=n===0?'Shared structure':view.quiz?'Quiz':'Study pins';
  $('summary').textContent=n===0?'Shared with you from AnatomyGo.'
   :view.quiz?`Name the ${n} numbered ${n===1?'structure':'structures'} in the picture, then reveal the answers.`
   :`${n} study ${n===1?'pin':'pins'} shared with you. The numbers match the picture in your chat.`;
