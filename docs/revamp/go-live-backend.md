@@ -21,8 +21,6 @@ The site works with or without the migration. Without it, the site reads pins th
 2. **Apply the migration at a quiet hour,** the same day or later:
    1. **Preflight.** In the Supabase SQL editor, run `supabase/checks/202610310001_preflight.sql`. It only reads.
       - Every row should say `ok`. Rows marked `info` are for the record.
-      - Production's anchor rule differs from the repository's: one starter pin on the right ulna has u+v just over 1.
-        That is expected, and nothing in the migration depends on it.
    2. **Apply.** Paste `supabase/migrations/202610310001_revamp_card.sql` and run it.
       - It is one transaction.
       - If a table is busy, it gives up within 3 seconds and changes nothing. Then run it again a minute later.
@@ -72,8 +70,17 @@ The site works with or without the migration. Without it, the site reads pins th
   - **Before the migration:** the same run against the un-migrated copy also passed, through the old reads.
 
 ## Fixed while testing
-- **The live site shows no pins on the Right ulna today.** One starter pin's u+v is 1.0000000000000002, and the
-  site's check failed the whole set. The revamp allows that rounding step.
+- **The live site showed no pins on the Right ulna.** The API sends coordinates rounded to 15 digits, and one starter
+  pin's rounded u and v add up to 1.0000000000000002 (in the database they don't: the preflight found 0 such pins). The
+  site's check then failed the whole set. The revamp allows that rounding step.
 - **Phone sheets never came to rest.** Whole-pixel measurements of a sheet that springs in fractions made it resize by
   a fraction of a pixel on every frame.
 - **Before the migration, each card asked for `pg_card` again.** Now a missing function is asked about once per visit.
+
+## Applied, 31 Oct 2026
+- The preflight passed: production's schema matches the repository. Then the migration was applied in the SQL editor.
+- Checked through the public API afterwards:
+  - All 280 structures with features give the same 1,898 pins and "Needs a pin" lists from `pg_card` as from the old
+    reads.
+  - Visitors can't delete accounts (HTTP 401).
+  - The live site reads cards with `pg_card` and shows the vote button on published pins.
