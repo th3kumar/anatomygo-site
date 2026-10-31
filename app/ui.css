@@ -419,3 +419,17 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .about-screen{display:flex;flex-direction:column;flex:1;min-height:0}
 .share-button{overflow:hidden;justify-content:center;min-width:84px}
 .next-label{margin:4px 0 0}
+/* Dialogs that ask something (report, delete, review queue): left-aligned text, actions in one row. */
+.panel.dialog.is-left{align-items:stretch;text-align:left}
+.panel.dialog.is-wide{width:min(640px,100%);max-height:calc(100dvh - 48px);overflow:hidden}
+.dialog .field.note{margin-top:16px}
+.btn-danger{color:var(--destructive)}
+/* The pin's ⋯ menu */
+.pin-menu-pos{z-index:80;outline:none}
+.panel.pin-menu{min-width:200px;padding:6px;background:var(--panel-solid);background-color:var(--ground-flat);transform-origin:var(--transform-origin);transition:opacity .14s,scale .18s var(--ease-out)}
+.panel.pin-menu[data-starting-style],.panel.pin-menu[data-ending-style]{opacity:0;scale:.96}
+.pin-menu-item{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;padding:0 12px;border-radius:10px;font-size:14px;color:var(--text);cursor:default;outline:none}
+.pin-menu-item[data-highlighted]{background:var(--fill-hover)}
+.pin-menu-item.is-danger{color:var(--destructive)}
+.pin-menu-check{color:var(--accent-text)}
+.card-row .pin-menu-trigger{margin-left:auto}

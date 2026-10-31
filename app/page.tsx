@@ -2,7 +2,9 @@ import {fingerprint,forgetPins,useStructurePins,type PublishedPin} from './publi
 import type {Session} from '@supabase/supabase-js';
 import {cloud,rpc,storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
-import {SignInDialog} from './community/sign-in-dialog';
+import {SignInDialog,type SignInReason} from './community/sign-in-dialog';
+import {Dialog} from './community/dialog';
+import type {MenuItem} from './community/pin-menu';
 import {Profile} from './community/account';
 import {copy,pinLink} from './community/share';
 import {PlaceSteps,type Refusal} from './community/place-card';
@@ -87,10 +89,10 @@ export default function Home(){
  useEffect(()=>cloudOn?watchSession(setSession):undefined,[cloudOn]);
  const votes=useVotes(session,shown.pins.flatMap(p=>p.proposal?[p.proposal]:[]));
  // Asked after the action lands (0.25 s), once a visit: Later means "not now", and the vote stays on this device.
- const [ask,setAsk]=useState<'vote'|'pin'|null>(null),later=useRef(false);
+ const [ask,setAsk]=useState<SignInReason|null>(null),later=useRef(false);
  useEffect(()=>{if(session&&ask){setAsk(null);track('sign_in_completed',{method:'google_button'});}},[session,ask]);
- const castVote=async(pin:PublishedPin)=>{if(!pin.proposal)return;const next=votes.mine(pin.proposal)===1?0:1;
-  if(await votes.vote(pin.proposal,next)==='kept'&&next===1&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
+ const castVote=async(pin:PublishedPin,up=true)=>{if(!pin.proposal)return;const want=up?1:-1,next=votes.mine(pin.proposal)===want?0:want;
+  if(await votes.vote(pin.proposal,next)==='kept'&&next!==0&&!later.current){setCloudOn(true);setTimeout(()=>{setAsk('vote');track('sign_in_prompted',{reason:'vote'});},250);}};
  const [selectedPin,setSelectedPin]=useState<string|null>(null);const pin=shown.pins.find(p=>p.id===selectedPin);
  useEffect(()=>{if(pin)setContributing(false);},[pin]);
  // A shared pin's link (?structure=…&pin=…) opens on that feature once its pins arrive. Older Playground links name
@@ -111,6 +113,17 @@ export default function Home(){
  const resume=(k:Saved)=>{setDraft(reopen(k));setRefused(null);setSaveState('idle');setSaveError('');void unusable(k.mesh).then(setInvalidTris);track('draft_started',{kind:k.kind,practice:0});};
  // "Pin saved" (film K10), and your own name, so your pins read "Added by you".
  const [toast,setToast]=useState(''),[me,setMe]=useState<string|null>(null);
+ // The pin's ⋯ menu: vote down, report (signed in), delete your own unpublished pin. Each asks in a small dialog.
+ const [act,setAct]=useState<{kind:'report'|'delete';pin:PublishedPin}|null>(null),[reason,setReason]=useState(''),[actBusy,setActBusy]=useState(false),[actError,setActError]=useState('');
+ const menuFor=(x:PublishedPin)=>{const mine=!!x.by&&x.by===me,items:MenuItem[]=[];if(!x.proposal)return items;
+  if(!mine)items.push({label:'Doesn’t look right',checked:votes.mine(x.proposal)===-1,onSelect:()=>void castVote(x,false)});
+  if(!mine)items.push({label:'Report a problem',onSelect:()=>{if(!session){setCloudOn(true);setAsk('report');track('sign_in_prompted',{reason:'report'});return;}setReason('');setActError('');setAct({kind:'report',pin:x});}});
+  if(mine&&x.kind!=='published')items.push({label:'Delete my pin',danger:true,onSelect:()=>{setActError('');setAct({kind:'delete',pin:x});}});
+  return items;};
+ const runAct=async()=>{if(!act?.pin.proposal||actBusy)return;setActBusy(true);setActError('');
+  try{if(act.kind==='report'){await rpc('pg_report',{p_proposal:act.pin.proposal,p_reason:reason.trim()});track('report_sent');setToast('Thanks. We’ll take a look.');}
+   else{await rpc('pg_withdraw',{p_proposal:act.pin.proposal});track('pin_deleted');setToast('Pin deleted');if(selected)forgetPins(selected.id);setPinsVersion(v=>v+1);setSelectedPin(null);}
+   setAct(null);}catch{setActError(act.kind==='report'?'That didn’t send. Please try again.':'That didn’t delete. Please try again.');}finally{setActBusy(false);}};
  const saveName=async(v:string)=>{await rpc('pg_set_profile',{p_name:v});setMe(v);track('public_name_set',{first:me?0:1});};
  const signOut=async()=>{await (await cloud()).auth.signOut();track('signed_out');setAbout(false);setToast('Signed out');};
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),2400);return()=>clearTimeout(t);},[toast]);
@@ -318,6 +331,7 @@ export default function Home(){
    profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={pin??null} counterpart={counterpart} pinHref={pinHref}
+   menu={menuFor}
    onShare={async x=>{const ok=selected?await copy(pinLink(selected.id,x.id)):false;track('pin_shared',{source:'card',result:ok?'copied':'failed',published:x.kind==='published'?1:0});return ok;}}
    needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
@@ -330,7 +344,14 @@ export default function Home(){
    onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
   <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>
-  <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{if(ask==='pin')setDraft(null);else later.current=true;setAsk(null);}}/>}</AnimatePresence>
+  <AnimatePresence>{act&&<Dialog key="act" title={act.kind==='report'?'Report this pin':'Delete your pin?'} line={act.kind==='report'?'What’s wrong? If it’s on the wrong part, say which.':'It disappears for everyone.'} onClose={()=>setAct(null)}>
+   {act.kind==='report'&&<textarea className="field note" value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000} rows={3} aria-label="What’s wrong?" autoFocus={!phone}/>}
+   {actError&&<p className="t-meta dialog-problem" role="alert">{actError}</p>}
+   <div className="action-row"><button type="button" className="btn-quiet" onClick={()=>setAct(null)}>Cancel</button>
+    {act.kind==='report'?<button type="button" className="btn-accent" disabled={reason.trim().length<3||actBusy} onClick={()=>void runAct()}>{actBusy?'Sending…':'Send'}</button>
+     :<button type="button" className="btn-quiet btn-danger" disabled={actBusy} onClick={()=>void runAct()}>{actBusy?'Deleting…':'Delete'}</button>}</div>
+  </Dialog>}</AnimatePresence>
+  <AnimatePresence>{ask&&<SignInDialog key="sign-in" kind={ask} dark={dark} onLater={()=>{if(ask==='pin')setDraft(null);else if(ask==='vote')later.current=true;setAsk(null);}}/>}</AnimatePresence>
   <AnimatePresence>{feedbackPrompt&&<FeedbackPrompt key="feedback" phone={phone} context={feedbackContext} onClose={sent=>{setFeedbackPrompt(false);if(!sent){markFeedback('dismissed');track('feedback_dismissed',{ui_source:'prompt'});}}}/>}</AnimatePresence>
   {featureTip&&<Tip target='[data-tip-target="features"]' side={phone?'top':'left'} onDone={()=>{track('home_tip_dismissed',{tip:'features'});seeTips('entry','features');}}><strong>New: parts & features</strong>See where each part of this structure sits, or pin one that’s missing.</Tip>}
   {entryTip&&<Tip target='[data-tip-target="entry"]' side="bottom" onDone={()=>{track('home_tip_dismissed',{tip:'entry'});seeTips('entry');}}><strong>New: Playground</strong>Pin the parts & features of any structure, and vote on other people’s pins.</Tip>}

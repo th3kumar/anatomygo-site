@@ -10,6 +10,7 @@ import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
 import type {PublishedPin} from './published-pins';
 import {VoteButton} from './community/vote-button';
+import {PinMenu,type MenuItem} from './community/pin-menu';
 
 export type CardMode='peek'|'focus'|'feature'|'contribute'|'place';
 /** A feature with no placement yet, offered in the contribute list. */
@@ -44,7 +45,9 @@ interface Props {
  /** Pins kept on this device for this structure, and your public name (for "Added by you"). */
  kept:{request:string;kind:string;landmark:string|null;label:string}[];me:string|null;onResume:(request:string)=>void;
  /** Copies the pin's link; true when it reached the clipboard. */
- onShare:(pin:PublishedPin)=>Promise<boolean>;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
+ onShare:(pin:PublishedPin)=>Promise<boolean>;
+ /** The ⋯ menu's actions for a pin (vote down, report, delete). */
+ menu:(pin:PublishedPin)=>MenuItem[];onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
  onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
  onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
@@ -204,7 +207,7 @@ export function StructureCard(p:Props){
  const feature=pin&&<m.div key={`f-${pin.id}`} className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit"
   drag={phone?'x':false} dragDirectionLock dragSnapToOrigin dragElastic={.35}
   onDragEnd={(_,i)=>{const w=(sheet.current?.offsetWidth??innerWidth)*.3;const fwd=i.offset.x<-w||i.velocity.x<-600,to=fwd?next:i.offset.x>w||i.velocity.x>600?prev:null;if(to){swipe.current=i.offset.x;go(to,fwd?1:-1);}}}>
-  <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}>{phone&&<ChevronLeft size={14}/>}{facts.title} · Parts</button>{close}</div>
+  <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}>{phone&&<ChevronLeft size={14}/>}{facts.title} · Parts</button><PinMenu items={p.menu(pin)}/>{close}</div>
   {phone&&<p className="t-meta">Feature · {index+1} of {p.pins.length}</p>}
   <h2 className="t-title card-title cap">{pin.label}</h2>
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
