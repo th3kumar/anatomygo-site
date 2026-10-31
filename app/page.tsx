@@ -1,12 +1,13 @@
 import {fingerprint,forgetPins,useStructurePins,type PublishedPin} from './published-pins';
 import type {Session} from '@supabase/supabase-js';
-import {cloud,rpc,storedSession,watchSession} from './community/cloud';
+import {AUTH_CHANNEL,cloud,rpc,storedSession,watchSession} from './community/cloud';
 import {useVotes} from './community/votes';
 import {SignInDialog,type SignInReason} from './community/sign-in-dialog';
 import {Dialog} from './community/dialog';
 import type {MenuItem} from './community/pin-menu';
 import {Profile} from './community/account';
 import {copy,pinLink} from './community/share';
+import {rest} from './supabase-rest';
 import {useFeatureDetail,type Spot} from './community/feature-detail';
 import {FeatureExtras} from './community/feature-extras';
 import {ReviewQueue} from './community/admin';
@@ -90,6 +91,8 @@ export default function Home(){
  // Contributing. Signed-in Supabase loads only when needed: a session already kept here, a sign-in returning, or a first vote.
  const [cloudOn,setCloudOn]=useState(()=>storedSession()||new URLSearchParams(location.search).has('code')),[session,setSession]=useState<Session|null>(null);
  useEffect(()=>cloudOn?watchSession(setSession):undefined,[cloudOn]);
+ // A sign-in finished in the small Google window (started by the old Playground) tells the page that opened it, then closes.
+ useEffect(()=>{if(!session||new URLSearchParams(location.search).get('auth')!=='popup'||!window.opener)return;try{const c=new BroadcastChannel(AUTH_CHANNEL);c.postMessage('signed-in');c.close();}catch{/* the opener also sees the stored session */}window.close();},[session]);
  const votes=useVotes(session,shown.pins.flatMap(p=>p.proposal?[p.proposal]:[]));
  // Asked after the action lands (0.25 s), once a visit: Later means "not now", and the vote stays on this device.
  const [ask,setAsk]=useState<SignInReason|null>(null),later=useRef(false);
@@ -111,6 +114,9 @@ export default function Home(){
  // the placement rather than the feature, so either is matched.
  const [linkPin,setLinkPin]=useState(()=>{const q=new URLSearchParams(location.search);return q.get('structure')?q.get('pin'):null;});
  useEffect(()=>{if(!linkPin||!shown.pins.length&&!shown.error)return;const p=shown.pins.find(x=>x.id===linkPin||x.proposal===linkPin);
+  if(!p&&/^[0-9a-f-]{36}$/i.test(linkPin)){const id=linkPin;setLinkPin(null);
+   // A placement this list doesn't name (a published pin read without its placement id): ask which feature it is.
+   void rest<{landmark_id:string}[]>(`pg_proposals?select=landmark_id&id=eq.${id}&limit=1`).then(r=>{if(r[0])setLinkPin(r[0].landmark_id);else track('shared_pin_opened',{found:0,published:0});}).catch(()=>{});return;}
   track('shared_pin_opened',{found:p?1:0,published:p?.kind==='published'?1:0});if(p){setSelectedPin(p.id);setDetails(true);}setLinkPin(null);},[linkPin,shown.pins,shown.error]);
  // Placing a pin (films K7–K9): a draft for the open structure. Every suggestion is a point.
  const draftRef=useRef<string|null>(null);

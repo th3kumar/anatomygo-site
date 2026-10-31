@@ -90,7 +90,7 @@ ${others.map(g=>`- ${g.name} (${g.features.size} ${g.features.size===1?'feature'
 
 - [Every pinned feature with its description](${SITE}/llms-full.txt)
 - [What's new](${SITE}/whats-new/): every muscle's origin and insertion, and dated updates
-- [Playground](${SITE}/playground/): see the features of each structure and vote on or suggest pin placements
+- To contribute: open a structure, then Parts › Contribute to pin a feature, or open a pin to vote on it or suggest a better spot
 - [Android app](https://play.google.com/store/apps/details?id=com.anatomygo)
 
 Updated ${today}.
@@ -115,7 +115,6 @@ ${list.map(block).join('\n')}
 const sitemap=()=>`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SITE}/</loc><lastmod>${today}</lastmod></url>
-  <url><loc>${SITE}/playground/</loc><lastmod>${today}</lastmod></url>
   <url><loc>${SITE}/whats-new/</loc><lastmod>${today}</lastmod></url>
 </urlset>
 `;
