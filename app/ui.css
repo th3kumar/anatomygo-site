@@ -137,7 +137,7 @@ button svg,a svg{flex-shrink:0}
 .search-field input::placeholder{color:var(--text-3)}
 .search-field.is-phone{height:46px;border:1px solid var(--hair-3);border-radius:var(--r-ctl);background:var(--fill)}
 .search-field.is-phone input{font-size:16px}
-.search-scroll{overflow-y:auto;overscroll-behavior:contain;padding:0 10px}
+.search-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 10px}
 .search-group{padding:14px 10px 4px}
 .search-results{list-style:none;margin:0;padding:0}
 .result{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:var(--r-row);cursor:pointer}
@@ -297,10 +297,10 @@ button svg,a svg{flex-shrink:0}
 .systems-sheet{display:flex;flex-direction:column;max-height:78dvh;touch-action:none}
 .systems-sheet .panel-head{padding-right:44px;min-height:24px}
 .systems-sheet .sys-list{touch-action:pan-y}
-.search-sheet{top:max(60px,calc(env(safe-area-inset-top) + 44px));display:flex;flex-direction:column;padding:84px 10px 0}
+.search-sheet{top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + var(--vv-top,0px));bottom:var(--kb,0px);display:flex;flex-direction:column;padding:84px 10px 0}
 .search-pill-gap{flex:1;height:54px}
 /* The phone field sits outside the rising sheet (it flies there from the pill), fixed where the sheet leaves room. */
-.search-top{position:fixed;z-index:42;left:20px;right:20px;top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + 26px);display:flex;align-items:center;gap:12px}
+.search-top{position:fixed;z-index:42;left:20px;right:20px;top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + 26px + var(--vv-top,0px));display:flex;align-items:center;gap:12px}
 .search-top .search-field{flex:1}
 .search-cancel{min-height:var(--hit);font-size:var(--fs-body);color:var(--text-3)}
 .is-phone .card.about-sheet{left:0;right:0;top:auto;bottom:0;width:auto;max-height:92dvh;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:28px 20px calc(24px + env(safe-area-inset-bottom))}
@@ -481,3 +481,8 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
  .is-phone .sheet{left:50%;right:auto;width:min(600px,calc(100vw - 48px));translate:-50% 0}
  .is-phone .bottom-bar{left:50%;right:auto;width:min(600px,calc(100vw - 48px));translate:-50% 0}
 }
+/* Phone tabs as a pager (app/swipe-pages.tsx): the pages in a row, each scrolling on its own. */
+.pager{display:flex;height:100%;will-change:transform}
+.pager>.tab-page{flex:0 0 100%;min-width:0}
+.pager-clip{flex:1;min-height:0;overflow:hidden;margin:0 -20px}
+.pager-clip .about-tab{padding:4px 20px 0}

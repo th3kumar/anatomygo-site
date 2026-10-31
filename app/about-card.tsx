@@ -3,6 +3,7 @@ import {ProfileRow} from './community/account';
 import {AnimatePresence,m,useDragControls} from 'motion/react';
 import {ChevronDown,ChevronLeft,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
+import {PagerIndicator,PagerTrack,usePager} from './swipe-pages';
 
 export type AboutTab='about'|'feedback';
 const LABEL:Record<AboutTab,string>={about:'About',feedback:'Feedback'};
@@ -17,6 +18,9 @@ export function AboutCard({phone,pages,start='about',profile,onClose}:{phone:boo
  const go=(t:AboutTab)=>{setSide(tabs.indexOf(t)>=tabs.indexOf(tab)?1:-1);setTab(t);};
  const [account,setAccount]=useState(false);useEffect(()=>{if(!profile)setAccount(false);},[profile]);
  const drag=useDragControls(),at=tabs.indexOf(tab),n=tabs.length;
+ // Phones swipe between the tabs (a pager); a desktop switches on a click.
+ const pager=usePager(n,at,i=>go(tabs[i]));
+ const content=(t:AboutTab)=><>{pages[t]}{t==='about'&&profile&&<ProfileRow name={profile.name} onOpen={()=>setAccount(true)}/>}</>;
  const x=phone&&<button type="button" className="card-x" onClick={onClose} aria-label="Close"><ChevronDown size={18}/></button>;
  const main=<m.div key="main" className="about-screen" {...page(-1)}>
   <div className="card-head" onPointerDown={phone?e=>drag.start(e):undefined}>
@@ -25,12 +29,11 @@ export function AboutCard({phone,pages,start='about',profile,onClose}:{phone:boo
   </div>
   <div className="card-page about-page">
    <div className="tabs card-tabs" role="tablist" aria-label="About AnatomyGo" onPointerDown={phone?e=>drag.start(e):undefined}>
-    <span className="tab-ind" aria-hidden="true" style={{width:`calc((100% - 6px - ${(n-1)*2}px) / ${n})`,transform:`translateX(calc(${at} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}`}}/>
+    {phone?<PagerIndicator pos={pager.pos} count={n}/>:<span className="tab-ind" aria-hidden="true" style={{width:`calc((100% - 6px - ${(n-1)*2}px) / ${n})`,transform:`translateX(calc(${at} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}`}}/>}
     {tabs.map(t=><button type="button" role="tab" key={t} aria-selected={tab===t} className={`tab ${tab===t?'is-on':''}`} onClick={()=>go(t)}>{LABEL[t]}</button>)}
    </div>
-   <AnimatePresence mode="wait" initial={false}><m.div key={tab} className="tab-page about-tab" role="tabpanel" aria-label={LABEL[tab]} {...page(side)}>
-    {pages[tab]}{tab==='about'&&profile&&<ProfileRow name={profile.name} onOpen={()=>setAccount(true)}/>}
-   </m.div></AnimatePresence>
+   {phone?<div className="pager-clip" onPointerDown={pager.down}><PagerTrack pos={pager.pos}>{tabs.map(t=><div key={t} className="tab-page about-tab" role="tabpanel" aria-label={LABEL[t]} inert={t!==tab}>{content(t)}</div>)}</PagerTrack></div>
+   :<AnimatePresence mode="wait" initial={false}><m.div key={tab} className="tab-page about-tab" role="tabpanel" aria-label={LABEL[tab]} {...page(side)}>{content(tab)}</m.div></AnimatePresence>}
   </div>
  </m.div>;
  const accountScreen=profile&&<m.div key="account" className="about-screen" {...page(1)}>

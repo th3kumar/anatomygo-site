@@ -27,7 +27,15 @@ export function SearchPanel({phone,query,setQuery,results,features=[],note,onCho
  const all=[...results,...features];
  const [active,setActive]=useState(0),input=useRef<HTMLInputElement>(null),list=useId(),byKey=useRef(false);
  useEffect(()=>{setActive(0);},[query]);
- useEffect(()=>{input.current?.focus();},[]);
+ useEffect(()=>{input.current?.focus({preventScroll:true});},[]);
+ // iOS (and Android Chrome) lay the keyboard over the page instead of shrinking it, and focusing the field while it still
+ // flies up from the pill scrolls the whole page up, hiding the field. Keep the page at the top, and give the sheet the
+ // visible area only (--vv-top, --kb), so the field and the results stay above the keyboard.
+ useEffect(()=>{const vv=window.visualViewport,root=document.documentElement;if(!phone||!vv)return;
+  const fit=()=>{if(scrollY||root.scrollTop||document.body.scrollTop){scrollTo(0,0);root.scrollTop=document.body.scrollTop=0;}
+   root.style.setProperty('--vv-top',`${Math.max(0,vv.offsetTop)}px`);root.style.setProperty('--kb',`${Math.max(0,root.clientHeight-vv.height-vv.offsetTop)}px`);};
+  fit();vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);
+  return()=>{vv.removeEventListener('resize',fit);vv.removeEventListener('scroll',fit);root.style.removeProperty('--vv-top');root.style.removeProperty('--kb');};},[phone]);
  const key=(e:React.KeyboardEvent)=>{
   if(e.key==='ArrowDown'){e.preventDefault();byKey.current=true;setActive(a=>Math.min(all.length-1,a+1));}
   else if(e.key==='ArrowUp'){e.preventDefault();byKey.current=true;setActive(a=>Math.max(0,a-1));}

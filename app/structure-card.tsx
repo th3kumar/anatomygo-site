@@ -8,6 +8,7 @@ import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/rea
 import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
+import {PagerIndicator,PagerTrack,usePager} from './swipe-pages';
 import type {PublishedPin} from './published-pins';
 import {VoteButton} from './community/vote-button';
 import {PinMenu,type MenuItem} from './community/pin-menu';
@@ -168,13 +169,15 @@ export function StructureCard(p:Props){
   <button type="button" className="learn-more" onClick={p.onLearnMore}><span className="learn-more-in">Learn more<ChevronRight size={18}/></span></button>
  </m.div>;
 
+ // Phones swipe between the tabs (a pager); a desktop switches on a click.
+ const TABS:CardTab[]=['about','parts'],pager=usePager(2,TABS.indexOf(tab),i=>p.onTab(TABS[i]));
  const tabs=<div className="tabs card-tabs" role="tablist" aria-label="About this structure">
-  <span className="tab-ind" aria-hidden="true" style={{width:'calc((100% - 6px - 2px) / 2)',transform:`translateX(calc(${tab==='parts'?1:0} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}`}}/>
+  {phone?<PagerIndicator pos={pager.pos} count={2}/>:<span className="tab-ind" aria-hidden="true" style={{width:'calc((100% - 6px - 2px) / 2)',transform:`translateX(calc(${tab==='parts'?1:0} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}`}}/>}
   {(['about','parts'] as CardTab[]).map(t=><button type="button" role="tab" key={t} aria-selected={tab===t} className={`tab ${tab===t?'is-on':''}`} onClick={()=>p.onTab(t)}>{t==='about'?'About':'Parts'}</button>)}
  </div>;
 
  // Each tab scrolls on its own, so switching never shows the other tab's scroll position.
- const about=<m.div key="about" className="tab-page" {...tabPage(-1)} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='about')scroller.current=el;}}>
+ const about=<m.div key="about" className="tab-page" {...(phone?{inert:tab!=='about'}:tabPage(-1))} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='about')scroller.current=el;}}>
   <p className="t-body">{facts.description}</p>
   {!facts.curated&&<p className="t-meta">A general note on the {facts.system.toLowerCase()} system. A description of this structure is still to be written.</p>}
   <div className="card-tiles">
@@ -184,7 +187,7 @@ export function StructureCard(p:Props){
   </div>
  </m.div>;
 
- const parts=<m.div key="parts" className="tab-page" {...tabPage(1)} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='parts')scroller.current=el;if(el&&!el.dataset.placed){el.dataset.placed='1';el.scrollTop=partsScroll.current;}}} onScroll={e=>{partsScroll.current=(e.target as HTMLDivElement).scrollTop;}}>
+ const parts=<m.div key="parts" className="tab-page" {...(phone?{inert:tab!=='parts'}:tabPage(1))} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='parts')scroller.current=el;if(el&&!el.dataset.placed){el.dataset.placed='1';el.scrollTop=partsScroll.current;}}} onScroll={e=>{partsScroll.current=(e.target as HTMLDivElement).scrollTop;}}>
   {p.members.length>1
    ?<div className="list">{p.members.slice(0,60).map(x=><button type="button" key={x.id} className="row" onClick={()=>p.onMember(x.id)}><span className="cap">{x.name}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :p.pinsLoading?<div className="list" aria-busy="true">{[0,1,2,3].map(i=><span key={i} className="row skeleton"/>)}</div>
@@ -201,7 +204,7 @@ export function StructureCard(p:Props){
   </m.div>;
  const focus=<m.div key={`focus-${facts.reference}`} className="card-page card-focus" custom={c} variants={pageV} initial="enter" animate="center" exit="exit">
   <m.div {...rise(0,fromPeek)}>{tabs}</m.div>
-  <m.div className="card-scroll" {...rise(1,fromPeek)}><AnimatePresence mode="popLayout" initial={false}>{tab==='about'?about:parts}</AnimatePresence></m.div>
+  <m.div className="card-scroll" {...rise(1,fromPeek)} onPointerDown={phone?pager.down:undefined}>{phone?<PagerTrack pos={pager.pos}>{about}{parts}</PagerTrack>:<AnimatePresence mode="popLayout" initial={false}>{tab==='about'?about:parts}</AnimatePresence>}</m.div>
   <m.div className="card-foot-slot" {...rise(2,fromPeek)}><AnimatePresence mode="popLayout" initial={false}>{footer}</AnimatePresence></m.div>
  </m.div>;
 
