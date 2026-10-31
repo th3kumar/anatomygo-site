@@ -2,7 +2,8 @@
  * Phone layout: narrow screens, and phones held sideways (too short for the desktop panels). Keep in step with ui.css. */
 import {useSyncExternalStore} from 'react';
 
-export const PHONE='(max-width: 767px), (max-height: 600px) and (orientation: landscape)';
+/** The phone layout (bottom sheet and bottom controls): phones, phones on their side, and upright tablets up to 1023 px wide. */
+export const PHONE='(max-width: 767px), (max-height: 600px) and (orientation: landscape), (max-width: 1023px) and (orientation: portrait)';
 /** Phones held sideways: the phone layout, with the view pill along the top. */
 export const LANDSCAPE='(max-height: 600px) and (orientation: landscape)';
 export const COARSE='(pointer: coarse)';

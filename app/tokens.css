@@ -82,5 +82,5 @@
  --destructive:#e8a092;
  color-scheme:dark;
 }
-@media(max-width:767px){:root{--blur:none}}
+@media(max-width:767px),(max-width:1023px) and (orientation:portrait){:root{--blur:none}}
 @media(prefers-reduced-motion:reduce){:root{--t-leave:.12s;--t-enter:.12s;--t-theme:.15s}}

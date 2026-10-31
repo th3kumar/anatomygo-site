@@ -474,3 +474,10 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .loader-pc{font-variant-numeric:tabular-nums}
 .loader-bar{display:block;height:4px;margin-top:12px;border-radius:2px;background:var(--hair-3);overflow:hidden}
 .loader-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);transform-origin:0 50%;transition:transform .4s var(--ease-out)}
+/* Reduced motion: no pops, halos or pulses; things simply appear (the motion library and the scene follow the same setting). */
+@media(prefers-reduced-motion:reduce){.pin-label-in.is-popping,.pin-halo,.row.skeleton::after,.tip-card{animation:none}}
+/* Upright tablets use the phone layout; the sheets and the bottom controls stay a comfortable width, centred. */
+@media(min-width:768px) and (max-width:1023px) and (orientation:portrait){
+ .is-phone .sheet{left:50%;right:auto;width:min(600px,calc(100vw - 48px));translate:-50% 0}
+ .is-phone .bottom-bar{left:50%;right:auto;width:min(600px,calc(100vw - 48px));translate:-50% 0}
+}

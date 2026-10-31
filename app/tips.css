@@ -9,4 +9,4 @@
 .tip-card button:hover{opacity:.9}
 .dark .tip-card{background:#e9ecef;color:#131518}.dark .tip-card button{background:#131518!important;color:#e9ecef!important}
 @keyframes tip-in{from{opacity:0;translate:0 4px}}
-@media(max-width:767px){.tip-card p{font-size:14px}.tip-card button{min-height:40px}}
+@media(max-width:767px),(max-width:1023px) and (orientation:portrait){.tip-card p{font-size:14px}.tip-card button{min-height:40px}}
