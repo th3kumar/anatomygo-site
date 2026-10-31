@@ -9,6 +9,7 @@ import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from
 import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
 import {PagerIndicator,PagerTrack,usePager} from './swipe-pages';
+import {track} from './analytics';
 import type {PublishedPin} from './published-pins';
 import {VoteButton} from './community/vote-button';
 import {PinMenu,type MenuItem} from './community/pin-menu';
@@ -52,8 +53,8 @@ interface Props {
  /** Under the byline: other spots and comments. */
  extras?:ReactNode;onOpenContribute:()=>void;onCloseContribute:()=>void;onPlace:(feature:OpenFeature|null)=>void;onSuggest:(pin:PublishedPin)=>void;
  vote:(pin:PublishedPin)=>{on:boolean;count:number}|null;onVote:(pin:PublishedPin)=>void;voteError:string;pinHref:(p:PublishedPin)=>string;
- onTab:(t:CardTab)=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
- onPin:(id:string)=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
+ onTab:(t:CardTab,method:'tap'|'swipe')=>void;onLearnMore:()=>void;onClose:()=>void;onBack:()=>void;
+ onPin:(id:string,method?:'list'|'arrow'|'swipe')=>void;onPinClose:()=>void;onHoverPin:(id:string|null)=>void;onMember:(id:string,rank:number)=>void;onCounterpart:()=>void;onContribute:(source:string)=>void;
  /** The phone sheet's resting height, so the camera can frame the space above it. */
  onRest?:(h:number)=>void;
  /** The card was minimised to its bar (or opened again), so the camera can use the space. */
@@ -91,7 +92,7 @@ export function StructureCard(p:Props){
   swipe.current=null;was.current={mode,index,ref:facts.reference};
  }
  const c=nav.current,fromPeek=c.from==='peek'&&mode==='focus';
- const go=(to:PublishedPin|null,d=0)=>{if(to){intent.current=d;p.onPin(to.id);}};
+ const go=(to:PublishedPin|null,d=0,method:'arrow'|'swipe'='arrow')=>{if(to){intent.current=d;p.onPin(to.id,method);}};
 
  // The peek's height, measured, so Learn more springs between two numbers instead of from 'auto'.
  const head=useRef<HTMLDivElement>(null),peekBody=useRef<HTMLDivElement>(null),[peekH,setPeekH]=useState(0);
@@ -112,6 +113,8 @@ export function StructureCard(p:Props){
  useEffect(()=>()=>{scroller.current=null;},[]);
  // In focus and on a feature the card minimises instead of closing: leaving the structure is the Body button's job.
  const canMini=phone&&mode!=='peek'&&mode!=='place',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
+ // The visitor's own minimise and restore (not the card resetting itself), by button or by dragging the sheet.
+ const minimise=(on:boolean,method:'button'|'drag'|'tap')=>{setMini(on);track('display_toggled',{toggle:'card_minimised',on:on?1:0,method});};
  useEffect(()=>{if(!canMini)setMini(false);},[canMini]);useEffect(()=>{setMini(false);},[facts.reference]);
  useEffect(()=>{p.onMinimise?.(mini);},[mini]);
  useLayoutEffect(()=>{if(!phone)return;const probe=document.createElement('div');probe.style.cssText='position:fixed;height:env(safe-area-inset-bottom);visibility:hidden';document.body.appendChild(probe);setSafe(probe.offsetHeight);probe.remove();},[phone]);
@@ -149,14 +152,14 @@ export function StructureCard(p:Props){
   const stop=(ev:Event)=>{ev.stopPropagation();ev.preventDefault();};addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>removeEventListener('click',stop,{capture:true}),0);
   const h=height.get(),v=g.v,spring_={...spring.sheet,velocity:-v};
   // Minimised: dragged up it opens again, otherwise it settles back to the bar (it never leaves the structure).
-  if(mini){if(h>MINI+40||v<-400){setMini(false);animate(height,rest,spring_);}else animate(height,MINI,spring_);return;}
-  if(h<rest*.72||(v>900&&h<rest)){if(canMini){setMini(true);setFull(false);animate(height,MINI,spring_);}else p.onBack();return;}
+  if(mini){if(h>MINI+40||v<-400){minimise(false,'drag');animate(height,rest,spring_);}else animate(height,MINI,spring_);return;}
+  if(h<rest*.72||(v>900&&h<rest)){if(canMini){minimise(true,'drag');setFull(false);animate(height,MINI,spring_);}else p.onBack();return;}
   const toFull=open>rest+8&&(v<-500||(v<500&&h>(rest+open)/2));setFull(toFull);animate(height,toFull?open:rest,{...spring.sheet,velocity:-v});
   void e;};
  const size=phone?{}:mini?{width:360,height:mode==='feature'?110:68}:{width:mode==='peek'?416:392,height:deskH};
 
  // Phones: each page has its own control (minimise in focus). Desktop: one corner button for the whole card (below).
- const close=!phone?null:canMini?<button type="button" className="card-x" onClick={()=>setMini(true)} aria-label="Minimise" title="Minimise"><ChevronDown size={18}/></button>:<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
+ const close=!phone?null:canMini?<button type="button" className="card-x" onClick={()=>minimise(true,'button')} aria-label="Minimise" title="Minimise"><ChevronDown size={18}/></button>:<button type="button" className="card-x" onClick={p.onClose} aria-label="Close"><X size={16}/></button>;
 
  // Peek and focus share this header; it leaves with the focus body when a feature opens.
  const header=<div ref={head} className="card-head">
@@ -170,10 +173,10 @@ export function StructureCard(p:Props){
  </m.div>;
 
  // Phones swipe between the tabs (a pager); a desktop switches on a click.
- const TABS:CardTab[]=['about','parts'],pager=usePager(2,TABS.indexOf(tab),i=>p.onTab(TABS[i]));
+ const TABS:CardTab[]=['about','parts'],pager=usePager(2,TABS.indexOf(tab),i=>p.onTab(TABS[i],'swipe'));
  const tabs=<div className="tabs card-tabs" role="tablist" aria-label="About this structure">
   {phone?<PagerIndicator pos={pager.pos} count={2}/>:<span className="tab-ind" aria-hidden="true" style={{width:'calc((100% - 6px - 2px) / 2)',transform:`translateX(calc(${tab==='parts'?1:0} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}`}}/>}
-  {(['about','parts'] as CardTab[]).map(t=><button type="button" role="tab" key={t} aria-selected={tab===t} className={`tab ${tab===t?'is-on':''}`} onClick={()=>p.onTab(t)}>{t==='about'?'About':'Parts'}</button>)}
+  {(['about','parts'] as CardTab[]).map(t=><button type="button" role="tab" key={t} aria-selected={tab===t} className={`tab ${tab===t?'is-on':''}`} onClick={()=>p.onTab(t,'tap')}>{t==='about'?'About':'Parts'}</button>)}
  </div>;
 
  // Each tab scrolls on its own, so switching never shows the other tab's scroll position.
@@ -189,7 +192,7 @@ export function StructureCard(p:Props){
 
  const parts=<m.div key="parts" className="tab-page" {...(phone?{inert:tab!=='parts'}:tabPage(1))} ref={(el:HTMLDivElement|null)=>{if(el&&tab==='parts')scroller.current=el;if(el&&!el.dataset.placed){el.dataset.placed='1';el.scrollTop=partsScroll.current;}}} onScroll={e=>{partsScroll.current=(e.target as HTMLDivElement).scrollTop;}}>
   {p.members.length>1
-   ?<div className="list">{p.members.slice(0,60).map(x=><button type="button" key={x.id} className="row" onClick={()=>p.onMember(x.id)}><span className="cap">{x.name}</span><ChevronRight size={16} className="chev"/></button>)}</div>
+   ?<div className="list">{p.members.slice(0,60).map((x,i)=><button type="button" key={x.id} className="row" onClick={()=>p.onMember(x.id,i+1)}><span className="cap">{x.name}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :p.pinsLoading?<div className="list" aria-busy="true">{[0,1,2,3].map(i=><span key={i} className="row skeleton"/>)}</div>
    :p.pins.length?<div className="list" onPointerLeave={()=>p.onHoverPin(null)}>{p.pins.map(x=><button type="button" key={x.id} className="row" onPointerEnter={()=>p.onHoverPin(x.id)} onFocus={()=>p.onHoverPin(x.id)} onClick={()=>p.onPin(x.id)}><span className="cap">{x.label}</span><ChevronRight size={16} className="chev"/></button>)}</div>
    :<p className="t-body2">{p.pinsError||'No parts pinned yet.'}</p>}
@@ -211,7 +214,7 @@ export function StructureCard(p:Props){
  const pin=p.pin;
  const feature=pin&&<m.div key={`f-${pin.id}`} className="card-page card-feature" custom={c} variants={pageV} initial="enter" animate="center" exit="exit"
   drag={phone?'x':false} dragDirectionLock dragSnapToOrigin dragElastic={.35}
-  onDragEnd={(_,i)=>{const w=(sheet.current?.offsetWidth??innerWidth)*.3;const fwd=i.offset.x<-w||i.velocity.x<-600,to=fwd?next:i.offset.x>w||i.velocity.x>600?prev:null;if(to){swipe.current=i.offset.x;go(to,fwd?1:-1);}}}>
+  onDragEnd={(_,i)=>{const w=(sheet.current?.offsetWidth??innerWidth)*.3;const fwd=i.offset.x<-w||i.velocity.x<-600,to=fwd?next:i.offset.x>w||i.velocity.x>600?prev:null;if(to){swipe.current=i.offset.x;go(to,fwd?1:-1,'swipe');}}}>
   <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={p.onPinClose}>{phone&&<ChevronLeft size={14}/>}{facts.title} · Parts</button><PinMenu items={p.menu(pin)}/>{close}</div>
   {phone&&<p className="t-meta">Feature · {index+1} of {p.pins.length}</p>}
   <h2 className="t-title card-title cap">{pin.label}</h2>
@@ -254,7 +257,7 @@ export function StructureCard(p:Props){
  // Minimised: the name (on a feature, which one and arrows to step through them) and a way back up.
  const miniBar=<m.div key="mini" className="card-mini" role="button" tabIndex={0} aria-label={`Show details: ${mode==='feature'&&p.pin?p.pin.label:facts.title}`}
   initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.2,.08)}} exit={{opacity:0,transition:tween('in',.12)}}
-  onClick={()=>setMini(false)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setMini(false);}}}>
+  onClick={()=>minimise(false,'tap')} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();minimise(false,'tap');}}}>
   <div className="mini-text"><p className="t-meta">{mode==='feature'&&p.pin?`Feature · ${index+1} of ${p.pins.length}`:mode==='contribute'?facts.title:`${facts.kind}${facts.side?` · ${facts.side}`:''}`}</p><p className="mini-title cap">{mode==='feature'&&p.pin?p.pin.label:mode==='contribute'?'Contribute':facts.title}</p></div>
   <span className="card-x mini-open" aria-hidden="true"><ChevronUp size={18}/></span>
   {mode==='feature'&&(prev||next)&&<div className="mini-steps t-meta">

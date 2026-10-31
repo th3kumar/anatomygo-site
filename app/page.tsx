@@ -25,7 +25,7 @@ import {Button} from '@/components/ui/button';
 import {Switch} from '@/components/ui/switch';
 import {AboutCard} from './about-card';
 import AnatomyScene from './scene';
-import {track,bucket,queryKind,statsEnabled,setStatsEnabled,secondsBucket,progressBucket,deviceHints,modelTransfer} from './analytics';
+import {track,setContext,type Params,bucket,queryKind,statsEnabled,setStatsEnabled,secondsBucket,progressBucket,deviceHints,modelTransfer} from './analytics';
 import {preloadStream,storedChunks} from './model-stream';
 import {aliasesFor,searchTerms,searchText} from './search-terms';
 import {FeedbackForm,FeedbackPrompt,type FeedbackContext} from './feedback';
@@ -36,7 +36,7 @@ import {setAppearance,useAppearance} from './theme';
 import {DEFAULT_VISIBLE,PANEL_ORDER,SYSTEMS,EXPLANATIONS,explanation,type Atlas,type Concept,type SceneState,type SystemId,type View} from './anatomy';
 import {Arrive,BackButton,FocusPill,GlassButton,Hint,ThemeButton,ViewPill,Wordmark,type FocusToggle} from './chrome';
 import {StructureCard,type CardFacts,type CardMode,type CardTab} from './structure-card';
-import {SystemsBody,presetSystems,type Preset} from './systems-panel';
+import {SystemsBody,presetOf,presetSystems,type Preset} from './systems-panel';
 import {SearchPanel,SearchPill,type Result} from './search';
 import {useFeatureSearch} from './feature-search';
 import {LANDSCAPE,PHONE,useMedia} from './media';
@@ -48,6 +48,19 @@ const capitalise=(name:string)=>name.charAt(0).toUpperCase()+name.slice(1);
 const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],isolate:false,view:'three-quarter',rotate:false,reset:0};
 // A load still running in this tab; if it is there when the page starts again, the last load never finished (a reload, or on phones usually the browser closing the tab for memory).
 const LOADING='anatomygo.loading';
+// Search's Start with list. While SHUFFLE_STARTERS is on, each visit gets its own order (kept for the whole visit), so
+// picks can be split into the pull of the row and the pull of the structure (`index`, the row, and `structure_id` on
+// structure_selected). Turn it off two weeks after it goes live, and fix the order from what the data shows.
+const STARTERS=['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea'];
+const SHUFFLE_STARTERS=true;
+function starters(){
+ if(!SHUFFLE_STARTERS)return STARTERS;
+ const KEY='anatomygo.starters';
+ try{const kept=JSON.parse(sessionStorage.getItem(KEY)??'null');if(Array.isArray(kept)&&kept.length===STARTERS.length&&STARTERS.every(n=>kept.includes(n)))return kept as string[];}catch{}
+ const order=[...STARTERS];for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+ try{sessionStorage.setItem(KEY,JSON.stringify(order));}catch{}
+ return order;
+}
 const fpsBucket=(fps:number)=>fps<20?'0_19':fps<30?'20_29':fps<45?'30_44':fps<58?'45_57':'58_plus';
 /** A failure in plain words: a lost connection reads as one, never as the browser's own text ("Failed to fetch"). */
 function problem(error:string):[string,string]{
@@ -179,7 +192,8 @@ export default function Home(){
    syncKept();setPinsVersion(v=>v+1);void myName(session).then(setMe);if(sent)setToast(sent>1?`${sent} pins saved`:'Pin saved');if(open)setOpenProposal(open);
    // A pin saved just before signing in is now sent: its step card closes.
    setDraft(d=>d&&!keptDrafts().some(k=>k.request===d.request)?null:d);})();},[session]);
- const selectPin=(id:string,source:'list'|'model')=>{setSelectedPin(id);const p=shown.pins.find(x=>x.id===id);if(p)track('home_pin_selected',{kind:p.kind??'published',source});};
+ // `method`: a row of the Parts list, a feature's arrow or a swipe to it, or the pin on the model; `index` is its row.
+ const selectPin=(id:string,source:'list'|'model',method:string=source)=>{setSelectedPin(id);const i=shown.pins.findIndex(x=>x.id===id),p=shown.pins[i];if(p)track('home_pin_selected',{kind:p.kind??'published',source,method,list:'parts',index:i+1});};
  useEffect(()=>{if(shown.pins.length)track('home_pins_shown',{structure_id:selected?.id??'',pins:bucket(shown.pins.length),published:bucket(shown.pins.filter(p=>p.kind!=='community').length)});},[shown.pins]);
  // Playground entry: a count of the structure's parts & features, a "New" tag and (with coach marks on) two one-time tips until the visitor has tried it.
  const featureCounts=useFeatureCounts(details?state.selected:[]),featureTotal=featureCounts?featureCounts.features:null;
@@ -206,7 +220,7 @@ export default function Home(){
  const [wantPin,setWantPin]=useState<string|null>(null);
  useEffect(()=>{if(wantPin&&shown.pins.some(p=>p.id===wantPin)){selectPin(wantPin,'list');setWantPin(null);}},[shown.pins,wantPin]);
  const visibleCount=atlas?.parts.filter(p=>state.isolate?state.selected.includes(p.id):state.visible.includes(p.system)||state.selected.includes(p.id)).length??0;
- const results=useMemo(()=>{if(!atlas)return[];const term=query.toLowerCase().trim();if(!term)return ['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea'].map(name=>atlas.concepts.find(c=>c.name.toLowerCase()===name)).filter((x):x is Concept=>!!x);const also=aliasesFor(term);return atlas.concepts.filter(c=>{const n=c.name.toLowerCase();return n.includes(term)||c.id.toLowerCase().includes(term)||also.some(a=>n.includes(a));}).sort((a,b)=>a.name.length-b.name.length).slice(0,80);},[atlas,query]);
+ const results=useMemo(()=>{if(!atlas)return[];const term=query.toLowerCase().trim();if(!term)return starters().map(name=>atlas.concepts.find(c=>c.name.toLowerCase()===name)).filter((x):x is Concept=>!!x);const also=aliasesFor(term);return atlas.concepts.filter(c=>{const n=c.name.toLowerCase();return n.includes(term)||c.id.toLowerCase().includes(term)||also.some(a=>n.includes(a));}).sort((a,b)=>a.name.length-b.name.length).slice(0,80);},[atlas,query]);
  // A search that finds nothing, once typing pauses: the query's shape and length only, never its text. Longer versions of the same miss are not repeated.
 
  // Feedback. The card asks once per device: after three minutes of visible use, once the body is usable and the visitor
@@ -240,9 +254,9 @@ export default function Home(){
  // Picked from search: the rest of the body turns to glass so the structure shows wherever it sits (until Learn more,
  // another pick, or closing).
  const [seeThrough,setSeeThrough]=useState(false);
- const choose=(c:Concept,source:string)=>{setSeeThrough(source==='search');visit.current.structures.add(c.id);track('structure_selected',{source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ const choose=(c:Concept,source:string,more:Params={})=>{setSeeThrough(source==='search');visit.current.structures.add(c.id);track('structure_selected',{...more,source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  useEffect(()=>{if(!atlas)return;return registerAtlasTools(atlas,c=>flushSync(()=>choose(c,'agent')));},[atlas]);
- const choosePart=(id:string,source:string)=>{const p=parts.get(id);if(!p)return;setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ const choosePart=(id:string,source:string,more:Params={})=>{const p=parts.get(id);if(!p)return;setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{...more,source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  const toggle=(id:SystemId)=>{setSeeThrough(false);visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
  const reset=()=>{track('view_reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
  useEffect(()=>{if(!atlas)return;const q=new URLSearchParams(location.search),id=q.get('structure');if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')!=='0')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
@@ -270,7 +284,7 @@ export default function Home(){
  // Back to the body: the card and pins leave, the camera returns, and the structure keeps its tint for 1.2 s.
  const backToBody=()=>{setSeeThrough(false);setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
  const closeCard=()=>{setSeeThrough(false);if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
- const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more'});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
+ const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more',xray:seeThrough?1:0});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
  const KIND:Record<string,string>={skeletal:'Bone',muscular:'Muscle',arterial:'Artery',venous:'Vein'};
@@ -279,6 +293,13 @@ export default function Home(){
  const facts:CardFacts|null=chosen&&selected?{kind:KIND[selected.system]??system?.name??'Structure',title:capitalise(chosen.name),description:explanation(chosen.name,selected.system),curated:!!EXPLANATIONS[chosen.name.toLowerCase()],system:system?.name??'Anatomy',side,pieces:selectedParts.length,features:featureCounts?featureCounts.pinned:null,reference:chosen.id}:null;
  const pinHref=(p:{proposal?:string})=>`/playground/?structure=${encodeURIComponent(selected?.id??'')}${p.proposal?`&pin=${encodeURIComponent(p.proposal)}`:''}&from=home_pin`;
  const systemIds=DEFAULT_VISIBLE.filter(id=>activeSystems.some(s=>s.id===id));
+ // What the body shows, sent with every event (`layers`), so an action can be read against it: a bone tapped once the
+ // muscles are hidden. A preset by its name, one system as only_<id>, the body without its muscles as no_muscles.
+ // Set while rendering, so an event sent from an effect in the same update already carries it. Until the atlas index
+ // is in, the systems are the default ones.
+ const layers=(()=>{const v=state.visible,all=systemIds.length?systemIds:DEFAULT_VISIBLE,preset=presetOf(v,all);if(preset)return preset;if(!v.length)return 'none';if(v.length===1)return `only_${v[0]}`;
+  const rest=all.filter(id=>id!=='muscular');return rest.length===v.length&&rest.every(id=>v.includes(id))?'no_muscles':'custom';})();
+ setContext({layers});
  const applyPreset=(p:Preset)=>{setSeeThrough(false);track('preset_applied',{preset:p});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:presetSystems(p,systemIds)}));};
  const showOnly=(id:SystemId)=>{track('preset_applied',{preset:'only',system_id:id});setDetails(false);setState(v=>({...v,visible:[id],isolate:false,selected:[]}));};
  const explodeTo=(value:number)=>{if(!exploded.current){exploded.current=true;track('explode_used');}setState(s=>{if(s.explode<=.8&&value>.8)preExplodeView.current=s.view;const view=s.explode>.8&&value<=.8?preExplodeView.current??s.view:value>.8?'front':s.view;return {...s,explode:value,view,rotate:false};});};
@@ -289,8 +310,10 @@ export default function Home(){
  const featureHits=useFeatureSearch(panel==='search'?query:'');
  const featureResults:Result[]=featureHits.filter(h=>parts.has(h.mesh)).map(h=>({id:`f:${h.id}:${h.mesh}`,name:capitalise(h.label),meta:`On ${capitalise(parts.get(h.mesh)!.name)}`}));
  const chooseResult=(id:string)=>{
-  if(id.startsWith('f:')){const [,pin,mesh]=id.split(':');if(!parts.has(mesh))return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length+featureResults.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choosePart(mesh,'search');setState(s=>({...s,isolate:true,explode:0,rotate:false}));setWantPin(pin);return;}
-  const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;track('search_performed',{query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search');};
+  if(id.startsWith('f:')){const [,pin,mesh]=id.split(':');if(!parts.has(mesh))return;visit.current.searches++;searchSession.current.chosen=true;const pick={list:'features',index:featureResults.findIndex(r=>r.id===id)+1};track('search_performed',{...pick,query_kind:queryKind(query),result_count:bucket(results.length+featureResults.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choosePart(mesh,'search',pick);setState(s=>({...s,isolate:true,explode:0,rotate:false}));setWantPin(pin);return;}
+  const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;// Which list and which row it was picked from; the Start with list says whether its order was shuffled.
+  const pick:Params=query.trim()?{list:'results',index:results.indexOf(c)+1}:{list:'start_with',index:results.indexOf(c)+1,order:SHUFFLE_STARTERS?'shuffled':'fixed'};
+  track('search_performed',{...pick,query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search',pick);};
  const tap=coarse?'Tap':'Click',inspecting=details&&selectedParts.length>0;
  // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
  const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
@@ -367,7 +390,7 @@ export default function Home(){
   </m.div>}</AnimatePresence>
   {error&&(()=>{const [title,line]=problem(error);return <div className="panel error-card" role="alert"><h2 className="t-title">{title}</h2><p className="t-body2">{line}</p><button type="button" className="btn-accent" onClick={()=>location.reload()}>Try again</button></div>;})()}
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
-   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={t=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1});}}
+   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={(t,method)=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1,method});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={viewPin??null} counterpart={counterpart} pinHref={pinHref}
    menu={menuFor}
@@ -381,8 +404,8 @@ export default function Home(){
     onName={v=>setDraft(d=>d&&{...d,label:v})} onNote={v=>setDraft(d=>d&&{...d,note:v})} onSave={()=>void savePin()} onCancel={cancelDraft}/>}
    vote={x=>x.proposal?{on:votes.mine(x.proposal)===1,count:votes.count(x.proposal,x.upvotes??0)}:null} onVote={x=>void castVote(x)} voteError={votes.error}
    onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}
-   onPin={id=>selectPin(id,'list')} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
-   onMember={id=>{choosePart(id,'list');setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
+   onPin={(id,method)=>selectPin(id,'list',method)} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
+   onMember={(id,rank)=>{choosePart(id,'list',{list:'members',index:rank});setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
   <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>
   <AnimatePresence>{review&&atlas&&<ReviewQueue key="review" structures={atlas.parts} onClose={()=>setReview(false)}

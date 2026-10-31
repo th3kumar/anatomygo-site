@@ -4,6 +4,7 @@ import {AnimatePresence,m,useDragControls} from 'motion/react';
 import {ChevronDown,ChevronLeft,X} from 'lucide-react';
 import {DUR,css,spring,tween} from './motion';
 import {PagerIndicator,PagerTrack,usePager} from './swipe-pages';
+import {track} from './analytics';
 
 export type AboutTab='about'|'feedback';
 const LABEL:Record<AboutTab,string>={about:'About',feedback:'Feedback'};
@@ -15,11 +16,11 @@ const page=(side:number)=>({initial:{opacity:0,x:8*side},animate:{opacity:1,x:0,
 export function AboutCard({phone,pages,start='about',profile,onClose}:{phone:boolean;pages:Partial<Record<AboutTab,ReactNode>>;start?:AboutTab;profile?:{name:string;page:ReactNode}|null;onClose:()=>void}){
  const tabs=(Object.keys(LABEL) as AboutTab[]).filter(t=>pages[t]);
  const [tab,setTab]=useState<AboutTab>(tabs.includes(start)?start:'about'),[side,setSide]=useState(1);
- const go=(t:AboutTab)=>{setSide(tabs.indexOf(t)>=tabs.indexOf(tab)?1:-1);setTab(t);};
+ const go=(t:AboutTab,method:'tap'|'swipe'='tap')=>{setSide(tabs.indexOf(t)>=tabs.indexOf(tab)?1:-1);setTab(t);track('display_toggled',{toggle:`about_${t}`,on:1,method});};
  const [account,setAccount]=useState(false);useEffect(()=>{if(!profile)setAccount(false);},[profile]);
  const drag=useDragControls(),at=tabs.indexOf(tab),n=tabs.length;
  // Phones swipe between the tabs (a pager); a desktop switches on a click.
- const pager=usePager(n,at,i=>go(tabs[i]));
+ const pager=usePager(n,at,i=>go(tabs[i],'swipe'));
  const content=(t:AboutTab)=><>{pages[t]}{t==='about'&&profile&&<ProfileRow name={profile.name} onOpen={()=>setAccount(true)}/>}</>;
  const x=phone&&<button type="button" className="card-x" onClick={onClose} aria-label="Close"><ChevronDown size={18}/></button>;
  const main=<m.div key="main" className="about-screen" {...page(-1)}>

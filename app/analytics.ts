@@ -18,6 +18,14 @@ export type Params=Record<string,string|number>;
 declare global{interface Window{dataLayer:unknown[];[key:`ga-disable-${string}`]:boolean}}
 let page:Params={},started=false;
 
+// The visit as a path. Every event carries `step` (how many actions the visitor has taken so far), `prev_action` (the
+// one before) and the page's context (`layers`: what the body shows), so a journey reads in order: muscles hidden,
+// then a bone tapped. Things the site does by itself (loading, prompts shown, failures) don't count as actions.
+let context:Params={},step=0,prevAction='landing';
+const PASSIVE=/(_shown|_offered|_ready|_failed|_unavailable|_interrupted|_restarted|_invalid)$|^(atlas_|render_|visit_summary|webgl_)/;
+/** Context sent with every later event, such as `layers`. */
+export function setContext(c:Params){context={...context,...c};}
+
 // gtag.js reads the Arguments object itself, not an array.
 function gtag(..._:unknown[]){window.dataLayer.push(arguments);}
 
@@ -47,7 +55,9 @@ function load(){
 export function track(name:string,{source,...params}:Params={},{beacon=false}:{beacon?:boolean}={}){
  if(!started||!statsEnabled())return;
  if(source!==undefined)params.ui_source=source;
- gtag('event',name,{...params,...(beacon?{transport_type:'beacon'}:{}),...(debug?{debug_mode:true}:{})});
+ const action=!PASSIVE.test(name);if(action)step++;
+ gtag('event',name,{...context,step,prev_action:prevAction,...params,...(beacon?{transport_type:'beacon'}:{}),...(debug?{debug_mode:true}:{})});
+ if(action)prevAction=name;
 }
 
 export function setStatsEnabled(on:boolean){
