@@ -95,7 +95,7 @@ export default function Home(){
  },[]);
  useEffect(()=>{if(state.isolate)visit.current.isolated=true;},[state.isolate]);
  useEffect(()=>{visit.current.explode=Math.max(visit.current.explode,state.explode);},[state.explode]);
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='/'&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();setPanel('search');setDetails(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='/'&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();if(panel!=='search')track('search_opened',{method:'key'});setPanel('search');setDetails(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
  const parts=useMemo(()=>new Map(atlas?.parts.map(p=>[p.id,p])),[atlas]);
  const counts=useMemo(()=>Object.fromEntries(SYSTEMS.map(s=>[s.id,atlas?.parts.filter(p=>p.system===s.id).length??0])),[atlas]);
  const activeSystems=PANEL_ORDER.map(id=>SYSTEMS.find(s=>s.id===id)!).filter(s=>counts[s.id]>0);
@@ -158,7 +158,7 @@ export default function Home(){
  const [act,setAct]=useState<{kind:'report'|'delete';pin:PublishedPin}|null>(null),[reason,setReason]=useState(''),[actBusy,setActBusy]=useState(false),[actError,setActError]=useState('');
  const menuFor=(x:PublishedPin)=>{const mine=!!x.by&&x.by===me,items:MenuItem[]=[];if(!x.proposal)return items;
   if(!mine)items.push({label:'Doesn’t look right',checked:votes.mine(x.proposal)===-1,onSelect:()=>void castVote(x,false)});
-  if(!mine)items.push({label:'Report a problem',onSelect:()=>{if(!session){setCloudOn(true);setAsk('report');track('sign_in_prompted',{reason:'report'});return;}setReason('');setActError('');setAct({kind:'report',pin:x});}});
+  if(!mine)items.push({label:'Report a problem',onSelect:()=>{track('report_opened',{signed_in:session?1:0});if(!session){setCloudOn(true);setAsk('report');track('sign_in_prompted',{reason:'report'});return;}setReason('');setActError('');setAct({kind:'report',pin:x});}});
   if(mine&&x.kind!=='published')items.push({label:'Delete my pin',danger:true,onSelect:()=>{setActError('');setAct({kind:'delete',pin:x});}});
   return items;};
  const runAct=async()=>{if(!act?.pin.proposal||actBusy)return;setActBusy(true);setActError('');
@@ -166,7 +166,7 @@ export default function Home(){
    else{await rpc('pg_withdraw',{p_proposal:act.pin.proposal});track('pin_deleted');setToast('Pin deleted');if(selected)forgetPins(selected.id);setPinsVersion(v=>v+1);setSelectedPin(null);}
    setAct(null);}catch{setActError(act.kind==='report'?'That didn’t send. Please try again.':'That didn’t delete. Please try again.');}finally{setActBusy(false);}};
  const saveName=async(v:string)=>{await rpc('pg_set_profile',{p_name:v});setMe(v);track('public_name_set',{first:me?0:1});};
- const signOut=async()=>{await (await cloud()).auth.signOut();track('signed_out');setAbout(false);setToast('Signed out');};
+ const signOut=async()=>{track('signed_out');await (await cloud()).auth.signOut();setAbout(false);setToast('Signed out');};
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),2400);return()=>clearTimeout(t);},[toast]);
  useEffect(()=>{setMe(null);if(session)void myName(session).then(setMe).catch(()=>{});},[session]);
  useEffect(()=>{setDraft(null);},[selected?.id,state.isolate]);
@@ -265,7 +265,7 @@ export default function Home(){
  const toggleLighting=()=>{if(lighting){closeLighting();return;}track('lighting_opened');setPanel(null);setLighting(true);};
  const openAbout=(source:'top_bar'|'footer')=>{track('about_opened',{source:appBadge?`${source}_badge`:source});if(appNews){setAppNews(false);setAppFresh(true);try{localStorage.setItem(APP_SEEN,'1');}catch{}}setDetails(false);setPanel(null);setAbout(true);};
  const playClicked=()=>track('play_clicked',{source:'about',platform});
- const openPanel=(next:'layers'|'search')=>{setDetails(false);setPanel(p=>p===next?null:next);};
+ const openPanel=(next:'layers'|'search')=>{if(panel!==next)track(next==='search'?'search_opened':'display_toggled',next==='search'?{method:'pill'}:{setting:'systems_panel',on:1});setDetails(false);setPanel(p=>p===next?null:next);};
  const phone=useMedia(PHONE),sideways=useMedia(LANDSCAPE),chromeReady=viewReady||progress===100||!!error;
  // On <html> too, so sheets and dialogs (rendered outside <main>) take the phone layout.
  useEffect(()=>{document.documentElement.classList.toggle('is-phone',phone);},[phone]);
@@ -282,11 +282,17 @@ export default function Home(){
  const clearing=useRef(0);
  const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
  // Back to the body: the card and pins leave, the camera returns, and the structure keeps its tint for 1.2 s.
- const backToBody=()=>{setSeeThrough(false);setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
- const closeCard=()=>{setSeeThrough(false);if(focused){backToBody();return;}setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
+ // Leaving a structure for the body, and how (`method`): the card's button, the Back button, Esc or a drag down. Calls
+ // that aren't the visitor's own (no method) send nothing.
+ const backToBody=(method?:string)=>{if(method)track('structure_closed',{mode:mode??'focus',method});setSeeThrough(false);setSelectedPin(null);setDetails(false);setState(s=>({...s,isolate:false}));setReturning(true);const token=++clearing.current;setTimeout(()=>{if(clearing.current===token)setReturning(false);},1100);setTimeout(()=>{if(clearing.current===token)setState(s=>s.isolate?s:{...s,selected:[]});},2050);};
+ const closeCard=(method='button')=>{if(focused){backToBody(method);return;}track('structure_closed',{mode:mode??'peek',method});setSeeThrough(false);setDetails(false);setState(s=>({...s,selected:[],isolate:false}));};
+ const closeFeature=(method:string)=>{setSelectedPin(null);setTab('parts');track('feature_closed',{method});};
+ const closeContribute=(method:string)=>{setContributing(false);track('contribute_closed',{method});};
+ const closeSystems=(method:string)=>{setPanel(null);track('display_toggled',{setting:'systems_panel',on:0,method});};
+ const closeAbout=(method:string)=>{setAbout(false);track('about_closed',{method});};
  const learnMore=()=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more',xray:seeThrough?1:0});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
- const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{toggle:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){setAbout(false);return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){setSelectedPin(null);setTab('parts');}else if(mode==='contribute'){setContributing(false);}else if(focused)backToBody();else if(mode==='peek')closeCard();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
+ const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{setting:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){closeAbout('escape');return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){closeFeature('escape');}else if(mode==='contribute'){closeContribute('escape');}else if(focused)backToBody('escape');else if(mode==='peek')closeCard('escape');};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
  const KIND:Record<string,string>={skeletal:'Bone',muscular:'Muscle',arterial:'Artery',venous:'Vein'};
  const side=chosen?/\bleft\b/i.test(chosen.name)?'Left':/\bright\b/i.test(chosen.name)?'Right':null:null;
  const counterpart=(()=>{if(!atlas||!selected||selectedParts.length!==1||!side)return null;const want=selected.name.replace(/\b(Left|Right|left|right)\b/,w=>({Left:'Right',Right:'Left',left:'right',right:'left'} as Record<string,string>)[w]);const p=atlas.parts.find(x=>x.name===want);return p?{id:p.id,name:p.name}:null;})();
@@ -347,7 +353,7 @@ export default function Home(){
   {/* The header, with the intro also in web/index.html's first frame: keep the two in step. */}
   <header className="topbar" data-inset="top">
    <AnimatePresence initial={false} mode="popLayout">{focused
-    ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature'){setSelectedPin(null);setTab('parts');}else backToBody();}}/></m.div>
+    ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature')closeFeature('back');else backToBody('back');}}/></m.div>
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={null}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
    {!phone&&<Arrive ready={chromeReady&&!error&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
@@ -360,15 +366,15 @@ export default function Home(){
   </header>
   {!phone&&<Arrive ready={chromeReady&&!error&&!focused&&!(mid&&inspecting)} delay={bodyDelay} edge="left" order={0} className="panel systems" data-inset={focused||(mid&&inspecting)?undefined:'left'} role="region" aria-label="Systems">{systemsBody}</Arrive>}
   <AnimatePresence>{phone&&panel==='layers'&&<>
-   <m.div key="scrim" className="sheet-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={tween('out',.2)} onClick={()=>setPanel(null)}/>
-   <m.section key="systems" className="sheet systems-sheet" role="dialog" aria-label="Systems" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet} drag="y" dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.6}} onDragEnd={(_,i)=>{if(i.offset.y>80||i.velocity.y>500)setPanel(null);}}>
-    <span className="grab" aria-hidden="true"/><button type="button" className="sheet-close" onClick={()=>setPanel(null)} aria-label="Close systems"><X size={18}/></button>{systemsBody}
+   <m.div key="scrim" className="sheet-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={tween('out',.2)} onClick={()=>closeSystems('outside')}/>
+   <m.section key="systems" className="sheet systems-sheet" role="dialog" aria-label="Systems" initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%',transition:tween('in',.22)}} transition={spring.sheet} drag="y" dragConstraints={{top:0,bottom:0}} dragElastic={{top:0,bottom:.6}} onDragEnd={(_,i)=>{if(i.offset.y>80||i.velocity.y>500)closeSystems('drag');}}>
+    <span className="grab" aria-hidden="true"/><button type="button" className="sheet-close" onClick={()=>closeSystems('button')} aria-label="Close systems"><X size={18}/></button>{systemsBody}
    </m.section>
   </>}</AnimatePresence>
   <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} features={featureResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
-    <Arrive ready={chromeReady&&!error&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting}/></Arrive>
+    <Arrive ready={chromeReady&&!error&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting}/></Arrive>
     {<Arrive ready={chromeReady&&!error&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
      {!lighting&&<Hint id={hintId} className="hint-phone">{state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
      <div className="bottom-row">{panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>}<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
@@ -376,7 +382,7 @@ export default function Home(){
    </>
    :<>
     <AnimatePresence initial={false}>{focused?<Arrive key="focus-dock" ready delay={focusDelay} edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
-    :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>setState(s=>({...s,rotate:!s.rotate}))} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
+    :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
     {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
   {/* Loading (about 30 s on a typical phone connection): one card in the middle, naming what is arriving as the model
@@ -389,22 +395,22 @@ export default function Home(){
    <span className="loader-bar" aria-hidden="true"><i style={{transform:`scaleX(${progress/100})`}}/></span>
   </m.div>}</AnimatePresence>
   {error&&(()=>{const [title,line]=problem(error);return <div className="panel error-card" role="alert"><h2 className="t-title">{title}</h2><p className="t-body2">{line}</p><button type="button" className="btn-accent" onClick={()=>location.reload()}>Try again</button></div>;})()}
-  <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>setAbout(false)} pages={aboutPages}
-   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={(t,method)=>{setTab(t);track('display_toggled',{toggle:`tab_${t}`,on:1,method});}}
+  <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>closeAbout('button')} pages={aboutPages}
+   profile={session?{name:me??'',page:<Profile name={me??''} email={session.user.email??''} onSave={saveName} onSignOut={()=>void signOut()} onReview={admin?()=>{setAbout(false);setReview(true);track('display_toggled',{setting:'review_queue',on:1});}:undefined}/>}:null}/>:mode&&facts&&<StructureCard key="card" mode={mode} phone={phone} facts={facts} tab={tab} onTab={(t,method)=>{setTab(t);track('display_toggled',{setting:`tab_${t}`,on:1,method});}}
    members={selectedParts.length>1?selectedParts.map(p=>({id:p.id,name:p.name})):[]} pins={shown.pins} pinsLoading={state.isolate&&!shown.pins.length&&!shown.error&&!!featureCounts?.pinned} pinsError={shown.error}
    pin={viewPin??null} counterpart={counterpart} pinHref={pinHref}
    menu={menuFor}
    extras={viewPin&&<FeatureExtras key={viewPin.id} spots={detail.spots} current={viewPin.proposal??null} onPick={x=>{track('pin_alternative_viewed');setAlt(x);}}
     remarks={detail.remarks} more={detail.more} onOlder={()=>void detail.older()} me={session?.user.id??null} admin={admin} onPost={postRemark} onRemove={id=>void removeRemark(id)}/>}
    onShare={async x=>{const ok=selected?await copy(pinLink(selected.id,x.id)):false;track('pin_shared',{source:'card',result:ok?'copied':'failed',published:x.kind==='published'?1:0});return ok;}}
-   needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>setContributing(false)}
+   needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>closeContribute('button')}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
    onSuggest={x=>startDraft({kind:'correction',landmark:x.id,supersedes:x.proposal??null,label:x.label,latin:x.latinName,description:x.description})}
    placeView={draft&&<PlaceSteps phone={phone} draft={draft} structure={facts?.title??''} refused={refused} state={saveState} error={saveError}
     onName={v=>setDraft(d=>d&&{...d,label:v})} onNote={v=>setDraft(d=>d&&{...d,note:v})} onSave={()=>void savePin()} onCancel={cancelDraft}/>}
    vote={x=>x.proposal?{on:votes.mine(x.proposal)===1,count:votes.count(x.proposal,x.upvotes??0)}:null} onVote={x=>void castVote(x)} voteError={votes.error}
-   onLearnMore={learnMore} onClose={closeCard} onBack={()=>{if(focused)backToBody();else closeCard();}}
-   onPin={(id,method)=>selectPin(id,'list',method)} onPinClose={()=>{setSelectedPin(null);setTab('parts');}} onHoverPin={setHoverPin}
+   onLearnMore={learnMore} onClose={()=>closeCard('button')} onBack={()=>{if(focused)backToBody('drag');else closeCard('drag');}}
+   onPin={(id,method)=>selectPin(id,'list',method)} onPinClose={()=>closeFeature('button')} onHoverPin={setHoverPin}
    onMember={(id,rank)=>{choosePart(id,'list',{list:'members',index:rank});setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
   <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>

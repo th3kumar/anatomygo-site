@@ -16,12 +16,12 @@ const page=(side:number)=>({initial:{opacity:0,x:8*side},animate:{opacity:1,x:0,
 export function AboutCard({phone,pages,start='about',profile,onClose}:{phone:boolean;pages:Partial<Record<AboutTab,ReactNode>>;start?:AboutTab;profile?:{name:string;page:ReactNode}|null;onClose:()=>void}){
  const tabs=(Object.keys(LABEL) as AboutTab[]).filter(t=>pages[t]);
  const [tab,setTab]=useState<AboutTab>(tabs.includes(start)?start:'about'),[side,setSide]=useState(1);
- const go=(t:AboutTab,method:'tap'|'swipe'='tap')=>{setSide(tabs.indexOf(t)>=tabs.indexOf(tab)?1:-1);setTab(t);track('display_toggled',{toggle:`about_${t}`,on:1,method});};
+ const go=(t:AboutTab,method:'tap'|'swipe'='tap')=>{setSide(tabs.indexOf(t)>=tabs.indexOf(tab)?1:-1);setTab(t);track('display_toggled',{setting:`about_${t}`,on:1,method});};
  const [account,setAccount]=useState(false);useEffect(()=>{if(!profile)setAccount(false);},[profile]);
  const drag=useDragControls(),at=tabs.indexOf(tab),n=tabs.length;
  // Phones swipe between the tabs (a pager); a desktop switches on a click.
  const pager=usePager(n,at,i=>go(tabs[i],'swipe'));
- const content=(t:AboutTab)=><>{pages[t]}{t==='about'&&profile&&<ProfileRow name={profile.name} onOpen={()=>setAccount(true)}/>}</>;
+ const content=(t:AboutTab)=><>{pages[t]}{t==='about'&&profile&&<ProfileRow name={profile.name} onOpen={()=>{setAccount(true);track('display_toggled',{setting:'profile',on:1});}}/>}</>;
  const x=phone&&<button type="button" className="card-x" onClick={onClose} aria-label="Close"><ChevronDown size={18}/></button>;
  const main=<m.div key="main" className="about-screen" {...page(-1)}>
   <div className="card-head" onPointerDown={phone?e=>drag.start(e):undefined}>
@@ -39,7 +39,7 @@ export function AboutCard({phone,pages,start='about',profile,onClose}:{phone:boo
  </m.div>;
  const accountScreen=profile&&<m.div key="account" className="about-screen" {...page(1)}>
   <div className="card-head" onPointerDown={phone?e=>drag.start(e):undefined}>
-   <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={()=>setAccount(false)}><ChevronLeft size={14}/>About</button>{x}</div>
+   <div className="card-row"><button type="button" className="t-meta link-quiet back-link" onClick={()=>{setAccount(false);track('display_toggled',{setting:'profile',on:0});}}><ChevronLeft size={14}/>About</button>{x}</div>
   </div>
   <div className="card-page about-page">{profile.page}</div>
  </m.div>;

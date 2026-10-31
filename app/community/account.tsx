@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {AnimatePresence,m} from 'motion/react';
 import {ChevronRight} from 'lucide-react';
 import {tween} from '../motion';
+import {track} from '../analytics';
 
 /** Signed in: who you are, as a profile rather than a form. The name is the one on your pins (the Google first name
  * until changed); it becomes a field only when you choose Edit. Sign out is a quiet link at the end. */
@@ -27,7 +28,7 @@ export function Profile({name,email,onSave,onSignOut,onReview}:{name:string;emai
     ?<m.div key="show" className="profile-id" initial={{opacity:0,y:4}} animate={{opacity:1,y:0,transition:tween('out',.2)}} exit={{opacity:0,transition:tween('in',.1)}}>
       <h3 className="t-title">{name||'No name yet'}</h3>
       <p className="t-meta">{email}</p>
-      <p className="t-meta profile-note">Shown on your pins · <button type="button" className="link-accent" onClick={()=>{setEdit(name);setNote('');}}>Edit</button></p>
+      <p className="t-meta profile-note">Shown on your pins · <button type="button" className="link-accent" onClick={()=>{setEdit(name);setNote('');track('display_toggled',{setting:'name_edit',on:1});}}>Edit</button></p>
      </m.div>
     :<m.form key="edit" className="profile-id" onSubmit={e=>{e.preventDefault();void save();}} initial={{opacity:0,y:4}} animate={{opacity:1,y:0,transition:tween('out',.2)}} exit={{opacity:0,transition:tween('in',.1)}}>
       <input className="profile-input t-title" value={edit} onChange={e=>setEdit(e.target.value)} maxLength={60} aria-label="Name on your pins" autoComplete="given-name" autoFocus/>

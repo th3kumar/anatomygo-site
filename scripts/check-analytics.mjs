@@ -17,6 +17,7 @@ render_perf renderer_failed report_sent search_abandoned search_no_result search
 share_nudge_dismissed share_nudge_shown shared_pin_opened shared_pin_revealed sign_in_completed sign_in_failed
 sign_in_fallback_opened sign_in_prompted sign_in_started signed_out structure_isolated structure_opened structure_selected
 system_toggled view_in_3d_clicked view_reset visit_summary vote_cast webgl_unavailable
+about_closed contribute_closed feature_closed report_opened search_opened source_opened structure_closed
 `.trim().split(/\s+/);
 
 const ROOTS=['app','web','playground/src','lib'],EXT=new Set(['.ts','.tsx','.js','.mjs']);

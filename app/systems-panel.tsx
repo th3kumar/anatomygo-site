@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {Switch} from '@/components/ui/switch';
 import {Slider} from '@/components/ui/slider';
 import {css} from './motion';
+import {track} from './analytics';
 import type {SystemId} from './anatomy';
 
 export type Preset='all'|'skeleton'|'organs';
@@ -41,7 +42,7 @@ export function SystemsBody({systems,allSet,counts,visible,shown,explode,onPrese
     <span className="t-meta sys-count">{counts[s.id]?.toLocaleString()}</span>
     <Switch checked={on} onCheckedChange={()=>onToggle(s.id)} aria-label={`Show ${s.name.toLowerCase()}`}/>
    </div>;})}
-   {hidden>0&&<button type="button" className="sys sys-more" onClick={()=>setMore(true)}><span className="dot"/><span>{hidden} more {hidden===1?'system':'systems'}</span></button>}
+   {hidden>0&&<button type="button" className="sys sys-more" onClick={()=>{setMore(true);track('display_toggled',{setting:'more_systems',on:1});}}><span className="dot"/><span>{hidden} more {hidden===1?'system':'systems'}</span></button>}
   </div>
   <div className="explode">
    <div className="explode-head"><label className="t-label" id="explode-label">Explode</label><output className="t-meta">{Math.round(explode*100)}%</output></div>

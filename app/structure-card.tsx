@@ -114,7 +114,7 @@ export function StructureCard(p:Props){
  // In focus and on a feature the card minimises instead of closing: leaving the structure is the Body button's job.
  const canMini=phone&&mode!=='peek'&&mode!=='place',[mini,setMini]=useState(false),[safe,setSafe]=useState(0);
  // The visitor's own minimise and restore (not the card resetting itself), by button or by dragging the sheet.
- const minimise=(on:boolean,method:'button'|'drag'|'tap')=>{setMini(on);track('display_toggled',{toggle:'card_minimised',on:on?1:0,method});};
+ const minimise=(on:boolean,method:'button'|'drag'|'tap')=>{setMini(on);track('display_toggled',{setting:'card_minimised',on:on?1:0,method});};
  useEffect(()=>{if(!canMini)setMini(false);},[canMini]);useEffect(()=>{setMini(false);},[facts.reference]);
  useEffect(()=>{p.onMinimise?.(mini);},[mini]);
  useLayoutEffect(()=>{if(!phone)return;const probe=document.createElement('div');probe.style.cssText='position:fixed;height:env(safe-area-inset-bottom);visibility:hidden';document.body.appendChild(probe);setSafe(probe.offsetHeight);probe.remove();},[phone]);
@@ -201,7 +201,7 @@ export function StructureCard(p:Props){
    :<p className="t-body2">{p.pinsError||'No parts pinned yet.'}</p>}
  </m.div>;
 
- const links=!phone&&<p className="t-meta foot-links">{p.counterpart&&<button type="button" className="link-quiet" onClick={p.onCounterpart}>{p.counterpart.name} ›</button>}<a className="link-quiet" href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noreferrer">Source <ArrowUpRight size={12}/></a></p>;
+ const links=!phone&&<p className="t-meta foot-links">{p.counterpart&&<button type="button" className="link-quiet" onClick={p.onCounterpart}>{p.counterpart.name} ›</button>}<a className="link-quiet" onClick={()=>track('source_opened')} href="https://lifesciencedb.jp/bp3d/" target="_blank" rel="noreferrer">Source <ArrowUpRight size={12}/></a></p>;
  // The footer changes with the tab: About has the links (desktop), Parts the way to contribute. It cross-fades (and on
  // phones, where About has none, it opens and closes).
  const footer=tab==='about'?(phone?null:<m.div key="foot-about" className="card-foot" {...fade}>{links}</m.div>)
