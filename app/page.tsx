@@ -266,7 +266,7 @@ export default function Home(){
  const openAbout=(source:'top_bar'|'footer')=>{track('about_opened',{source:appBadge?`${source}_badge`:source});if(appNews){setAppNews(false);setAppFresh(true);try{localStorage.setItem(APP_SEEN,'1');}catch{}}setDetails(false);setPanel(null);setAbout(true);};
  const playClicked=()=>track('play_clicked',{source:'about',platform});
  const openPanel=(next:'layers'|'search')=>{if(panel!==next)track(next==='search'?'search_opened':'display_toggled',next==='search'?{method:'pill'}:{setting:'systems_panel',on:1});setDetails(false);setPanel(p=>p===next?null:next);};
- const phone=useMedia(PHONE),sideways=useMedia(LANDSCAPE),chromeReady=viewReady||progress===100||!!error;
+ const phone=useMedia(PHONE),sideways=useMedia(LANDSCAPE),chromeReady=outerIn||viewReady||progress===100||!!error;
  // On <html> too, so sheets and dialogs (rendered outside <main>) take the phone layout.
  useEffect(()=>{document.documentElement.classList.toggle('is-phone',phone);},[phone]);
  // "All" is the default view: every system but the body surface, which would hide everything else.
@@ -354,7 +354,7 @@ export default function Home(){
   <header className="topbar" data-inset="top">
    <AnimatePresence initial={false} mode="popLayout">{focused
     ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature')closeFeature('back');else backToBody('back');}}/></m.div>
-    :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={null}/></m.div>}</AnimatePresence>
+    :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={outerIn&&progress<100&&!error?progress:null}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
    {!phone&&<Arrive ready={chromeReady&&!error&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
    <AnimatePresence initial={false}>{phone&&focused?<Arrive key="focus-actions" ready delay={focusDelay} enter={.26} edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive key="page-actions" ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
@@ -385,13 +385,13 @@ export default function Home(){
     :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
     {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
-  {/* Loading (about 30 s on a typical phone connection): one card in the middle, naming what is arriving as the model
-     streams in from the outside, with the percentage. It leaves as the controls arrive. */}
+  {/* Loading: one card in the middle with the percentage until the muscles and bones are in (the outer layer), then
+     it leaves and the controls arrive; the organs and vessels keep streaming in behind, with the percentage and a thin
+     bar under the wordmark. Waiting for the whole body kept a class of school Chromebooks from doing anything for ~25 s. */}
   <AnimatePresence initial={false}>{!chromeReady&&!error&&<m.div key="loader" className="panel loader" role="status" aria-live="polite"
    initial={{opacity:0,scale:.97}} animate={{opacity:1,scale:1,transition:{...spring.card,opacity:tween('out',.24,.15)}}} exit={{opacity:0,scale:.98,transition:tween('in',.2)}}>
    <div className="loader-row"><p className="t-body">Preparing the anatomy</p><p className="t-meta loader-pc">{progress}%</p></div>
-   <AnimatePresence mode="wait" initial={false}><m.p key={outerIn?progress>=90?'last':'inner':'outer'} className="t-meta" initial={{opacity:0,y:4}} animate={{opacity:1,y:0,transition:tween('out',.2)}} exit={{opacity:0,y:-4,transition:tween('in',.12)}}>
-    {outerIn?progress>=90?'Last details':'Organs and vessels':'Muscles and bones'}</m.p></AnimatePresence>
+   <p className="t-meta">Muscles and bones</p>
    <span className="loader-bar" aria-hidden="true"><i style={{transform:`scaleX(${progress/100})`}}/></span>
   </m.div>}</AnimatePresence>
   {error&&(()=>{const [title,line]=problem(error);return <div className="panel error-card" role="alert"><h2 className="t-title">{title}</h2><p className="t-body2">{line}</p><button type="button" className="btn-accent" onClick={()=>location.reload()}>Try again</button></div>;})()}
