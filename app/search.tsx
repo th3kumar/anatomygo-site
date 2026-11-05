@@ -9,6 +9,7 @@ import {spring,tween,DUR} from './motion';
 import type {Panel,Row} from './search/assemble';
 
 const PLACEHOLDER='Search a structure, part or system',PHONE_PLACEHOLDER='Search anatomy';
+const touch=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 
 /** The query's words in bold where a word of the text starts with them; neighbouring bold words join ("Greater troch"). */
 export function bold(text:string,words:string[]):ReactNode{
@@ -52,11 +53,22 @@ export function SearchPanel({phone,query,setQuery,panel,words,asked,onPick,onLit
  useEffect(()=>{setActive(0);},[query]);
  // Opening selects the old text, so typing replaces it (no more "skullskull").
  useEffect(()=>{const el=input.current;if(!el)return;el.focus({preventScroll:true});el.select();},[]);
- // On phones, a search that finds nothing drops the keyboard once typing pauses, so the whole answer shows; the field
- // keeps a caret, and tapping it again selects the text.
+ // On a touch screen with its on-screen keyboard up, a search that finds nothing drops the keyboard once typing pauses,
+ // so the whole answer shows. The field keeps a caret; tapping it brings the keyboard back with the caret at the end, and
+ // a hardware key (a Bluetooth keyboard) goes straight into the field. A mouse-and-keyboard screen never drops focus.
  const [resting,setResting]=useState(false);
- useEffect(()=>{if(!phone||!panel?.nothing){setResting(false);return;}const t=setTimeout(()=>{input.current?.blur();setResting(true);},1200);return()=>clearTimeout(t);},[phone,panel?.nothing,query]);
- const focusing=useRef(false);
+ useEffect(()=>{
+  const keyboardUp=()=>{const vv=window.visualViewport;return !!vv&&vv.height<document.documentElement.clientHeight*.85;};
+  if(!phone||!panel?.nothing||!touch()){setResting(false);return;}
+  const t=setTimeout(()=>{if(!keyboardUp())return;input.current?.blur();setResting(true);},1200);return()=>clearTimeout(t);
+ },[phone,panel?.nothing,query]);
+ const wake=()=>{const el=input.current;if(!el)return;el.focus({preventScroll:true});const end=el.value.length;el.setSelectionRange(end,end);setResting(false);};
+ useEffect(()=>{if(!resting)return;
+  const key=(e:KeyboardEvent)=>{if(e.metaKey||e.ctrlKey||e.altKey)return;
+   if(e.key==='Backspace'){e.preventDefault();setQuery(query.slice(0,-1));wake();}
+   else if(e.key.length===1){e.preventDefault();setQuery(query+e.key);wake();}};
+  addEventListener('keydown',key);return()=>removeEventListener('keydown',key);
+ },[resting,query]);
  // iOS (and Android Chrome) lay the keyboard over the page instead of shrinking it, and focusing the field while it still
  // flies up from the pill scrolls the whole page up, hiding the field. Keep the page at the top, and give the sheet the
  // visible area only (--vv-top, --kb), so the field and the results stay above the keyboard.
@@ -77,8 +89,7 @@ export function SearchPanel({phone,query,setQuery,panel,words,asked,onPick,onLit
   <SearchIcon size={18}/>
   <span className="search-input">
    <input ref={input} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={key} placeholder={phone?PHONE_PLACEHOLDER:PLACEHOLDER} role="combobox" aria-expanded={all.length>0} aria-controls={list} aria-activedescendant={all.length?`${list}-${active}`:undefined} aria-autocomplete="list" aria-label="Search a structure" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="search"
-    onFocus={e=>{setResting(false);focusing.current=true;e.currentTarget.select();}}
-    onPointerUp={e=>{if(focusing.current){e.preventDefault();e.currentTarget.select();}focusing.current=false;}}/>
+    onFocus={()=>setResting(false)}/>
    {resting&&<span className="search-caret" aria-hidden="true"><span className="search-caret-text">{query}</span><i/></span>}
   </span>
   {!phone&&<kbd className="kbd">Esc</kbd>}
