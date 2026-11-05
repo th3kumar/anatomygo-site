@@ -356,7 +356,9 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     }
     lastIsolate=isolateKey;
    }
-   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&fp<.999,floorOn=false,contactOn=onStage;if(ground.visible!==floorOn||ring.visible!==onStage||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;stepFly(dt);applyFloat();if(fpTween){fpTween.t=Math.min(1,fpTween.t+dt/fpTween.dur);fp=fpTween.from+(fpTween.to-fpTween.from)*ease.glide(fpTween.t);if(bodyShot&&isoShot)between(bodyShot,isoShot,fp);
+   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const onStage=amount<.5&&fp<.999,floorOn=false,contactOn=onStage;// The platform rings stay hidden, so they are not part of this check: comparing them with onStage redrew the whole
+   // body every frame while nothing moved, which made low-end laptops (school Chromebooks) slow to use.
+   if(ground.visible!==floorOn||contact.visible!==contactOn)dirty=true;ground.visible=platform.visible=floorOn;ring.visible=innerRing.visible=false;contact.visible=contactOn;markers.visible=amount>.75;stepFly(dt);applyFloat();if(fpTween){fpTween.t=Math.min(1,fpTween.t+dt/fpTween.dur);fp=fpTween.from+(fpTween.to-fpTween.from)*ease.glide(fpTween.t);if(bodyShot&&isoShot)between(bodyShot,isoShot,fp);
     if(fpTween.t>=1){const to=fpTween.to;fpTween=null;controls.enabled=true;fp=to;
      // A slow move means this device can't afford the blur: keep the frame rate instead.
      if(slowFrames.length>5&&[...slowFrames].sort((a,b)=>a-b)[slowFrames.length>>1]>28)focusBlur.enabled=false;slowFrames.length=0;
@@ -400,6 +402,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    labels.set(labelled?published.current.map(p=>({id:p.id,label:p.label})):[]);
    if(dirty&&labelled)labels.update(publishedLayer.points(),camera,el.clientWidth,el.clientHeight,{selected:selectedPinRef.current,mode:s.labels??'full',behind:s.behind??true,hover:s.hoverPin??null,delay:publishedLayer.delay+.16});
    if(placePeek(s,performance.now())||peekShown&&dirty)dirty=true;
+   // render_perf needs 60 frames in a row: draw them once after loading (about a second), then go back to drawing on change.
+   if(ready&&!perfSent)dirty=true;
    if(dirty){placeLights();const drawStart=performance.now();
     const blur=fpTween&&focusBlur.enabled&&!reducedMotion()?Math.sin(Math.PI*fp):0;
     if(blur>.02){focusBlur.render(scene,camera,blur,()=>{const off=[ghostGroup,publishedLayer.group,contact,markers].filter(o=>o.visible);off.forEach(o=>{o.visible=false;});focusFx.uSubjectOnly.value=1;focusFx.uOverlay.value=Math.min(1,blur*5);renderer.render(scene,camera);focusFx.uSubjectOnly.value=0;off.forEach(o=>{o.visible=true;});});slowFrames.push(performance.now()-drawStart);}

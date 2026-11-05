@@ -266,7 +266,7 @@ export default function Home(){
  const openAbout=(source:'top_bar'|'footer')=>{track('about_opened',{source:appBadge?`${source}_badge`:source});if(appNews){setAppNews(false);setAppFresh(true);try{localStorage.setItem(APP_SEEN,'1');}catch{}}setDetails(false);setPanel(null);setAbout(true);};
  const playClicked=()=>track('play_clicked',{source:'about',platform});
  const openPanel=(next:'layers'|'search')=>{if(panel!==next)track(next==='search'?'search_opened':'display_toggled',next==='search'?{method:'pill'}:{setting:'systems_panel',on:1});setDetails(false);setPanel(p=>p===next?null:next);};
- const phone=useMedia(PHONE),sideways=useMedia(LANDSCAPE),chromeReady=viewReady||progress===100||!!error;
+ const phone=useMedia(PHONE),sideways=useMedia(LANDSCAPE),loaded=viewReady||progress===100,chromeReady=outerIn||loaded||!!error;
  // On <html> too, so sheets and dialogs (rendered outside <main>) take the phone layout.
  useEffect(()=>{document.documentElement.classList.toggle('is-phone',phone);},[phone]);
  // "All" is the default view: every system but the body surface, which would hide everything else.
@@ -386,8 +386,9 @@ export default function Home(){
     {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
   {/* Loading (about 30 s on a typical phone connection): one card in the middle, naming what is arriving as the model
-     streams in from the outside, with the percentage. It leaves as the controls arrive. */}
-  <AnimatePresence initial={false}>{!chromeReady&&!error&&<m.div key="loader" className="panel loader" role="status" aria-live="polite"
+     streams in from the outside, with the percentage. It stays until the organs and vessels are in, while the controls
+     arrive with the outer layer (muscles and bones); taps pass through it. */}
+  <AnimatePresence initial={false}>{!loaded&&!error&&<m.div key="loader" className="panel loader" role="status" aria-live="polite"
    initial={{opacity:0,scale:.97}} animate={{opacity:1,scale:1,transition:{...spring.card,opacity:tween('out',.24,.15)}}} exit={{opacity:0,scale:.98,transition:tween('in',.2)}}>
    <div className="loader-row"><p className="t-body">Preparing the anatomy</p><p className="t-meta loader-pc">{progress}%</p></div>
    <AnimatePresence mode="wait" initial={false}><m.p key={outerIn?progress>=90?'last':'inner':'outer'} className="t-meta" initial={{opacity:0,y:4}} animate={{opacity:1,y:0,transition:tween('out',.2)}} exit={{opacity:0,y:-4,transition:tween('in',.12)}}>
