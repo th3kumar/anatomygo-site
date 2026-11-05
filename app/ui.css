@@ -126,27 +126,55 @@ button svg,a svg{flex-shrink:0}
 @keyframes app-dot-ring{0%{transform:scale(1);opacity:.5}70%,100%{transform:scale(3.2);opacity:0}}
 
 /* Search */
-.search-pill{display:flex;align-items:center;gap:12px;width:100%;height:52px;padding:0 16px 0 18px;border-radius:var(--r-ctl);background:var(--chip);border:1px solid var(--panel-line);box-shadow:var(--chip-shadow);color:var(--text-3);text-align:left}
+.search-pill{display:flex;align-items:center;gap:10px;width:100%;height:48px;padding:0 14px 0 16px;border-radius:var(--r-ctl);background:var(--chip);border:1px solid var(--panel-line);box-shadow:var(--chip-shadow);color:var(--text-3);text-align:left}
+.search-pill.is-covered{visibility:hidden}
 .search-pill .ph{flex:1;min-width:0;font-size:var(--fs-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .search-pill.is-phone{height:54px;border-radius:16px}
 .search-pill.is-phone .ph{font-size:16px}
 .search-catch{position:fixed;inset:0;z-index:39}
-.search-pop{position:absolute;z-index:40;left:50%;top:24px;width:clamp(320px,calc(100vw - 560px),540px);margin-left:calc(clamp(320px,calc(100vw - 560px),540px) / -2);display:flex;flex-direction:column;max-height:min(620px,calc(100dvh - 48px));padding:0 0 10px;border-radius:var(--r-ctl);background:var(--panel-solid);border:1px solid var(--panel-line);box-shadow:var(--panel-shadow);transform-origin:50% 0}
-.search-field{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px 0 18px;color:var(--text-3);border-bottom:1px solid var(--hair-2);flex:none}
-.search-field input{flex:1;min-width:0;height:100%;background:none;border:0;outline:none;font-size:var(--fs-body);color:var(--text)}
-.search-field input::placeholder{color:var(--text-3)}
-.search-field.is-phone{height:46px;border:1px solid var(--hair-3);border-radius:var(--r-ctl);background:var(--fill)}
+.search-pop{position:absolute;z-index:40;left:50%;top:24px;width:clamp(260px,calc(100vw - 600px),500px);margin-left:calc(clamp(260px,calc(100vw - 600px),500px) / -2);display:flex;flex-direction:column;gap:12px;pointer-events:none}
+.search-pop>*{pointer-events:auto}
+.search-panel{display:flex;flex-direction:column;max-height:min(620px,calc(100dvh - 132px));padding:10px 10px 8px;border-radius:var(--r-panel);background:var(--panel-solid);border:1px solid var(--panel-line);box-shadow:var(--panel-shadow);transform-origin:50% 0}
+.search-field{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px 0 16px;flex:none;border-radius:var(--r-ctl);background:var(--chip);border:1px solid var(--focus-line);box-shadow:0 0 0 3px var(--focus-halo),var(--chip-shadow);color:var(--text-3)}
+.search-input{position:relative;flex:1;min-width:0;height:100%;display:flex;align-items:center}
+.search-input input{flex:1;min-width:0;width:100%;height:100%;background:none;border:0;outline:none;font-size:var(--fs-body);color:var(--text)}
+.search-input input::placeholder{color:var(--text-3)}
+.search-field.is-phone{height:46px}
 .search-field.is-phone input{font-size:16px}
-.search-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 10px}
-.search-group{padding:14px 10px 4px}
+/* The caret the field keeps while the phone keyboard is down (a search that found nothing). */
+.search-caret{position:absolute;left:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;max-width:100%;overflow:hidden;white-space:pre;font-size:16px;pointer-events:none}
+.search-caret-text{visibility:hidden}
+.search-caret i{flex:none;width:1.5px;height:20px;margin-left:1px;background:var(--accent)}
+.search-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.search-group{padding:12px 12px 4px}
 .search-results{list-style:none;margin:0;padding:0}
-.result{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:var(--r-row);cursor:pointer}
-.result.is-active{background:var(--fill-hover)}
-.result-name{font-size:var(--fs-body);color:var(--text)}
-.result-name b{font-weight:600}
-.search-empty{padding:10px}
-.search-note{padding:8px 10px 0}
-.search-note:empty{display:none}
+/* Rows (search handoff SH3): 52 px, a 9 px system dot or a 16 px icon, the name with matched text bold, a grey line. */
+.result{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 12px;border-radius:12px;cursor:pointer;animation:row-in .12s var(--ease-out) both}
+.result.is-active{background:var(--row-on)}
+.result[data-kind=feature]{animation:row-rise .16s var(--ease-out) both;animation-delay:calc(var(--i,0) * 30ms)}
+.result-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.result-main .t-meta{margin-top:1px}
+.result-name{font-size:var(--fs-body);line-height:1.55;color:var(--text)}
+.result b,.search-rescue b{font-weight:600;color:var(--text-bold)}
+.sdot{flex:none;width:9px;height:9px;border-radius:50%}
+.sdot.is-system{width:12px;height:12px}
+.sic{flex:none;color:var(--text-2);stroke-width:1.6}
+.result-act{flex:none;height:30px;padding:0 12px;display:inline-flex;align-items:center;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--accent-on);background:var(--accent-fill);border:1px solid var(--accent-line)}
+.search-rescue{padding:12px;margin-bottom:8px;border-bottom:1px solid var(--hair-2);font-size:13px;line-height:1.45;color:var(--text-2)}
+.search-rescue p{margin:0}
+.search-rescue-link{font:inherit;color:var(--accent-text);text-decoration:underline;text-decoration-color:var(--accent-line);text-underline-offset:3px;text-decoration-thickness:1px}
+.search-ask{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 12px 6px;margin-top:6px;border-top:1px solid var(--hair-2)}
+.search-asked{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--accent-on)}
+.search-note{padding:10px 12px;font-size:13px;line-height:1.5;color:var(--text-2)}
+/* Features still on their way (the call is slow): two placeholder rows. */
+.skel{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 12px}
+.sk-lines{flex:1;display:flex;flex-direction:column;gap:7px}
+.sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--skel) 0%,var(--skel-hi) 50%,var(--skel) 100%);background-size:200% 100%;animation:shim 1.2s linear infinite}
+.sk-dot{width:16px;height:16px;border-radius:50%;flex:none}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes row-in{from{opacity:0}}
+@keyframes row-rise{from{opacity:0;transform:translateY(8px)}}
+@media(prefers-reduced-motion:reduce){.sk,.result,.result[data-kind=feature]{animation:none}}
 .search-scrim{position:fixed;inset:0;z-index:39;background:var(--scrim)}
 
 /* Systems panel */
@@ -297,12 +325,22 @@ button svg,a svg{flex-shrink:0}
 .systems-sheet{display:flex;flex-direction:column;max-height:78dvh;touch-action:none}
 .systems-sheet .panel-head{padding-right:44px;min-height:24px}
 .systems-sheet .sys-list{touch-action:pan-y}
-.search-sheet{top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + var(--vv-top,0px));bottom:var(--kb,0px);display:flex;flex-direction:column;padding:84px 10px 0}
+.search-sheet{top:calc(max(54px,calc(env(safe-area-inset-top) + 8px)) + var(--vv-top,0px));bottom:var(--kb,0px);display:flex;flex-direction:column;padding:78px 8px 0}
+.search-sheet .search-scroll{padding-bottom:24px}
 .search-pill-gap{flex:1;height:54px}
 /* The phone field sits outside the rising sheet (it flies there from the pill), fixed where the sheet leaves room. */
-.search-top{position:fixed;z-index:42;left:20px;right:20px;top:calc(max(60px,calc(env(safe-area-inset-top) + 44px)) + 26px + var(--vv-top,0px));display:flex;align-items:center;gap:12px}
+.search-top{position:fixed;z-index:42;left:16px;right:16px;top:calc(max(54px,calc(env(safe-area-inset-top) + 8px)) + 25px + var(--vv-top,0px));display:flex;align-items:center;gap:12px}
 .search-top .search-field{flex:1}
 .search-cancel{min-height:var(--hit);font-size:var(--fs-body);color:var(--text-3)}
+.search-sheet .result{min-height:56px;padding:6px 8px}
+.search-sheet .search-group{padding:14px 8px 4px}
+.search-sheet .result-act{height:36px;padding:0 14px;font-size:13px}
+.search-sheet .search-rescue{margin:0 8px 6px;padding:10px 4px 12px}
+.search-sheet .search-rescue-link{display:inline-flex;align-items:center;min-height:32px}
+.search-sheet .search-ask{margin:6px 8px 0;padding:12px 0 4px}
+.search-sheet .search-note{padding:10px 8px 4px}
+.search-sheet .search-asked{font-size:13px}
+.search-sheet .skel{min-height:56px;padding:6px 8px}
 .is-phone .card.about-sheet{left:0;right:0;top:auto;bottom:0;width:auto;max-height:92dvh;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:28px 20px calc(24px + env(safe-area-inset-bottom))}
 .is-phone .card.about-sheet[data-starting-style],.is-phone .card.about-sheet[data-ending-style]{translate:0 40px}
 .is-phone .light-pad{left:12px;right:60px;top:90px;bottom:150px}
