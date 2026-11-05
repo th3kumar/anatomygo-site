@@ -27,7 +27,7 @@ import {AboutCard} from './about-card';
 import AnatomyScene from './scene';
 import {track,setContext,type Params,bucket,queryKind,statsEnabled,setStatsEnabled,secondsBucket,progressBucket,deviceHints,modelTransfer} from './analytics';
 import {preloadStream,storedChunks} from './model-stream';
-import {aliasesFor,searchTerms,searchText} from './search-terms';
+import {searchTerms} from './search-terms';
 import {FeedbackForm,FeedbackPrompt,type FeedbackContext} from './feedback';
 import {APP_SEEN,PLAY_PUBLIC,platform,playUrl} from './play';
 import LightPad from './light-pad';
@@ -37,8 +37,12 @@ import {DEFAULT_VISIBLE,PANEL_ORDER,SYSTEMS,EXPLANATIONS,explanation,type Atlas,
 import {Arrive,BackButton,FocusPill,GlassButton,Hint,ThemeButton,ViewPill,Wordmark,type FocusToggle} from './chrome';
 import {StructureCard,type CardFacts,type CardMode,type CardTab} from './structure-card';
 import {SystemsBody,presetOf,presetSystems,type Preset} from './systems-panel';
-import {SearchPanel,SearchPill,type Result} from './search';
-import {useFeatureSearch} from './feature-search';
+import {SearchPanel,SearchPill} from './search';
+import {useSearch} from './search/use-search';
+import {conceptFor} from './search/atlas-index';
+import {lastSide,remember,rememberSide,SHUFFLE_STARTERS} from './search/memory';
+import {sideOf} from './search/text';
+import type {Row} from './search/assemble';
 import {LANDSCAPE,PHONE,useMedia} from './media';
 import {spring,tween} from './motion';
 // Touch screens pinch and tap; mice scroll and click.
@@ -48,19 +52,6 @@ const capitalise=(name:string)=>name.charAt(0).toUpperCase()+name.slice(1);
 const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],isolate:false,view:'three-quarter',rotate:false,reset:0};
 // A load still running in this tab; if it is there when the page starts again, the last load never finished (a reload, or on phones usually the browser closing the tab for memory).
 const LOADING='anatomygo.loading';
-// Search's Start with list. While SHUFFLE_STARTERS is on, each visit gets its own order (kept for the whole visit), so
-// picks can be split into the pull of the row and the pull of the structure (`index`, the row, and `structure_id` on
-// structure_selected). Turn it off two weeks after it goes live, and fix the order from what the data shows.
-const STARTERS=['heart','brain','liver','stomach','spleen','pancreas','urinary bladder','trachea'];
-const SHUFFLE_STARTERS=true;
-function starters(){
- if(!SHUFFLE_STARTERS)return STARTERS;
- const KEY='anatomygo.starters';
- try{const kept=JSON.parse(sessionStorage.getItem(KEY)??'null');if(Array.isArray(kept)&&kept.length===STARTERS.length&&STARTERS.every(n=>kept.includes(n)))return kept as string[];}catch{}
- const order=[...STARTERS];for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
- try{sessionStorage.setItem(KEY,JSON.stringify(order));}catch{}
- return order;
-}
 const fpsBucket=(fps:number)=>fps<20?'0_19':fps<30?'20_29':fps<45?'30_44':fps<58?'45_57':'58_plus';
 /** A failure in plain words: a lost connection reads as one, never as the browser's own text ("Failed to fetch"). */
 function problem(error:string):[string,string]{
@@ -220,8 +211,6 @@ export default function Home(){
  const [wantPin,setWantPin]=useState<string|null>(null);
  useEffect(()=>{if(wantPin&&shown.pins.some(p=>p.id===wantPin)){selectPin(wantPin,'list');setWantPin(null);}},[shown.pins,wantPin]);
  const visibleCount=atlas?.parts.filter(p=>state.isolate?state.selected.includes(p.id):state.visible.includes(p.system)||state.selected.includes(p.id)).length??0;
- const results=useMemo(()=>{if(!atlas)return[];const term=query.toLowerCase().trim();if(!term)return starters().map(name=>atlas.concepts.find(c=>c.name.toLowerCase()===name)).filter((x):x is Concept=>!!x);const also=aliasesFor(term);return atlas.concepts.filter(c=>{const n=c.name.toLowerCase();return n.includes(term)||c.id.toLowerCase().includes(term)||also.some(a=>n.includes(a));}).sort((a,b)=>a.name.length-b.name.length).slice(0,80);},[atlas,query]);
- // A search that finds nothing, once typing pauses: the query's shape and length only, never its text. Longer versions of the same miss are not repeated.
 
  // Feedback. The card asks once per device: after three minutes of visible use, once the body is usable and the visitor
  // has done something, at a calm moment (nothing open, no input for four seconds). About always offers the same form.
@@ -242,15 +231,6 @@ export default function Home(){
    clearInterval(t);if(!markFeedback('shown'))return;setFeedbackPrompt(true);track('feedback_prompt_shown',{seconds:secondsBucket(visibleMs()/1000)});},5000);
   return()=>clearInterval(t);},[atlas]);
  calm.current=!panel&&!about&&!lighting&&!details&&!entryTip&&!featureTip;
- const missed=useRef('');
- // A search closed without picking a result (and not already reported as finding nothing), once per distinct query.
- const searchSession=useRef({open:false,chosen:false,reported:''});
- useEffect(()=>{const s=searchSession.current,term=query.trim();
-  if(panel==='search'){if(!s.open){s.open=true;s.chosen=false;}return;}
-  if(!s.open)return;s.open=false;
-  if(!s.chosen&&atlas&&term&&results.length&&term!==s.reported){s.reported=term;track('search_abandoned',{query_kind:queryKind(term),result_count:bucket(results.length),search_terms:searchTerms(term,atlas)});}
- },[panel]);
- useEffect(()=>{const term=query.trim();if(!atlas||!term||results.length)return;const t=setTimeout(()=>{if(missed.current&&term.startsWith(missed.current))return;missed.current=term;track('search_no_result',{query_kind:queryKind(term),count:bucket(term.length),search_terms:searchTerms(term,atlas),search_text:searchText(term)});},1200);return()=>clearTimeout(t);},[atlas,query,results.length]);
  // Picked from search: the rest of the body turns to glass so the structure shows wherever it sits (until Learn more,
  // another pick, or closing).
  const [seeThrough,setSeeThrough]=useState(false);
@@ -312,14 +292,29 @@ export default function Home(){
  const setView=(v:View)=>{track('camera_view',{view:v});setState(s=>({...s,view:v,reset:s.reset+1,rotate:false}));};
  // The theme button: the whole page eases to the other theme in one cross-fade (a View Transition where the browser has one).
  const toggleTheme=()=>{const next=dark?'light':'dark';track('appearance_changed',{mode:next});const apply=()=>flushSync(()=>setAppearance(next));const doc=document as Document&{startViewTransition?:(cb:()=>void)=>unknown};if(doc.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)doc.startViewTransition(apply);else apply();};
- const searchResults:Result[]=results.map(c=>{const sys=SYSTEMS.find(x=>x.id===parts.get(c.elements[0])?.system);return {id:c.id,name:capitalise(c.name),meta:`${sys?.name??'Structure'}${c.elements.length>1?` · ${c.elements.length} pieces`:''}`};});
- const featureHits=useFeatureSearch(panel==='search'?query:'');
- const featureResults:Result[]=featureHits.filter(h=>parts.has(h.mesh)).map(h=>({id:`f:${h.id}:${h.mesh}`,name:capitalise(h.label),meta:`On ${capitalise(parts.get(h.mesh)!.name)}`}));
- const chooseResult=(id:string)=>{
-  if(id.startsWith('f:')){const [,pin,mesh]=id.split(':');if(!parts.has(mesh))return;visit.current.searches++;searchSession.current.chosen=true;const pick={list:'features',index:featureResults.findIndex(r=>r.id===id)+1};track('search_performed',{...pick,query_kind:queryKind(query),result_count:bucket(results.length+featureResults.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choosePart(mesh,'search',pick);setState(s=>({...s,isolate:true,explode:0,rotate:false}));setWantPin(pin);return;}
-  const c=results.find(x=>x.id===id);if(!c)return;visit.current.searches++;searchSession.current.chosen=true;// Which list and which row it was picked from; the Start with list says whether its order was shuffled.
-  const pick:Params=query.trim()?{list:'results',index:results.indexOf(c)+1}:{list:'start_with',index:results.indexOf(c)+1,order:SHUFFLE_STARTERS?'shuffled':'fixed'};
-  track('search_performed',{...pick,query_kind:queryKind(query),result_count:bucket(results.length),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});choose(c,'search',pick);};
+ // Search: rows from search/, picks open here. A structure opens one side of a pair (the side typed, else the one
+ // used last); a feature opens its structure on that pin; a system row shows only that system.
+ const search=useSearch(atlas,query,panel==='search',phone?'phone':'website');
+ const searchWords=(()=>{const r=search.matched?.rescue;if(r&&(r.kind==='typo'||r.kind==='layout'))return r.shown.split(' ');const q=search.matched?.query;return q?[...q.raw,...q.match]:[];})();
+ const chooseRow=(row:Row,at:number)=>{
+  visit.current.searches++;search.picked();
+  const list=row.kind==='starter'?'start_with':row.kind==='recent'?'recent':row.kind==='feature'?'features':row.kind==='system'?'systems':'results';
+  const pick:Params={list,index:at+1,row_type:row.kind,rescue:search.panel?.rescueKind??'none',...(row.kind==='starter'?{order:SHUFFLE_STARTERS?'shuffled':'fixed'}:{})};
+  track('search_performed',{...pick,query_kind:queryKind(query),result_count:bucket(search.panel?.rows.length??0),...(atlas?{search_terms:searchTerms(query,atlas)}:{})});
+  if(row.system){setPanel(null);if(row.system.kind==='organs')applyPreset('organs');else showOnly(row.system.id);return;}
+  if(row.feature){
+   // The same feature on the side used last (or typed), when the pin exists on both.
+   const f=row.sides?.[search.matched?.query.side??lastSide()]??row.feature,p=parts.get(f.mesh);if(!p)return;
+   const s=sideOf(p.name);if(s)rememberSide(s);
+   if(row.entry)remember(row.entry.key);
+   choosePart(f.mesh,'search',pick);setState(v=>({...v,isolate:true,explode:0,rotate:false,visible:v.visible.includes(p.system)?v.visible:[...v.visible,p.system]}));setWantPin(f.id);return;
+  }
+  if(!row.entry)return;
+  const c=conceptFor(row.entry,search.matched?.query.side,lastSide()),s=sideOf(c.name);if(s)rememberSide(s);
+  remember(row.entry.key);choose(c,'search',pick);
+  // A result whose system is hidden switches that system back on.
+  setState(v=>v.visible.includes(row.entry!.system)?v:{...v,visible:[...v.visible,row.entry!.system]});
+ };
  const tap=coarse?'Tap':'Click',inspecting=details&&selectedParts.length>0;
  // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
  const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
@@ -356,7 +351,7 @@ export default function Home(){
     ?mode==='place'?null:<m.div key="back" className="back-dock" initial={{opacity:0,y:-8}} animate={{opacity:1,y:0,transition:tween('out',.26,phone?.7:.15)}} exit={{opacity:0,transition:tween('in',.14)}}><BackButton esc={!phone&&mode==='focus'} label={phone&&mode==='feature'?facts?.title??'Back':phone?'Body':'Whole body'} onBack={()=>{if(phone&&mode==='feature')closeFeature('back');else backToBody('back');}}/></m.div>
     :<m.div key="mark" initial={{opacity:0}} animate={{opacity:1,transition:tween('out',.24)}} exit={{opacity:0,transition:tween('in',.18)}}><Wordmark compact={phone} progress={null}/></m.div>}</AnimatePresence>
    <p className="sr-only">A free 3D atlas of the human body, built from BodyParts3D. Explore, isolate and pin {atlas?atlas.parts.length.toLocaleString():'2,234'} bones, muscles, organs, vessels and nerves in your browser.</p>
-   {!phone&&<Arrive ready={chromeReady&&!error&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')}/></Arrive>}
+   {!phone&&<Arrive ready={chromeReady&&!error&&!focused} delay={bodyDelay} edge="top" order={1} className="top-search"><SearchPill onOpen={()=>openPanel('search')} covered={panel==='search'}/></Arrive>}
    <AnimatePresence initial={false}>{phone&&focused?<Arrive key="focus-actions" ready delay={focusDelay} enter={.26} edge="top" order={0} className="top-actions focus-actions"><FocusPill compact view={state.view} options={focusOptions} onToggle={toggleFocus}/></Arrive>:<Arrive key="page-actions" ready={chromeReady&&!focused} delay={bodyDelay} edge="top" order={2} className="top-actions" role="group" aria-label="Page">
     <ThemeButton dark={dark} onToggle={toggleTheme}/>
     {phone
@@ -371,7 +366,7 @@ export default function Home(){
     <span className="grab" aria-hidden="true"/><button type="button" className="sheet-close" onClick={()=>closeSystems('button')} aria-label="Close systems"><X size={18}/></button>{systemsBody}
    </m.section>
   </>}</AnimatePresence>
-  <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} results={searchResults} features={featureResults} note={query.trim()?(results.length===80?'Showing the first 80 matches. Keep typing to narrow them.':''):'Or search any named structure.'} onChoose={chooseResult} onClose={()=>setPanel(null)}/>}</AnimatePresence>
+  <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} panel={search.panel} words={searchWords} asked={search.asked} onPick={chooseRow} onLiteral={search.searchLiteral} onAsk={search.ask} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
     <Arrive ready={chromeReady&&!error&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting}/></Arrive>

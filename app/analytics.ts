@@ -4,7 +4,7 @@
  *
  * Nothing a person writes or reads out of a link is sent, with one exception for search (search-terms.ts): a search
  * sends its anatomy-vocabulary words, any other word replaced by "?", and a search that finds nothing sends its text,
- * cleaned to lowercase letters. The About sheet says so. Otherwise events carry fixed names, atlas IDs, flags and
+ * cleaned to lowercase letters (so does Ask for it, which also stores those words for the team: site_search_ask). The About sheet says so. Otherwise events carry fixed names, atlas IDs, flags and
  * bucketed counts, never pin text. (The Android app sends no search text at all.) Loading events add the browser's own
  * coarse hints (memory class, network type) and download sizes, to explain slow or failed loads. Shared pins sit in
  * the URL fragment of /v/, so every hit reports a page address the caller has already cleaned.

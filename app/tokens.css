@@ -19,6 +19,7 @@
  --ground-flat:#f1f0ec;
  --hair:rgba(20,22,26,.08);--hair-2:rgba(20,22,26,.06);--hair-3:rgba(20,22,26,.14);
  --fill:rgba(20,22,26,.04);--fill-2:rgba(20,22,26,.06);--fill-hover:rgba(20,22,26,.05);--fill-on:rgba(255,255,255,.9);
+ --row-on:rgba(20,22,26,.06);--focus-line:rgba(63,160,120,.45);--focus-halo:rgba(63,160,120,.12);--text-bold:#111214;--skel:rgba(20,22,26,.05);--skel-hi:rgba(20,22,26,.1);
  --scrim:rgba(20,22,26,.24);
  /* Glass. The films use no backdrop blur; --blur stays 0 on phones (WebGL underneath). */
  --panel:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.56) 45%),rgba(255,255,255,.42);
@@ -62,6 +63,7 @@
  --ground-flat:#151618;
  --hair:rgba(255,255,255,.10);--hair-2:rgba(255,255,255,.06);--hair-3:rgba(255,255,255,.14);
  --fill:rgba(255,255,255,.05);--fill-2:rgba(255,255,255,.06);--fill-hover:rgba(255,255,255,.06);--fill-on:rgba(255,255,255,.13);
+ --row-on:rgba(255,255,255,.07);--focus-line:rgba(127,216,176,.45);--focus-halo:rgba(127,216,176,.12);--text-bold:#ffffff;--skel:rgba(255,255,255,.05);--skel-hi:rgba(255,255,255,.11);
  --scrim:rgba(10,11,13,.48);
  --panel:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015) 45%),rgba(30,32,37,.62);
  --panel-solid:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015) 45%),rgba(30,32,37,.92);
