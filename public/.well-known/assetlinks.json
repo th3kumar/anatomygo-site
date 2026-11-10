@@ -1,10 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.anatomygo",
       "sha256_cert_fingerprints": [
+        "FA:43:87:D9:41:FD:BA:F8:5D:D1:A3:AF:D3:C9:48:87:34:74:77:54:FC:38:A2:CC:C4:BF:E6:F9:05:BB:A7:CD",
         "E3:5C:05:CA:08:94:B8:14:BD:77:E5:8D:31:05:25:B8:6A:79:2A:4A:BB:26:18:9E:0D:32:28:B7:4B:8D:A7:99"
       ]
     }

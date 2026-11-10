@@ -340,7 +340,7 @@ export default function Home(){
    :<div className="app-card-qr"><img src="/app-qr.svg" alt="QR code for AnatomyGo on Google Play" width={104} height={104}/><div><strong className="t-body">Scan with your Android phone</strong><a className="link-mint" href={playUrl('site')} target="_blank" rel="noreferrer" onClick={playClicked}>Or open Google Play <ArrowUpRight size={13}/></a></div></div>}
   </section>:undefined}
    <p className="t-meta">For learning, not for diagnosis or surgery.</p>
-   <p className="t-meta about-credits">Anatomy: BodyParts3D © DBCLS (<a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noreferrer">CC BY 4.0</a>) · Viewer: Human Atlas (<a href="/human-atlas-license.txt" target="_blank" rel="noreferrer">MIT</a>)</p>
+   <p className="t-meta about-credits">Anatomy: BodyParts3D © DBCLS (<a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noreferrer">CC BY 4.0</a>) · Viewer: Human Atlas (<a href="/human-atlas-license.txt" target="_blank" rel="noreferrer">MIT</a>) · <a href="/privacy/" target="_blank" rel="noreferrer">Privacy</a> · <a href="/terms/" target="_blank" rel="noreferrer">Terms</a></p>
   </div>,
   feedback:<div className="about-copy">
    <section className="feedback-about" aria-label="Feedback"><p className="t-body2">What helped, what didn’t, what’s missing?</p>
