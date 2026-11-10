@@ -124,6 +124,8 @@ const sitemap=()=>`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SITE}/</loc><lastmod>${today}</lastmod></url>
   <url><loc>${SITE}/whats-new/</loc><lastmod>${today}</lastmod></url>
+  <url><loc>${SITE}/privacy/</loc></url>
+  <url><loc>${SITE}/terms/</loc></url>
 </urlset>
 `;
 
