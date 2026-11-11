@@ -441,6 +441,10 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .avatar.is-you{background:var(--accent-fill);color:var(--accent-text);box-shadow:inset 0 0 0 1px var(--accent-line)}
 /* "Pin saved" (film K10): drops in under the top bar for 2.4 s. */
 .panel.toast{position:fixed;z-index:95;top:24px;left:50%;translate:-50% 0;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--text);background:var(--panel-solid);pointer-events:none}
+/* A newer build is live: one slim row under the search field, clear of the systems panel and the structure card. */
+.panel.update-card{position:fixed;z-index:70;top:84px;left:50%;translate:-50% 0;display:flex;align-items:center;gap:6px;padding:6px 6px 6px 18px;border-radius:999px;background-color:var(--ground-flat);white-space:nowrap}
+.update-card h2{font-size:14px;font-weight:500;margin-right:10px}
+.update-card button{height:32px;padding:0 14px;border-radius:999px;font-size:14px}
 /* Account: a profile, not a form. Centred, with room between who you are and what you can do. */
 .profile-row{display:flex;align-items:center;gap:12px;width:100%;margin-top:6px;padding:16px 0 4px;border-top:1px solid var(--hair-2);text-align:left;color:var(--text)}
 .profile-row-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
@@ -516,6 +520,8 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .loader-pc{font-variant-numeric:tabular-nums}
 .loader-bar{display:block;height:4px;margin-top:12px;border-radius:2px;background:var(--hair-3);overflow:hidden}
 .loader-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);transform-origin:0 50%;transition:transform .4s var(--ease-out)}
+/* The loading card lets taps through to the body; its one link (behind a switch, app/flags.ts) takes them. */
+.loader-app{pointer-events:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--hair-2);font-size:var(--fs-small);font-weight:500;line-height:1.4;color:var(--accent-text);text-decoration:none}
 /* Reduced motion: no pops, halos or pulses; things simply appear (the motion library and the scene follow the same setting). */
 @media(prefers-reduced-motion:reduce){.pin-label-in.is-popping,.pin-halo,.row.skeleton::after,.tip-card{animation:none}}
 /* Upright tablets use the phone layout; the sheets and the bottom controls stay a comfortable width, centred. */

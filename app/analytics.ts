@@ -22,7 +22,7 @@ let page:Params={},started=false;
 // one before) and the page's context (`layers`: what the body shows), so a journey reads in order: muscles hidden,
 // then a bone tapped. Things the site does by itself (loading, prompts shown, failures) don't count as actions.
 let context:Params={},step=0,prevAction='landing';
-const PASSIVE=/(_shown|_offered|_ready|_failed|_unavailable|_interrupted|_restarted|_invalid)$|^(atlas_|render_|visit_summary|webgl_)/;
+const PASSIVE=/(_shown|_offered|_ready|_failed|_unavailable|_interrupted|_restarted|_restored|_invalid)$|^(atlas_|render_|visit_summary|webgl_)/;
 /** Context sent with every later event, such as `layers`. */
 export function setContext(c:Params){context={...context,...c};}
 

@@ -50,3 +50,5 @@ public/playground-seed.json
 .local/
 supabase/.temp/
 __pycache__/
+# Written by scripts/build-seo.mjs for the deploy's IndexNow ping
+/indexnow-urls.json

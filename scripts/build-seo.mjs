@@ -2,10 +2,14 @@
 // read: llms.txt (a short guide to the site), llms-full.txt (every pinned feature in plain text), a dated sitemap, and
 // the current pin counts in dist/index.html (meta description, structured data, and a short text for crawlers) and in
 // dist/whats-new/index.html (counts, date, the muscle list and its structured data).
+// It also writes one page per pinned structure, /anatomy/<name>/ (the explorer itself, opened on that structure, with
+// its own title and its features as text), and fills the list of them at /anatomy/. An assistant or a search engine can
+// then send a reader straight to the structure they asked about, instead of the homepage: ChatGPT sent 301 people in
+// 2-10 Nov 2026, nearly all to the homepage, and on phones 2 of 114 of them came back.
 // The pins are only drawn by JavaScript in the 3D viewer, so without this crawlers never see them.
 // Locally and in the PR check, a failed read leaves the build as it is. The deploy sets SEO_STRICT=1, so a failed
 // read fails it and a deploy never ships without the pin text.
-import {readFile,writeFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 
 const root=fileURLToPath(new URL('..',import.meta.url)),dist=`${root}dist/`,SITE='https://anatomygo.in';
@@ -50,6 +54,8 @@ function summarise({pins,features,structures}){
  }
  const order={muscular:0,skeletal:1};
  const list=[...groups.values()].filter(g=>g.features.size).sort((a,b)=>(order[a.system]??2)-(order[b.system]??2)||a.name.localeCompare(b.name));
+ // Each entry's own page: /anatomy/<name>/, the name in lower case with hyphens.
+ const taken=new Set();for(const g of list){const base=g.name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');let slug=base;for(let k=2;taken.has(slug);k++)slug=`${base}-${k}`;taken.add(slug);g.slug=slug;g.url=`${SITE}/anatomy/${slug}/`;}
  const featureIds=new Set(features.filter(f=>pinned.has(f.id)&&names.has(f.mesh_id)).map(f=>f.id));
  const stats={pins:pins.filter(p=>featureIds.has(p.landmark_id)).length,features:featureIds.size,structures:new Set(features.filter(f=>featureIds.has(f.id)).map(f=>f.mesh_id)).size,
   origins:[...pinned].filter(([id,r])=>featureIds.has(id)&&r.origin).length,insertions:[...pinned].filter(([id,r])=>featureIds.has(id)&&r.insertion).length,
@@ -60,6 +66,8 @@ function summarise({pins,features,structures}){
 const link=id=>`${SITE}/?structure=${encodeURIComponent(id)}&isolate=1`;
 const n=x=>x.toLocaleString('en-US');
 const sides=g=>[...g.meshes].sort(([,a],[,b])=>a.localeCompare(b)).map(([id,name])=>`[${name}](${link(id)})`).join(' · ');
+// A pair has two models: its page opens the right one unless the reader last used the left, and each side has its own link.
+const entry=g=>`[${g.name}](${g.url})${g.meshes.size>1?` · one side: ${sides(g)}`:''}`;
 
 function llms({list,stats}){
  const muscles=list.filter(g=>g.system==='muscular'),others=list.filter(g=>g.system!=='muscular');
@@ -84,15 +92,17 @@ function llms({list,stats}){
 
 ## How to link to a structure
 
-Link to \`${SITE}/?structure=<ID>&isolate=1\`. The 3D explorer opens on that structure, shown on its own with its pins. The IDs are listed below.
+Every structure listed below has its own page, \`${SITE}/anatomy/<name>/\`. The page is the 3D explorer, opened on that structure and shown on its own with its pinned landmarks; it works on phones, tablets and laptops. When an answer is about one structure, link to that structure's page rather than the homepage, so the reader lands on it. [All structure pages](${SITE}/anatomy/).
+
+For one side of a pair, or any other of the 2,234 structures, link to \`${SITE}/?structure=<ID>&isolate=1\` with the ID from the side links below.
 
 ## Muscles with mapped origins and insertions
 
-${muscles.map(g=>`- ${g.name}: ${sides(g)}`).join('\n')}
+${muscles.map(g=>`- ${entry(g)}`).join('\n')}
 
 ## Bones and other structures with pinned landmarks
 
-${others.map(g=>`- ${g.name} (${g.features.size} ${g.features.size===1?'feature':'features'}): ${sides(g)}`).join('\n')}
+${others.map(g=>`- ${entry(g)} (${g.features.size} ${g.features.size===1?'feature':'features'})`).join('\n')}
 
 ## More
 
@@ -107,23 +117,25 @@ Updated ${today}.
 
 function llmsFull({list,stats}){
  const block=g=>{
-  const fs=[...g.features.values()],head=[`## ${g.name}`,'',`Open in 3D: ${sides(g)}`,''];
+  const fs=[...g.features.values()],head=[`## ${g.name}`,'',`Open in 3D: ${entry(g)}`,''];
   const lines=kind=>fs.filter(f=>f.kind===kind).map(f=>`- **${f.label}**${f.latin?` (${f.latin})`:''} — ${f.description}`);
   const parts=[['Origins','origin'],['Insertions','insertion'],[g.system==='muscular'?'Other features':'Landmarks and features','feature']].map(([t,k])=>{const l=lines(k);return l.length?`### ${t}\n\n${l.join('\n')}\n`:'';}).filter(Boolean);
   return [...head,...parts].join('\n');
  };
  return `# AnatomyGo: pinned anatomy features
 
-> Every landmark, origin and insertion pinned on the AnatomyGo 3D atlas (${SITE}), in plain text. The explorer is free for everyone (no premium tier, no subscription, no ads). ${n(stats.pins)} pins on ${n(stats.features)} features of ${n(stats.structures)} structures, updated ${today}. Each structure links to the free 3D explorer, which opens on that structure with its pins. Left and right sides are listed together. Most pins were placed by measuring the 3D model and checked against published anatomy references; all pins stay open to community review.
+> Every landmark, origin and insertion pinned on the AnatomyGo 3D atlas (${SITE}), in plain text. The explorer is free for everyone (no premium tier, no subscription, no ads). ${n(stats.pins)} pins on ${n(stats.features)} features of ${n(stats.structures)} structures, updated ${today}. Each structure links to its own page in the free 3D explorer, which opens on that structure with its pins. Left and right sides are listed together. Most pins were placed by measuring the 3D model and checked against published anatomy references; all pins stay open to community review.
 
 ${list.map(block).join('\n')}
 `;
 }
 
-const sitemap=()=>`<?xml version="1.0" encoding="UTF-8"?>
+const sitemap=list=>`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SITE}/</loc><lastmod>${today}</lastmod></url>
   <url><loc>${SITE}/whats-new/</loc><lastmod>${today}</lastmod></url>
+  <url><loc>${SITE}/anatomy/</loc><lastmod>${today}</lastmod></url>
+${list.map(g=>`  <url><loc>${g.url}</loc><lastmod>${today}</lastmod></url>`).join('\n')}
   <url><loc>${SITE}/privacy/</loc></url>
   <url><loc>${SITE}/terms/</loc></url>
 </urlset>
@@ -144,7 +156,7 @@ function homepage(html,{stats}){
    about:[{'@type':'Thing',name:'Human anatomy'},{'@type':'Thing',name:'Anatomical landmarks'},{'@type':'Thing',name:'Muscle origins and insertions'}],
    featureList:['2,234 modelled structures from BodyParts3D',`${n(stats.pins)} pins on ${n(stats.features)} anatomical landmarks and features`,`Origin and insertion areas of ${n(stats.muscles.length)} muscles`,'Search shows a structure in place, with the rest of the body as glass','Isolate, hide and explode any structure','Works on phones, tablets and laptops','Free for everyone: no premium tier, no subscription, no ads, no sign-up'],
    sameAs:['https://play.google.com/store/apps/details?id=com.anatomygo'],dateModified:today}]};
- const about=`<section class="sr-only" aria-label="About AnatomyGo"><h2>Pinned landmarks, origins and insertions</h2><p>${n(stats.pins)} pins mark ${n(stats.features)} landmarks and features on ${n(stats.structures)} structures, each placed on the 3D model and described. Muscle origins are shown in red and insertions in blue. Most pins were placed by measuring the model and checked against published anatomy references, and every pin stays open to community review.</p><p>Muscles with mapped origins and insertions: ${esc(stats.muscles.join(', '))}. <a href="/whats-new/#origins-insertions">See each muscle's origin and insertion</a>.</p></section>`;
+ const about=`<section class="sr-only" aria-label="About AnatomyGo"><h2>Pinned landmarks, origins and insertions</h2><p>${n(stats.pins)} pins mark ${n(stats.features)} landmarks and features on ${n(stats.structures)} structures, each placed on the 3D model and described. Muscle origins are shown in red and insertions in blue. Most pins were placed by measuring the model and checked against published anatomy references, and every pin stays open to community review.</p><p>Muscles with mapped origins and insertions: ${esc(stats.muscles.join(', '))}. <a href="/whats-new/#origins-insertions">See each muscle's origin and insertion</a>. <a href="/anatomy/">Every structure with pinned landmarks, each on its own 3D page</a>.</p></section>`;
  html=swap(html,/<meta name="description" content="[^"]*"\/>/,`<meta name="description" content="${esc(description)}"/>`);
  html=swap(html,/<meta property="og:description" content="[^"]*"\/>/,`<meta property="og:description" content="${esc(description)}"/>`);
  html=swap(html,/<!--seo:data-->[\s\S]*?<!--\/seo:data-->/,ldJson(data));
@@ -156,14 +168,13 @@ const COMMON={'Clavicular part of deltoid':'Anterior deltoid','Acromial part of 
  'Descending part of trapezius':'Upper trapezius','Ascending part of trapezius':'Lower trapezius','Clavicular part of pectoralis major':'Pectoralis major, clavicular head',
  'Sternocostal part of pectoralis major':'Pectoralis major, sternocostal head','Long head of biceps brachii':'Biceps brachii, long head'};
 const cap=s=>s[0].toUpperCase()+s.slice(1);
-/** One row per muscle: its name, origin → insertion, linking to the right side in 3D. */
+/** One row per muscle: its name, origin → insertion, linking to its 3D page. */
 function muscleRows(list){
  const rows=list.filter(g=>g.system==='muscular').map(g=>{
   const fs=[...g.features.values()],name=COMMON[g.name]??g.name;
   const part=kind=>fs.filter(f=>f.kind===kind).map(f=>f.label.replace(/^(origin|insertion):\s*/i,'')).join('; ');
-  const meshes=[...g.meshes],[id]=meshes.find(([,m])=>/\bright\b/i.test(m))??meshes[0];
-  const from=part('origin'),to=part('insertion');
-  return {name,html:`<li><a href="/?structure=${encodeURIComponent(id)}&amp;isolate=1"><div class="name">${esc(name)}</div><div class="attach">${from?`<span class="from">${esc(cap(from))}</span>`:''}${to?`<span class="to">${esc(cap(to))}</span>`:''}</div></a></li>`};
+    const from=part('origin'),to=part('insertion');
+  return {name,html:`<li><a href="/anatomy/${g.slug}/"><div class="name">${esc(name)}</div><div class="attach">${from?`<span class="from">${esc(cap(from))}</span>`:''}${to?`<span class="to">${esc(cap(to))}</span>`:''}</div></a></li>`};
  });
  return `<ol class="muscles">${rows.sort((a,b)=>a.name.localeCompare(b.name)).map(r=>r.html).join('')}</ol>`;
 }
@@ -179,15 +190,61 @@ function whatsNew(html,{list,stats}){
  return swap(html,/<!--seo:data-->[\s\S]*?<!--\/seo:data-->/,ldJson(data));
 }
 
+/** A structure's own page: the explorer's page with this structure's title, description, address and structured data,
+ * the ids the app opens (right side first), and the structure's pinned features as text for crawlers. */
+function structurePage(home,g){
+ const fs=[...g.features.values()],name=COMMON[g.name]??g.name,lower=name[0].toLowerCase()+name.slice(1),muscle=g.system==='muscular';
+ const meshes=[...g.meshes],right=meshes.find(([,m])=>/\bright\b/i.test(m)),left=meshes.find(([,m])=>/\bleft\b/i.test(m)),ids=right&&left?[right[0],left[0]]:[meshes[0][0]];
+ const attached=fs.some(f=>f.kind!=='feature'),count=`${fs.length} pinned ${fs.length===1?'feature':'features'}`;
+ const title=`${name}${muscle&&attached?': origin and insertion in 3D':` in 3D: ${count}`} · AnatomyGo`;
+ // As many feature names as fit in a search result's 160 characters.
+ const lead=`The ${lower} in a free 3D atlas, with ${count}`,labels=fs.map(f=>f.label);let description=`${lead}.`;
+ for(let k=labels.length;k>0;k--){const d=`${lead}: ${labels.slice(0,k).join(', ')}${k<labels.length?' and more':''}.`;if(d.length<=160){description=d;break;}}
+ const type=muscle?'Muscle':g.system==='skeletal'?'Bone':'AnatomicalStructure';
+ const data={'@context':'https://schema.org','@graph':[
+  {'@type':'WebPage','@id':`${g.url}#page`,url:g.url,name:title,description,inLanguage:'en',dateModified:today,isPartOf:{'@id':`${SITE}/#website`},
+   about:{'@type':type,name:g.name,...(name!==g.name?{alternateName:name}:{}),subStructure:fs.map(f=>({'@type':'AnatomicalStructure',name:f.label,description:f.description}))}},
+  {'@type':'BreadcrumbList',itemListElement:[['AnatomyGo',`${SITE}/`],['Structures',`${SITE}/anatomy/`],[name,g.url]].map(([n,item],i)=>({'@type':'ListItem',position:i+1,name:n,item}))}]};
+ const item=f=>`<li><strong>${esc(f.label)}</strong>${f.latin?` (${esc(f.latin)})`:''}: ${esc(f.description)}</li>`;
+ const part=(heading,kind)=>{const l=fs.filter(f=>f.kind===kind);return l.length?`<h3>${heading}</h3><ul>${l.map(item).join('')}</ul>`:'';};
+ const about=`<section class="sr-only" aria-label="${esc(name)}"><h2>${esc(name)} in 3D</h2><p>This page opens the ${esc(lower)} on its own in the AnatomyGo 3D atlas, with ${count} on the model. Free, with no sign-up.</p>${part('Origins','origin')}${part('Insertions','insertion')}${part(muscle?'Other features':'Landmarks and features','feature')}<p><a href="/anatomy/">More structures in 3D</a> · <a href="/">The whole body in 3D</a></p></section>`;
+ let html=swap(home,/<title>[^<]*<\/title>/,`<title>${esc(title)}</title>`);
+ html=swap(html,/<meta name="description" content="[^"]*"\/>/,`<meta name="description" content="${esc(description)}"/>`);
+ html=swap(html,/<link rel="canonical" href="[^"]*"\/>/,`<link rel="canonical" href="${g.url}"/><meta name="anatomygo:structure" content="${ids.join(' ')}"/>`);
+ html=swap(html,/<meta property="og:url" content="[^"]*"\/>/,`<meta property="og:url" content="${g.url}"/>`);
+ html=swap(html,/<meta property="og:title" content="[^"]*"\/>/,`<meta property="og:title" content="${esc(title)}"/>`);
+ html=swap(html,/<meta property="og:description" content="[^"]*"\/>/,`<meta property="og:description" content="${esc(description)}"/>`);
+ html=swap(html,/<!--seo:data-->[\s\S]*?<!--\/seo:data-->/,ldJson(data));
+ return checkDescription(swap(html,/<!--seo:about-->[\s\S]*?<!--\/seo:about-->/,`<!--seo:about-->${about}<!--/seo:about-->`),`anatomy/${g.slug}/index.html`);
+}
+/** The list of structure pages at /anatomy/: muscles with origin → insertion, then bones, then everything else. */
+function structureList(html,{list}){
+ const row=g=>{const fs=[...g.features.values()],name=COMMON[g.name]??g.name,part=kind=>fs.filter(f=>f.kind===kind).map(f=>f.label.replace(/^(origin|insertion):\s*/i,'')).join('; '),from=part('origin'),to=part('insertion');
+  const line=from||to?`${from?`<span class="from">${esc(cap(from))}</span>`:''}${to?`<span class="to">${esc(cap(to))}</span>`:''}`:`${fs.length} ${fs.length===1?'landmark':'landmarks'}`;
+  return {name,html:`<li><a href="/anatomy/${g.slug}/"><div class="name">${esc(name)}</div><div class="attach">${line}</div></a></li>`};};
+ const group=(title,gs)=>gs.length?`<section class="card"><h2 class="title">${title}</h2><ol class="muscles">${gs.map(row).sort((a,b)=>a.name.localeCompare(b.name)).map(r=>r.html).join('')}</ol></section>`:'';
+ const of=system=>list.filter(g=>g.system===system),rest=list.filter(g=>g.system!=='muscular'&&g.system!=='skeletal');
+ html=swap(html,/(<span data-count="structures">)[^<]*(<\/span>)/,`$1${n(list.length)}$2`);
+ html=swap(html,/<!--seo:structures-->[\s\S]*?<!--\/seo:structures-->/,`<!--seo:structures-->${group('Muscles',of('muscular'))}${group('Bones',of('skeletal'))}${group('Organs, vessels and nerves',rest)}<!--/seo:structures-->`);
+ const data={'@context':'https://schema.org','@type':'CollectionPage','@id':`${SITE}/anatomy/#page`,url:`${SITE}/anatomy/`,name:'Anatomy in 3D, structure by structure',inLanguage:'en',dateModified:today,isPartOf:{'@id':`${SITE}/#website`},about:{'@id':`${SITE}/#app`},
+  mainEntity:{'@type':'ItemList',numberOfItems:list.length,itemListElement:list.map((g,i)=>({'@type':'ListItem',position:i+1,name:COMMON[g.name]??g.name,url:g.url}))}};
+ return swap(html,/<!--seo:data-->[\s\S]*?<!--\/seo:data-->/,ldJson(data));
+}
+
 try{
  const summary=summarise(await load());
  if(!summary.list.length)throw Error('No pinned features found');
  await writeFile(`${dist}llms.txt`,llms(summary));
  await writeFile(`${dist}llms-full.txt`,llmsFull(summary));
- await writeFile(`${dist}sitemap.xml`,sitemap());
- await writeFile(`${dist}index.html`,checkDescription(homepage(await readFile(`${dist}index.html`,'utf8'),summary),'index.html'));
+ await writeFile(`${dist}sitemap.xml`,sitemap(summary.list));
+ const home=checkDescription(homepage(await readFile(`${dist}index.html`,'utf8'),summary),'index.html');
+ await writeFile(`${dist}index.html`,home);
+ for(const g of summary.list){await mkdir(`${dist}anatomy/${g.slug}`,{recursive:true});await writeFile(`${dist}anatomy/${g.slug}/index.html`,structurePage(home,g));}
+ await writeFile(`${dist}anatomy/index.html`,checkDescription(structureList(await readFile(`${dist}anatomy/index.html`,'utf8'),summary),'anatomy/index.html'));
+ // The addresses to tell search engines about after a deploy (.github/workflows/deploy.yml, IndexNow). Not deployed.
+ await writeFile(`${root}indexnow-urls.json`,JSON.stringify([`${SITE}/`,`${SITE}/whats-new/`,`${SITE}/anatomy/`,`${SITE}/llms.txt`,`${SITE}/llms-full.txt`,...summary.list.map(g=>g.url)]));
  await writeFile(`${dist}whats-new/index.html`,checkDescription(whatsNew(await readFile(`${dist}whats-new/index.html`,'utf8'),summary),'whats-new/index.html'));
- const {stats}=summary;console.log(`SEO files: ${n(stats.pins)} pins, ${n(stats.features)} features, ${n(stats.structures)} structures, ${stats.muscles.length} muscles, ${summary.list.length} entries in llms.txt`);
+ const {stats}=summary;console.log(`SEO files: ${n(stats.pins)} pins, ${n(stats.features)} features, ${n(stats.structures)} structures, ${stats.muscles.length} muscles, ${summary.list.length} entries in llms.txt, each with a page under /anatomy/`);
 }catch(e){
  if(process.env.SEO_STRICT)throw e;
  console.warn(`SEO files skipped: ${e.message}. dist/ keeps the static versions from public/ and web/index.html.`);
