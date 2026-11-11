@@ -29,7 +29,8 @@ import {track,setContext,type Params,bucket,queryKind,statsEnabled,setStatsEnabl
 import {preloadStream,storedChunks} from './model-stream';
 import {searchTerms} from './search-terms';
 import {FeedbackForm,FeedbackPrompt,type FeedbackContext} from './feedback';
-import {APP_SEEN,PLAY_PUBLIC,platform,playUrl} from './play';
+import {APP_SEEN,PLAY_PUBLIC,appAudience,platform,playUrl} from './play';
+import {useFlag} from './flags';
 import LightPad from './light-pad';
 import {DEFAULT_LIGHT,isDefaultLight,type Light} from './lighting';
 import {setAppearance,useAppearance} from './theme';
@@ -45,6 +46,8 @@ import {sideOf} from './search/text';
 import type {Row} from './search/assemble';
 import {LANDSCAPE,PHONE,useMedia} from './media';
 import {spring,tween} from './motion';
+import {arrival,keepPlace,keptPlace,type Place,type Pose} from './place';
+import {loadNewVersion,useNewVersion} from './update';
 // Touch screens pinch and tap; mice scroll and click.
 const coarse=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 // Atlas names are lower case ("vascular tree"); the interface raises the first letter.
@@ -52,6 +55,13 @@ const capitalise=(name:string)=>name.charAt(0).toUpperCase()+name.slice(1);
 const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],isolate:false,view:'three-quarter',rotate:false,reset:0};
 // A load still running in this tab; if it is there when the page starts again, the last load never finished (a reload, or on phones usually the browser closing the tab for memory).
 const LOADING='anatomygo.loading';
+// The place this tab was left in, when the page starts again after a reload or a restored tab (app/place.ts).
+const place=keptPlace();
+// The structure an address opens on: ?structure=<id>, or on a structure's own page (/anatomy/<name>/, written by
+// scripts/build-seo.mjs) the ids in its anatomygo:structure meta tag: the right side of a pair first, then the left.
+// A pair opens on the side used last.
+const linkedStructure=()=>{const q=new URLSearchParams(location.search).get('structure');if(q)return q;
+ const ids=document.querySelector<HTMLMetaElement>('meta[name="anatomygo:structure"]')?.content.split(' ').filter(Boolean)??[];return (lastSide()==='left'?ids[1]:undefined)??ids[0]??null;};
 const fpsBucket=(fps:number)=>fps<20?'0_19':fps<30?'20_29':fps<45?'30_44':fps<58?'45_57':'58_plus';
 /** A failure in plain words: a lost connection reads as one, never as the browser's own text ("Failed to fetch"). */
 function problem(error:string):[string,string]{
@@ -201,11 +211,15 @@ export default function Home(){
  const seeTips=(...ids:string[])=>setTipsSeen(s=>{const next=[...new Set([...s,...ids])];try{localStorage.setItem('anatomygo.home.tips',JSON.stringify(next));}catch{}return next;});
  const [settled,setSettled]=useState(false),[viewReady,setViewReady]=useState(false),[outerIn,setOuterIn]=useState(false);
  // The structure a shared link opens on, so the viewer downloads its parts first.
- const linked=useMemo(()=>{if(!atlas)return [];const id=new URLSearchParams(location.search).get('structure');if(!id)return [];const c=atlas.concepts.find(x=>x.id===id);return c?c.elements:atlas.parts.some(p=>p.id===id)?[id]:[];},[atlas]);useEffect(()=>{if(progress<100)return;const t=setTimeout(()=>setSettled(true),1500);return()=>clearTimeout(t);},[progress]);
+ const linked=useMemo(()=>{if(!atlas)return [];if(place)return place.selected.filter(id=>atlas.parts.some(p=>p.id===id));const id=linkedStructure();if(!id)return [];const c=atlas.concepts.find(x=>x.id===id);return c?c.elements:atlas.parts.some(p=>p.id===id)?[id]:[];},[atlas]);useEffect(()=>{if(progress<100)return;const t=setTimeout(()=>setSettled(true),1500);return()=>clearTimeout(t);},[progress]);
  // The Android app's launch: a badge on About, once the model has settled, until the visitor opens About. Apple devices can't install it, so they get no badge.
  const [appNews,setAppNews]=useState(()=>{if(!PLAY_PUBLIC||platform==='ios')return false;try{return !localStorage.getItem(APP_SEEN);}catch{return false;}});
  const [appFresh,setAppFresh]=useState(false),appBadge=appNews&&settled;
  useEffect(()=>{if(appBadge)track('app_badge_shown');},[appBadge]);
+ // The app, offered in the loading card: behind a switch in Supabase (off by default), and only for the visitors who
+ // use the Play button (app/play.ts). Counted when it is really seen, while the card is still up.
+ const appLine=useFlag('android_app_loading',appAudience);
+ useEffect(()=>{if(appLine&&!ready.current)track('app_offer_shown',{source:'loading'});},[appLine]);
  const featureTip=COACH_MARKS&&!triedPlayground&&details&&selectedParts.length>0&&!tipsSeen.includes('features');
  const entryTip=COACH_MARKS&&!triedPlayground&&settled&&!details&&!panel&&!about&&!lighting&&!tipsSeen.includes('entry')&&!tipsSeen.includes('features');
  useEffect(()=>{if(entryTip)track('home_tip_shown',{tip:'entry'});},[entryTip]);useEffect(()=>{if(featureTip)track('home_tip_shown',{tip:'features'});},[featureTip]);
@@ -242,7 +256,19 @@ export default function Home(){
  const choosePart=(id:string,source:string,more:Params={})=>{const p=parts.get(id);if(!p)return;setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{...more,source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  const toggle=(id:SystemId)=>{setSeeThrough(false);visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
  const reset=()=>{track('view_reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
- useEffect(()=>{if(!atlas)return;const q=new URLSearchParams(location.search),id=q.get('structure');if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')!=='0')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
+ // Back where the tab was left (a reload, or the browser restoring the tab): the systems, the structure and how it was
+ // open, then its feature and the card's tab once they can be shown. It replaces the address's own structure, which
+ // is older. Nothing is counted as a pick: the visitor didn't choose again.
+ const placed=useRef(false),poseRef=useRef<(()=>Pose|null)|null>(null),restoreTab=useRef<CardTab|null>(null),[restorePin,setRestorePin]=useState<string|null>(null);
+ useEffect(()=>{if(!atlas||placed.current)return;placed.current=true;if(!place)return;
+  const ids=place.selected.filter(id=>parts.has(id)),visible=place.visible.filter(id=>SYSTEMS.some(s=>s.id===id)),first=parts.get(ids[0]);
+  const c=first?atlas.concepts.find(x=>x.id===place.chosen)??{id:first.conceptId,name:first.name,elements:[first.id]}:null;
+  setState(s=>({...s,visible,view:place.view,selected:c?ids:[],isolate:!!c&&place.isolate}));
+  setFocusOptions(o=>({...o,...Object.fromEntries(Object.entries(place.focus).filter(([k,v])=>k in o&&typeof v==='boolean'))}));
+  if(c){setChosen(c);setDetails(true);setSeeThrough(place.glass&&!place.isolate);visit.current.structures.add(c.id);if(place.isolate){restoreTab.current=place.tab==='parts'?'parts':null;setRestorePin(place.pin);}}
+  track('place_restored',{arrival:arrival(),mode:!c?'body':!place.isolate?'peek':place.pin?'feature':'focus',structure_id:c?.id??''});},[atlas]);
+ useEffect(()=>{if(!restorePin||!shown.pins.length&&!shown.error)return;if(shown.pins.some(p=>p.id===restorePin))setSelectedPin(restorePin);setRestorePin(null);},[restorePin,shown.pins,shown.error]);
+ useEffect(()=>{if(!atlas||place)return;const q=new URLSearchParams(location.search),id=linkedStructure();if(!id)return;const c=atlas.concepts.find(x=>x.id===id);if(c)choose(c,'link');else if(parts.has(id))choosePart(id,'link');else return;if(q.get('isolate')!=='0')setState(s=>({...s,isolate:true,explode:0}));},[atlas]);
  const failed=(message:string)=>{setError(message);if(/WebGL/.test(message))track('renderer_failed',{reason:'webgl'});else if(/paused/.test(message))track('renderer_failed',{reason:'context_lost'});else track('atlas_download_failed',{stage:'models'});};
  const closeLighting=()=>{track('lighting_closed',{custom:isDefaultLight(light)?0:1});setLighting(false);};
  const toggleLighting=()=>{if(lighting){closeLighting();return;}track('lighting_opened');setPanel(null);setLighting(true);};
@@ -262,6 +288,12 @@ export default function Home(){
  const linkWaiting=linked.length>0&&!linkedReady&&!viewReady;
  const focused=(mode==='focus'||mode==='feature'||mode==='contribute'||mode==='place')&&!linkWaiting;
  useEffect(()=>{setTab('about');setHoverPin(null);},[state.selected]);
+ useEffect(()=>{if(restoreTab.current&&state.selected.length){setTab(restoreTab.current);restoreTab.current=null;}},[state.selected]);
+ // The place is kept as it changes, and once more with the camera when the page is hidden (a reload hides it first).
+ const keep=()=>{if(!placed.current)return;const p:Place={visible:state.visible,view:state.view,chosen:chosen?.id??null,selected:details||state.isolate?state.selected:[],isolate:state.isolate,glass:seeThrough,pin:selectedPin,tab,focus:focusOptions,pose:poseRef.current?.()??null};keepPlace(p);};
+ const keepRef=useRef(keep);keepRef.current=keep;
+ useEffect(keep,[atlas,state.visible,state.view,state.selected,state.isolate,details,chosen,seeThrough,selectedPin,tab,focusOptions]);
+ useEffect(()=>{const hidden=()=>{if(document.visibilityState==='hidden')keepRef.current();},leave=()=>keepRef.current();document.addEventListener('visibilitychange',hidden);addEventListener('pagehide',leave);return()=>{document.removeEventListener('visibilitychange',hidden);removeEventListener('pagehide',leave);};},[]);
  const clearing=useRef(0);
  const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
  // Back to the body: the card and pins leave, the camera returns, and the structure keeps its tint for 1.2 s.
@@ -349,10 +381,15 @@ export default function Home(){
   </div>,
  };
 
+ // A newer build is live (app/update.ts): offered on laptops and tablets, where tabs stay open for days, at a moment
+ // that breaks nothing (no pin half placed, no dialog open). Later holds until the next release.
+ const newBuild=useNewVersion(import.meta.env.DEV&&new URLSearchParams(location.search).has('update_preview')),[updateLater,setUpdateLater]=useState<string|null>(null);
+ const updateOffer=newBuild&&newBuild!==updateLater&&!phone&&mode!=='place'&&!ask&&!act&&!review&&!feedbackPrompt?newBuild:null;
+ useEffect(()=>{if(updateOffer)track('update_offered',{seconds:secondsBucket(performance.now()/1000)});},[updateOffer]);
  return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
-  {atlas&&<AnatomyScene pins={scenePins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;if(id.startsWith('draft:')){const k=keptHere.find(x=>`draft:${x.request}`===id);if(k)resume(k);return;}selectPin(id,'model');setDetails(true);}}
+  {atlas&&<AnatomyScene startPose={place?.pose} poseRef={poseRef} pins={scenePins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;if(id.startsWith('draft:')){const k=keptHere.find(x=>`draft:${x.request}`===id);if(k)resume(k);return;}selectPin(id,'model');setDetails(true);}}
    placing={mode==='place'&&draft?{anchor:draft.anchor,invalid:invalidTris}:null}
-   onPlace={r=>{if('refused' in r){setRefused(r.refused);track('pin_refused',{reason:r.refused,practice:0});return;}setRefused(null);if(!r.moved)track('pin_placed',{kind:draft?.anchor?'moved':'placed',practice:0});setDraft(d=>d&&{...d,anchor:r.anchor});}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={tapPart} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;setOuterIn(true);try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
+   onPlace={r=>{if('refused' in r){setRefused(r.refused);track('pin_refused',{reason:r.refused,practice:0});return;}setRefused(null);if(!r.moved)track('pin_placed',{kind:draft?.anchor?'moved':'placed',practice:0});setDraft(d=>d&&{...d,anchor:r.anchor});}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={tapPart} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;setOuterIn(true);try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{arrival:arrival(),duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
   <AnimatePresence>{lighting&&<LightPad key="light" light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}</AnimatePresence>
   {/* The header, with the intro also in web/index.html's first frame: keep the two in step. */}
   <header className="topbar" data-inset="top">
@@ -398,6 +435,7 @@ export default function Home(){
    <AnimatePresence mode="wait" initial={false}><m.p key={outerIn?progress>=90?'last':'inner':'outer'} className="t-meta" initial={{opacity:0,y:4}} animate={{opacity:1,y:0,transition:tween('out',.2)}} exit={{opacity:0,y:-4,transition:tween('in',.12)}}>
     {outerIn?progress>=90?'Last details':'Organs and vessels':'Muscles and bones'}</m.p></AnimatePresence>
    <span className="loader-bar" aria-hidden="true"><i style={{transform:`scaleX(${progress/100})`}}/></span>
+   {appLine&&<a className="loader-app" href={playUrl('site_loading')} target="_blank" rel="noreferrer" onClick={()=>track('play_clicked',{source:'loading',platform})}>The Android app works offline<ArrowUpRight size={14}/></a>}
   </m.div>}</AnimatePresence>
   {error&&(()=>{const [title,line]=problem(error);return <div className="panel error-card" role="alert"><h2 className="t-title">{title}</h2><p className="t-body2">{line}</p><button type="button" className="btn-accent" onClick={()=>location.reload()}>Try again</button></div>;})()}
   <AnimatePresence>{about?<AboutCard key="about" phone={phone} onClose={()=>closeAbout('button')} pages={aboutPages}
@@ -418,6 +456,11 @@ export default function Home(){
    onPin={(id,method)=>selectPin(id,'list',method)} onPinClose={()=>closeFeature('button')} onHoverPin={setHoverPin}
    onMember={(id,rank)=>{choosePart(id,'list',{list:'members',index:rank});setState(s=>({...s,isolate:true}));}} onCounterpart={()=>{if(counterpart){choosePart(counterpart.id,'list');if(focused)setState(s=>({...s,isolate:true}));}}}
    onRest={setSheetRest} onMinimise={setCardMini} onContribute={source=>{seeTips('entry','features');track('playground_opened',source==='home_pin'?{source:'home_pin'}:{source:'details',count:bucket(featureTotal??0)});}}/>}</AnimatePresence>
+  <AnimatePresence>{updateOffer&&<m.section key="update" className="panel update-card" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>
+   <h2 className="t-body">New version ready</h2>
+   <button type="button" className="btn-quiet" onClick={()=>{track('update_dismissed');setUpdateLater(updateOffer);}}>Later</button>
+   <button type="button" className="btn-accent" onClick={()=>{track('update_applied',{},{beacon:true});keepRef.current();loadNewVersion(updateOffer);}}>Reload</button>
+  </m.section>}</AnimatePresence>
   <AnimatePresence>{toast&&<m.div key="toast" className="panel toast" role="status" initial={{opacity:0,y:-14}} animate={{opacity:1,y:0,transition:spring.card}} exit={{opacity:0,y:-8,transition:tween('in',.16)}}>{toast}</m.div>}</AnimatePresence>
   <AnimatePresence>{review&&atlas&&<ReviewQueue key="review" structures={atlas.parts} onClose={()=>setReview(false)}
    onOpen={(mesh,landmark,proposal)=>{setReview(false);choosePart(mesh,'link');setState(s=>({...s,isolate:true,explode:0}));setDetails(true);setLinkPin(landmark);setPendingAlt(proposal);}}/>}</AnimatePresence>

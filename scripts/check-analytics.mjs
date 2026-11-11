@@ -19,6 +19,7 @@ sign_in_fallback_opened sign_in_prompted sign_in_started signed_out structure_is
 system_toggled view_in_3d_clicked view_reset visit_summary vote_cast webgl_unavailable
 about_closed contribute_closed feature_closed report_opened search_opened source_opened structure_closed
 search_query search_ask
+place_restored update_offered update_applied update_dismissed app_offer_shown
 `.trim().split(/\s+/);
 
 const ROOTS=['app','web','playground/src','lib'],EXT=new Set(['.ts','.tsx','.js','.mjs']);

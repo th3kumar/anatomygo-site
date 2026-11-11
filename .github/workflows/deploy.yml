@@ -50,8 +50,10 @@ jobs:
         continue-on-error: true
         env:
           INDEXNOW_KEY: 8d98fedd50be6f5f7ae39f22ee129ea5
+        # scripts/build-seo.mjs lists the addresses: the main pages and every structure page under /anatomy/.
         run: |
-          curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow \
-            -H 'Content-Type: application/json; charset=utf-8' \
-            -d "{\"host\":\"anatomygo.in\",\"key\":\"$INDEXNOW_KEY\",\"keyLocation\":\"https://anatomygo.in/$INDEXNOW_KEY.txt\",\"urlList\":[\"https://anatomygo.in/\",\"https://anatomygo.in/playground/\",\"https://anatomygo.in/whats-new/\",\"https://anatomygo.in/llms.txt\",\"https://anatomygo.in/llms-full.txt\"]}" \
+          jq -n --arg key "$INDEXNOW_KEY" --slurpfile urls indexnow-urls.json \
+            '{host:"anatomygo.in",key:$key,keyLocation:("https://anatomygo.in/"+$key+".txt"),urlList:$urls[0]}' \
+          | curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' -d @- \
             -w 'IndexNow: HTTP %{http_code}\n'

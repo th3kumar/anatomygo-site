@@ -15,6 +15,7 @@ import {decodeModelResponse} from './model-download';
 import {loadStreamChunk,matchesAtlas,preloadStream,pruneStore,type PartData,type Tier} from './model-stream';
 import {PointerTap} from './pointer-tap';
 import {SYSTEMS,type Atlas,type SceneState} from './anatomy';
+import type {Pose} from './place';
 import {FILL_DIRECTION,RIG,RIM_DIRECTION,lightDirection,type Light} from './lighting';
 // The stage follows the page's appearance; the anatomy keeps its colours in both.
 // Dark ("Graphite Soft") draws on a transparent canvas over the page's stage gradient, with a platform ring and a
@@ -27,28 +28,32 @@ const STAGE={light:{clear:'#f1f0ec',alpha:0,ring:0x8c969f,ringOpacity:.4,inner:0
 export interface LoadingTap {result:'answered'|'missed'|'held'|'resolved'|'dropped';waitMs?:number;reason?:'moved'|'replaced'|'timeout'}
 /** Placing a pin: where it is so far, and the structure's unusable triangles. A tap reports a new spot (or why not), a drag of the pin reports a nudge. */
 export type PlaceResult={anchor:Anchor;moved:boolean}|{refused:'miss'|'back_face'|'degenerate'};
-interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;placing?:{anchor:Anchor|null;invalid:number[]}|null;onPlace?:(r:PlaceResult)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view'|'priority')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void}
-export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect,placing=null,onPlace}:Props){
+interface Props {pins:PublishedPin[];selectedPin:string|null;onPinSelect:(id:string)=>void;placing?:{anchor:Anchor|null;invalid:number[]}|null;onPlace?:(r:PlaceResult)=>void;atlas:Atlas;state:SceneState;light:Light;dark:boolean;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void;onPerf?:(p:{frameMs:number;renderMs:number})=>void;onMilestone?:(m:'outer'|'view'|'priority')=>void;priority?:string[];onLoadingTap?:(t:LoadingTap)=>void;startPose?:Pose|null;poseRef?:{current:(()=>Pose|null)|null}}
+export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress,onError,onPerf,onMilestone,priority,onLoadingTap,pins,selectedPin,onPinSelect,placing=null,onPlace,startPose=null,poseRef}:Props){
  const placingRef=useRef(placing),placeCb=useRef(onPlace);placingRef.current=placing;placeCb.current=onPlace;
  const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),lamp=useRef(light),shade=useRef(dark);
  const published=useRef(pins),selectedPinRef=useRef(selectedPin),pickPin=useRef(onPinSelect);published.current=pins;selectedPinRef.current=selectedPin;pickPin.current=onPinSelect;
  const perf=useRef(onPerf),milestone=useRef(onMilestone),first=useRef(priority??[]),loadingTap=useRef(onLoadingTap);loadingTap.current=onLoadingTap;perf.current=onPerf;milestone.current=onMilestone;first.current=priority??[];
  latest.current=state;select.current=onSelect;lamp.current=light;shade.current=dark;
+ // The body view a reload returns to (app/place.ts): read once, when the viewer starts.
+ const pose0=useRef(startPose);
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
   let lastState:SceneState|null=null;
   const abort=new AbortController();
+  // A kept body view stands in for the framed one until the visitor moves the camera, changes the view or explodes.
+  let held=pose0.current?{pos:new T.Vector3(...pose0.current.pos),target:new T.Vector3(...pose0.current.target)}:null;
   let renderer:T.WebGLRenderer;
   try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}catch{onError('This browser could not start the 3D viewer. Please try a browser with WebGL enabled.');return;}
   renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<768?1.5:2));renderer.setClearColor('#f1f0ec',0);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=RIG.exposure;el.appendChild(renderer.domElement);
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
-  camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
+  camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.zoomToCursor=true;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});if(held){camera.position.copy(held.pos);controls.target.copy(held.target);}
   const publishedLayer=new PublishedPinLayer();scene.add(publishedLayer.group);
   // The pin being placed, and on a desktop the mint pin that floats with the cursor until it is dropped (film K7).
   const draftLayer=new DraftPinLayer();scene.add(draftLayer.group);let lastDraft:Anchor|null=null,dropNext=false,wasPlacing=false,dragging:{id:number;dx:number;dy:number}|null=null;
   const follower=document.createElement('div');follower.className='pin-cursor';follower.setAttribute('aria-hidden','true');follower.hidden=true;el.appendChild(follower);
- let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;stopFloat();});
+ let lastPins:PublishedPin[]|null=null,lastPin:string|null=null;controls.addEventListener('start',()=>{fly=null;held=null;stopFloat();});
   const labels=new PinLabels(el,id=>pickPin.current(id));
   // Camera moves: one tween on the handoff's camera curve (no overshoot). Direction turns, distance eases in log space,
   // and the view offset (which keeps the subject clear of the panels) moves with them. Grabbing the model stops it.
@@ -73,6 +78,8 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
   const startFocus=(to:number)=>{if(reducedMotion()){fp=to;fpTween=null;if(bodyShot&&isoShot)between(bodyShot,isoShot,fp);return;}fpTween={from:fp,to,t:0,dur:(to>fp?DUR.focusIn:DUR.focusBack)*Math.max(.35,Math.abs(to-fp))};controls.enabled=false;floatPending=to===1;dirty=true;};
   const setOffset=(x:number,y:number)=>{off=[x,y];const w=el.clientWidth,h=el.clientHeight;if(Math.abs(x)<.01&&Math.abs(y)<.01)camera.clearViewOffset();else camera.setViewOffset(w,h,x,y,w,h);};
   const shot=():Shot=>({pos:camera.position.clone(),target:controls.target.clone(),off:[...off]});
+  // The body view to keep for a reload: the camera as it stands, or in focus the body view Back returns to.
+  if(poseRef)poseRef.current=()=>{const b=latest.current.isolate||fp>0?bodyShot:amount<.05?shot():null;return b?{pos:b.pos.toArray(),target:b.target.toArray()}:null;};
   const flyTo=(to:Shot,dur:number)=>{stopFloat();if(dur<=0||reducedMotion()){fly=null;controls.target.copy(to.target);camera.position.copy(to.pos);setOffset(...to.off);controls.update();dirty=true;return;}fly={from:shot(),to,t:0,dur};dirty=true;};
   // A camera between two shots: the direction turns about the vertical (so front to back never rolls over the head),
   // the distance eases in log space, and the target and view offset move with it.
@@ -230,7 +237,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    const bodyPx=BODY.width*h/(2*tan*bodyDistance),cx=freeW<bodyPx?(area.left+area.right)/2:Math.min(Math.max(w/2,area.left+bodyPx/2),area.right-bodyPx/2);
    const keep=1-Math.min(1,extent*1.5);
    const target=new T.Vector3(extent>.1&&!mobile?-packingWidth*.12*Math.min(1,extent*2):0,T.MathUtils.lerp(BODY.centre,.85,Math.min(1,extent*2)),0);
-   const to:Shot={target,pos:target.clone().addScaledVector(direction,distance),off:[(w/2-cx)*keep,(h/2-(area.top+area.bottom)/2)*keep]};if(apply)flyTo(to,dur);return to;
+   const to:Shot={target,pos:target.clone().addScaledVector(direction,distance),off:[(w/2-cx)*keep,(h/2-(area.top+area.bottom)/2)*keep]};if(held&&!extent){to.target.copy(held.target);to.pos.copy(held.pos);}if(apply)flyTo(to,dur);return to;
   };
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);if(!latest.current.isolate&&!fp)fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
@@ -331,10 +338,11 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
     });setGhosts([...ghosts]);partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;
    }
    if(s.view!==lastView||s.reset!==lastReset){
+    if(lastView)held=null;
     if(!s.isolate)fit(s.view,amount,lastView?DURATION.view:0);
     else if(isoShot&&s.view!==lastView){const v=VIEWS[s.view]??VIEWS['three-quarter'],d=camera.position.distanceTo(controls.target);isoShot={target:controls.target.clone(),pos:controls.target.clone().addScaledVector(v.clone().normalize(),d),off:[...off]};flyTo(isoShot,DURATION.view);}
     lastView=s.view;lastReset=s.reset;}
-   if(moving&&!s.isolate&&!fp)fit(s.view,Math.max(0,(amount-.3)/.7));
+   if(moving&&!s.isolate&&!fp){held=null;fit(s.view,Math.max(0,(amount-.3)/.7));}
    const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect+':'+(s.frame??''):'';
    if(isolateKey!==lastIsolate){
     if(s.isolate){const box=new T.Box3();atlas.parts.forEach((p,i)=>{if(s.selected.includes(p.id))box.union(bounds[i]);});
@@ -413,7 +421,7 @@ export default function AnatomyScene({atlas,state,light,dark,onSelect,onProgress
    if(popping)dirty=true;
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();draftLayer.dispose();follower.remove();renderer.domElement.removeEventListener('pointerleave',leave);controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();peekTag.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;if(poseRef)poseRef.current=null;abort.abort();cancelAnimationFrame(frame);observer.disconnect();publishedLayer.group.removeFromParent();publishedLayer.dispose();draftLayer.dispose();follower.remove();renderer.domElement.removeEventListener('pointerleave',leave);controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();shadowTexture.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();peekTag.remove();labels.dispose();focusBlur.dispose();for(const type of ['pointerdown','keydown','wheel'])removeEventListener(type,stopFloat,{capture:true});renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }
