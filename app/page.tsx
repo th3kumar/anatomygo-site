@@ -6,7 +6,7 @@ import {SignInDialog,type SignInReason} from './community/sign-in-dialog';
 import {Dialog} from './community/dialog';
 import type {MenuItem} from './community/pin-menu';
 import {Profile} from './community/account';
-import {copy,pinLink} from './community/share';
+import {newShare,openedShare,pinKind,pinLink,shareInUrl,sharePin,viaShare} from './community/share';
 import {rest} from './supabase-rest';
 import {useFeatureDetail,type Spot} from './community/feature-detail';
 import {FeatureExtras} from './community/feature-extras';
@@ -132,11 +132,13 @@ export default function Home(){
  // A shared pin's link (?structure=…&pin=…) opens on that feature once its pins arrive. Older Playground links name
  // the placement rather than the feature, so either is matched.
  const [linkPin,setLinkPin]=useState(()=>{const q=new URLSearchParams(location.search);return q.get('structure')?q.get('pin'):null;});
+ // The share id the link carries (?s=, links sent from a pin's card since Nov 2026), reported with the open.
+ const linkShare=useRef(shareInUrl());
  useEffect(()=>{if(!linkPin||!shown.pins.length&&!shown.error)return;const p=shown.pins.find(x=>x.id===linkPin||x.proposal===linkPin);
   if(!p&&/^[0-9a-f-]{36}$/i.test(linkPin)){const id=linkPin;setLinkPin(null);
    // A placement this list doesn't name (a published pin read without its placement id): ask which feature it is.
-   void rest<{landmark_id:string}[]>(`pg_proposals?select=landmark_id&id=eq.${id}&limit=1`).then(r=>{if(r[0])setLinkPin(r[0].landmark_id);else track('shared_pin_opened',{found:0,published:0});}).catch(()=>{});return;}
-  track('shared_pin_opened',{found:p?1:0,published:p?.kind==='published'?1:0});if(p){setSelectedPin(p.id);setDetails(true);}setLinkPin(null);},[linkPin,shown.pins,shown.error]);
+   void rest<{landmark_id:string}[]>(`pg_proposals?select=landmark_id&id=eq.${id}&limit=1`).then(r=>{if(r[0])setLinkPin(r[0].landmark_id);else track('shared_pin_opened',{found:0,published:0,...openedShare(linkShare.current),structure_id:selected?.id??''});}).catch(()=>{});return;}
+  track('shared_pin_opened',{found:p?1:0,published:p?.kind==='published'?1:0,...(p?{kind:pinKind(p)}:{}),...openedShare(linkShare.current),structure_id:selected?.id??'',pin_id:p?.id??linkPin});if(p){setSelectedPin(p.id);setDetails(true);}setLinkPin(null);},[linkPin,shown.pins,shown.error]);
  // Placing a pin (films K7–K9): a draft for the open structure. Every suggestion is a point.
  const draftRef=useRef<string|null>(null);
  const [draft,setDraft]=useState<Draft|null>(null),[refused,setRefused]=useState<Refusal|null>(null),[saveState,setSaveState]=useState<'idle'|'saving'|'saved'>('idle'),[saveError,setSaveError]=useState(''),[invalidTris,setInvalidTris]=useState<number[]>([]);
@@ -445,7 +447,13 @@ export default function Home(){
    menu={menuFor}
    extras={viewPin&&<FeatureExtras key={viewPin.id} spots={detail.spots} current={viewPin.proposal??null} onPick={x=>{track('pin_alternative_viewed');setAlt(x);}}
     remarks={detail.remarks} more={detail.more} onOlder={()=>void detail.older()} me={session?.user.id??null} admin={admin} onPost={postRemark} onRemove={id=>void removeRemark(id)}/>}
-   onShare={async x=>{const ok=selected?await copy(pinLink(selected.id,x.id)):false;track('pin_shared',{source:'card',result:ok?'copied':'failed',published:x.kind==='published'?1:0});return ok;}}
+   onShare={async x=>{
+    // Each share has its own id in the link, so the open on the other end (shared_pin_opened.share_id) is matched to
+    // this event, and to the person who sent it (user_pseudo_id in BigQuery). parent_share: the share this visit came in by.
+    if(!selected){track('pin_shared',{source:'card',result:'failed',published:x.kind==='published'?1:0,kind:pinKind(x)});return 'failed';}
+    const id=newShare(),{result,method}=await sharePin(pinLink(selected.id,x.id,id),x.label,phone);
+    track('pin_shared',{source:'card',result,method,published:x.kind==='published'?1:0,kind:pinKind(x),share_id:id,parent_share:viaShare(),structure_id:selected.id,pin_id:x.id,signed_in:session?1:0});
+    return result;}}
    needsPin={shown.needsPin} kept={keptHere} me={me} onResume={r=>{const k=keptHere.find(x=>x.request===r);if(k)resume(k);}} onOpenContribute={()=>{setContributing(true);track('playground_opened',{source:'details',count:bucket(featureTotal??0)});}} onCloseContribute={()=>closeContribute('button')}
  onPlace={f=>startDraft(f?{kind:'first_pin',landmark:f.id,supersedes:null,label:f.label,latin:f.latinName,description:''}:{kind:'new',landmark:null,supersedes:null,label:'',latin:'',description:''})}
    onSuggest={x=>startDraft({kind:'correction',landmark:x.id,supersedes:x.proposal??null,label:x.label,latin:x.latinName,description:x.description})}

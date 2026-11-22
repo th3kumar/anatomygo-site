@@ -460,7 +460,20 @@ input.field{height:40px;padding:0 14px;flex:1;min-width:0}
 .profile-error{color:var(--destructive);margin-top:10px}
 .profile-out{margin-top:36px;min-height:var(--hit);color:var(--text-2)}
 .about-screen{display:flex;flex-direction:column;flex:1;min-height:0}
-.share-button{overflow:hidden;justify-content:center;min-width:84px}
+/* "Send this landmark" (handoff Pin share): a mint box on every pin, above Looks right?. 18 px above it on a desktop
+   (16 on phones), 10 px to the vote box below. Colours mix from --accent, so the light theme follows. */
+.share-tile{flex-direction:row;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px 10px 14px;border-radius:16px;margin-top:2px;
+ background:color-mix(in srgb,var(--accent) 6%,transparent);border-color:color-mix(in srgb,var(--accent) 22%,transparent)}
+.scard.is-sheet .share-tile{margin-top:0}
+.share-tile+.vote-tile{margin-top:-6px}
+.share-label{margin:0;font-size:15px;line-height:1.55;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.btn-quiet-on{background:var(--accent-fill);border-color:var(--accent-line);color:var(--accent-on);transition:background .12s,border-color .12s,color .12s}
+@media (hover:hover){.btn-quiet-on:hover{background:color-mix(in srgb,var(--accent) 20%,transparent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}}
+.btn-quiet-on:active{background:color-mix(in srgb,var(--accent) 20%,transparent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.share-button{flex:none;overflow:hidden;height:38px}
+.scard.is-sheet .share-button{height:44px}
+.share-button.is-failed{background:var(--fill-2);border-color:var(--hair-3);color:var(--text-2)}
+.share-button-in{display:inline-flex;align-items:center;gap:8px}
 .next-label{margin:4px 0 0}
 /* Dialogs that ask something (report, delete, review queue): left-aligned text, actions in one row. */
 .panel.dialog.is-left{align-items:stretch;text-align:left}

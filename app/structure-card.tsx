@@ -5,7 +5,8 @@
  * travel, worked out from what changed, so every path (buttons, Esc, pins on the model) moves the same way. */
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {AnimatePresence,animate,m,useMotionValue,type Variants} from 'motion/react';
-import {ArrowUpRight,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,X} from 'lucide-react';
+import {ArrowUpRight,Check,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,Plus,RotateCw,Share,X} from 'lucide-react';
+import type {ShareResult} from './community/share';
 import {DUR,css,spring,tween} from './motion';
 import {LANDSCAPE,useMedia} from './media';
 import {PagerIndicator,PagerTrack,usePager} from './swipe-pages';
@@ -46,8 +47,8 @@ interface Props {
  needsPin:OpenFeature[];placeView?:ReactNode;
  /** Pins kept on this device for this structure, and your public name (for "Added by you"). */
  kept:{request:string;kind:string;landmark:string|null;label:string}[];me:string|null;onResume:(request:string)=>void;
- /** Copies the pin's link; true when it reached the clipboard. */
- onShare:(pin:PublishedPin)=>Promise<boolean>;
+ /** Sends the pin's link: the share sheet on phones, the clipboard elsewhere. */
+ onShare:(pin:PublishedPin)=>Promise<ShareResult>;
  /** The ⋯ menu's actions for a pin (vote down, report, delete). */
  menu:(pin:PublishedPin)=>MenuItem[];
  /** Under the byline: other spots and comments. */
@@ -61,13 +62,17 @@ interface Props {
  onMinimise?:(mini:boolean)=>void;
 }
 
-/** On your own pin (film K10): one button copies its link, and says so for 1.4 s. */
-function ShareTile({onShare}:{onShare:()=>Promise<boolean>}){
+/** On every pin (handoff "Send this landmark"): one button sends its link. Desktop copies it and says Copied for 1.4 s;
+ * phones open their own share sheet, and closing it says nothing. A failed copy reads Try again for 1.4 s. */
+function ShareTile({onShare}:{onShare:()=>Promise<ShareResult>}){
  const [state,setState]=useState<'idle'|'copied'|'failed'>('idle');
  useEffect(()=>{if(state==='idle')return;const t=setTimeout(()=>setState('idle'),1400);return()=>clearTimeout(t);},[state]);
- return <div className="tile vote-tile"><p className="t-body2">Help someone learn it</p>
-  <button type="button" className={`vote share-button ${state==='copied'?'is-on':''}`} onClick={async()=>setState(await onShare()?'copied':'failed')} aria-live="polite">
-   <AnimatePresence mode="popLayout" initial={false}><m.span key={state} initial={{opacity:0,y:6}} animate={{opacity:1,y:0,transition:tween('out',.16)}} exit={{opacity:0,y:-6,transition:tween('in',.1)}}>{state==='copied'?'Copied':state==='failed'?'Couldn’t copy':'Share'}</m.span></AnimatePresence>
+ const send=async()=>{const r=await onShare();setState(r==='copied'?'copied':r==='failed'?'failed':'idle');};
+ const Icon=state==='copied'?Check:state==='failed'?RotateCw:Share;
+ return <div className="tile share-tile"><p className="share-label">Send this landmark</p>
+  <button type="button" className={`btn-quiet btn-quiet-on share-button ${state==='failed'?'is-failed':''}`} onClick={()=>void send()} aria-live="polite">
+   <AnimatePresence mode="popLayout" initial={false}><m.span key={state} className="share-button-in" initial={{opacity:0,y:6}} animate={{opacity:1,y:0,transition:tween('out',.16)}} exit={{opacity:0,y:-6,transition:tween('in',.1)}}>
+    <Icon size={16} strokeWidth={1.75} aria-hidden="true"/>{state==='copied'?'Copied':state==='failed'?'Try again':'Share'}</m.span></AnimatePresence>
   </button></div>;
 }
 /** Who added a pin, and "just now" for one added in the last two minutes. */
@@ -224,7 +229,8 @@ export function StructureCard(p:Props){
   {pin.latinName&&<p className="t-meta latin">{pin.latinName}</p>}
   <div className="card-scroll is-plain" ref={el=>{if(el&&mode==='feature')scroller.current=el;}}>
    {pin.description?<p className="t-body">{pin.description}</p>:<p className="t-body2">No description yet.</p>}
-   {pin.by&&pin.by===p.me?<ShareTile key={pin.id} onShare={()=>p.onShare(pin)}/>:(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
+   <ShareTile key={pin.id} onShare={()=>p.onShare(pin)}/>
+   {pin.by&&pin.by===p.me?null:(()=>{const v=p.vote(pin);return <div className="tile vote-tile"><p className="t-body2">Looks right?</p><div className="vote-actions">
     {v?<VoteButton on={v.on} count={v.count} onClick={()=>p.onVote(pin)}/>:<a className="vote" href={p.pinHref(pin)} onClick={()=>p.onContribute('home_pin')}>{pin.upvotes?`${pin.upvotes} agree · `:''}Vote</a>}
     <button type="button" className="vote" onClick={()=>p.onSuggest(pin)}>Suggest a spot</button></div></div>;})()}
    {pin.by&&pin.by===p.me&&p.needsPin.length>0&&<><p className="t-label next-label">Next to pin</p>
