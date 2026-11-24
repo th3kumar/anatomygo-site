@@ -26,12 +26,12 @@ export function presetSystems(p:Preset,all:SystemId[]):SystemId[]{
  return p==='all'?all:p==='skeleton'?['skeletal']:ORGANS.filter(id=>all.includes(id));
 }
 
-export function SystemsBody({systems,allSet,counts,visible,shown,explode,onPreset,onToggle,onOnly,onExplode}:{systems:System[],allSet:SystemId[],counts:Record<string,number>,visible:SystemId[],shown:number,explode:number,onPreset:(p:Preset)=>void,onToggle:(id:SystemId)=>void,onOnly:(id:SystemId)=>void,onExplode:(v:number)=>void}){
+export function SystemsBody({systems,allSet,counts,visible,shown,peeled=0,explode,onPreset,onToggle,onOnly,onExplode}:{systems:System[],allSet:SystemId[],counts:Record<string,number>,visible:SystemId[],shown:number,peeled?:number,explode:number,onPreset:(p:Preset)=>void,onToggle:(id:SystemId)=>void,onOnly:(id:SystemId)=>void,onExplode:(v:number)=>void}){
  const [more,setMore]=useState(false);
  const active=presetOf(visible,allSet),index=TABS.findIndex(t=>t[0]===active);
  const rows=more?systems:systems.slice(0,FIRST),hidden=systems.length-rows.length;
  return <>
-  <div className="panel-head"><h2 className="t-label">Systems</h2><span className="t-meta">{shown.toLocaleString()} parts shown</span></div>
+  <div className="panel-head"><h2 className="t-label">Systems</h2><span className="t-meta">{peeled?`${shown.toLocaleString()} shown · ${peeled.toLocaleString()} peeled`:`${shown.toLocaleString()} parts shown`}</span></div>
   <div className="tabs" role="group" aria-label="Show a group of systems">
    <span className="tab-ind" aria-hidden="true" style={{opacity:index<0?0:1,transform:`translateX(calc(${Math.max(0,index)} * (100% + 2px)))`,transition:`transform ${css.spring('snappy')}, opacity .18s`}}/>
    {TABS.map(([p,label])=><button type="button" key={p} className={`tab ${active===p?'is-on':''}`} aria-pressed={active===p} onClick={()=>onPreset(p)}>{label}</button>)}

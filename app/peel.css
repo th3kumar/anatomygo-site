@@ -1,0 +1,128 @@
+/* The scalpel (app/peel.ts, app/peel-ui.tsx). Colours, radii and curves from tokens.css; timings from the film
+ * "AnatomyGo · Peel tool": count 220 ms, list 220 ms with guide lines, phone sheet 360 ms, New card 360 ms then 620 ms. */
+
+/* The part under the scalpel, named (app/scene.tsx). It rises 6 px as it fades in. */
+.scalpel-tag{position:absolute;left:0;top:0;z-index:45;pointer-events:none;display:flex;flex-direction:column;gap:1px;max-width:300px;padding:7px 11px;border-radius:12px;background:var(--label-bg);border:1px solid var(--label-line);box-shadow:var(--chip-shadow);color:var(--text);opacity:0;translate:0 6px;transition:opacity .16s var(--ease-in),translate .16s var(--ease-in)}
+.scalpel-tag[hidden]{display:none}
+.scalpel-tag.is-on{opacity:1;translate:0 0;transition:opacity .22s var(--ease-out),translate .22s var(--ease-out)}
+.scalpel-tag b{font:600 13px/1.3 var(--font)}
+.scalpel-tag span{font:500 12px/1.3 var(--font);color:var(--accent-text)}
+.is-phone .scalpel-tag{padding:6px 10px}
+
+/* Desktop: the scalpel at the end of the view pill. Off, a round 44 px button like its neighbours; up, it widens to
+ * show its name in mint. The count and undo grow out of it once something is peeled. */
+.scalpel-icon{flex:none}
+.vbtn.scalpel-btn{position:relative;width:var(--hit);justify-content:flex-start;gap:8px;padding-left:13.5px;overflow:hidden;white-space:nowrap;transition:width .22s var(--ease-out),color .18s,background .18s,box-shadow .18s}
+.vbtn.scalpel-btn.is-on{width:108px;color:var(--accent-text);background:var(--accent-fill);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.scalpel-label{font-size:13px;font-weight:600;opacity:0;transition:opacity .12s}
+.scalpel-btn.is-on .scalpel-label{opacity:1;transition:opacity .2s .06s}
+.new-dot{position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--pill-bg)}
+.peel-count{display:flex;align-items:center;width:0;overflow:hidden;opacity:0;translate:0 6px;transition:width .22s var(--ease-out),opacity .16s,translate .22s var(--ease-out)}
+.peel-count.is-on{width:160px;opacity:1;translate:0 0;margin-left:4px}
+.vbtn.peel-count-btn{width:auto;padding:0 12px 0 14px;gap:6px;color:var(--text);font-size:13px;font-weight:500;white-space:nowrap}
+.vbtn.peel-count-btn[aria-expanded="true"]{background:var(--fill-hover)}
+.peel-n{display:inline-grid;min-width:58px;text-align:left}
+.peel-n>*{grid-area:1/1}
+
+/* The one-line hint beside the pill gives it room as the pill grows (the scalpel's name, then its count), and steps
+ * aside on narrower laptops once something is peeled (by then the double-click is known). */
+.studio.is-scalpel .hint-dock{max-width:calc(50vw - 340px)}
+.studio.has-peels .hint-dock{max-width:calc(50vw - 440px)}
+@media(max-width:1359px){.studio.has-peels .hint-dock{display:none}}
+
+/* Desktop: the Peeled list. The page dims a little behind it (not the view pill), guide lines rise from the count. */
+.peel-dim{position:absolute;inset:0;z-index:10;background:rgba(0,0,0,.14)}
+.dark .peel-dim{background:rgba(0,0,0,.22)}
+.panel.peel-list{position:fixed;z-index:42;padding:8px;border-radius:18px;background:var(--panel-solid);background-color:var(--ground-flat);outline:none}
+.peel-list-head{padding:6px 12px 4px}
+.peel-rows{max-height:min(320px,calc(100dvh - 260px));overflow-y:auto;overscroll-behavior:contain}
+.peel-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:4px 6px 4px 12px;border-radius:var(--r-row);font-size:14px;overflow:hidden;animation:peel-row-in .26s var(--ease-out) both}
+.peel-row>span{min-width:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.peel-row:hover{background:var(--fill-hover)}
+.peel-undo{flex:none;width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:var(--text-3);transition:color .15s,background .15s}
+.peel-undo:hover{color:var(--text);background:var(--fill-2)}
+.peel-list-foot{margin-top:4px;padding:6px 4px 2px;border-top:1px solid var(--hair)}
+.peel-all{height:36px;padding:0 10px;border-radius:10px;gap:6px}
+.peel-all:hover{background:var(--accent-fill)}
+@keyframes peel-row-in{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+
+/* Guide lines: a pop-up's frame drawn from its middle out, then gone (40 ms apart). */
+.guide{position:fixed;z-index:43;display:block;pointer-events:none;background:var(--hair-3)}
+.guide.gx{height:1px;animation:guide-x .95s var(--ease-out) both}
+.guide.gy{width:1px;transform-origin:50% 100%;animation:guide-y .7s var(--ease-out) both}
+@keyframes guide-x{0%{transform:scaleX(0);opacity:0}38%{transform:scaleX(1);opacity:1}64%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.6);opacity:0}}
+@keyframes guide-y{0%{transform:scaleY(0);opacity:0}45%{transform:scaleY(1);opacity:1}70%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
+.peel-guides .guide{z-index:41}
+
+/* Phone: the bottom row and its scalpel bar, as three slots that morph in place (PhoneScalpelRow). The slot is the
+ * glass pill; its width and mint tint ease while the contents cross-fade: the old one out quickly, the new one in a beat
+ * later, so the two never show at once. */
+.morph-row{position:relative}
+.morph-slot{position:relative;flex:none;height:54px;border-radius:16px;background:var(--chip);border:1px solid var(--panel-line);box-shadow:var(--chip-shadow);transition:width .34s var(--ease-io),border-color .34s var(--ease-io)}
+.morph-slot::before{content:'';position:absolute;inset:-1px;border-radius:inherit;background:var(--accent-fill);box-shadow:inset 0 0 0 1px var(--accent-line);opacity:0;transition:opacity .34s var(--ease-io);pointer-events:none}
+.morph-slot.is-mint{border-color:transparent}
+.morph-slot.is-mint::before{opacity:1}
+.morph-layer{position:absolute;inset:0;border-radius:inherit;overflow:hidden;display:flex;opacity:0;transition:opacity .14s var(--ease-in)}
+.morph-layer.is-shown{opacity:1;transition:opacity .22s .12s var(--ease-out)}
+.morph-layer>*{flex:1;min-width:0}
+/* The row's usual controls, inside a slot, take the slot's glass instead of their own. */
+.morph-layer .search-pill,.morph-layer .systems-button{height:100%;width:100%;background:none;border-color:transparent;box-shadow:none;border-radius:inherit}
+.morph-layer .search-pill .ph{white-space:nowrap;overflow:hidden;text-overflow:clip}
+.morph-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;padding:0 12px;border-radius:inherit;color:var(--text);font-size:14px;font-weight:500;white-space:nowrap}
+.morph-btn.scalpel-phone{padding:0;color:var(--text)}
+.morph-btn.scalpel-phone.is-on{color:var(--accent-text)}
+.morph-btn.row-hint{color:var(--text-3);font-size:13px;cursor:default;overflow:hidden;text-overflow:ellipsis}
+.morph-btn.scalpel-done{font-weight:600;padding:0}
+.row-count{display:flex;align-items:center;height:100%}
+.morph-btn.peel-count-phone{flex:1;min-width:0;justify-content:space-between;padding:0 12px 0 16px}
+.row-count-sep{width:1px;height:22px;background:var(--hair-3);flex:none}
+.morph-btn.peel-undo-phone{width:52px;flex:none;padding:0}
+.morph-slot .new-dot{top:10px;right:10px;box-shadow:0 0 0 2px var(--ground-flat)}
+.peel-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;background:var(--accent-strong);color:var(--accent-ink);font:600 11px/1 var(--font);box-shadow:0 0 0 2px var(--ground-flat);animation:peel-row-in .22s var(--ease-out) both}
+@media(prefers-reduced-motion:reduce){.morph-slot,.morph-slot::before,.morph-layer,.morph-layer.is-shown{transition-duration:.01s;transition-delay:0s}}
+
+/* Phone: the Peeled sheet. */
+.sheet.peel-sheet{display:flex;flex-direction:column;gap:14px;max-height:min(70dvh,520px)}
+.peel-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.peel-sheet-title{font-size:18px;font-weight:600}
+.peel-sheet .peel-rows{max-height:none;flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.peel-sheet .peel-row{flex:none;min-height:52px;padding:0 6px 0 14px;flex-direction:row;font-size:15px}
+.peel-sheet .peel-undo{width:40px;height:40px}
+.peel-keep{flex:none}
+.peel-sheet-guide{left:-10px;right:-10px;bottom:min(70dvh,300px);z-index:42}
+
+/* The New card. The page steps back (dim, and on desktop a blur), the card forms with its guide lines, and its content
+ * rises in, 50 ms apart. */
+.peel-intro-layer{position:fixed;inset:0;z-index:85;display:grid;place-items:center;padding:16px;pointer-events:none}
+.peel-intro-scrim{position:absolute;inset:0;pointer-events:auto;background:rgba(10,11,13,.3);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.dark .peel-intro-scrim{background:rgba(5,6,8,.38)}
+.peel-intro-layer.is-phone .peel-intro-scrim{backdrop-filter:none;-webkit-backdrop-filter:none}
+.peel-intro-layer.is-leaving .peel-intro-scrim{pointer-events:none}
+.panel.peel-intro{position:relative;pointer-events:auto;width:min(432px,100%);padding:20px;border-radius:22px;background:transparent;box-shadow:none;overflow:hidden;animation:intro-outline .24s .2s var(--ease-out) both}
+.panel.peel-intro::before{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--panel-solid);background-color:var(--ground-flat);box-shadow:var(--panel-shadow);animation:intro-fill .35s .3s var(--ease-out) both}
+@keyframes intro-outline{from{opacity:0}to{opacity:1}}
+@keyframes intro-fill{from{opacity:0}to{opacity:1}}
+.peel-intro-in{display:flex;gap:14px;align-items:flex-start}
+.peel-intro-in>*,.peel-intro-in>div>*{animation:peel-row-in .3s var(--ease-out) both}
+.peel-intro-icon{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:13px;background:var(--accent-fill);border:1px solid var(--accent-line);color:var(--accent-text);animation-delay:.38s!important}
+.peel-intro-new{font-size:12px;font-weight:600;color:var(--accent-text);animation-delay:.43s!important}
+.peel-intro-title{font-size:20px;font-weight:600;letter-spacing:-.01em;margin-top:2px;animation-delay:.48s!important}
+.peel-intro-line{margin-top:6px;animation-delay:.53s!important}
+.peel-intro-actions{margin-top:16px;animation-delay:.58s!important}
+.peel-intro-guides{position:absolute;inset:0;pointer-events:none}
+.peel-intro-guides .guide{z-index:86}
+.peel-intro-guides .g0,.peel-intro-guides .g1{left:calc(50% - 356px);width:712px}
+.peel-intro-guides .g0{top:calc(50% - 94px);animation-delay:.0s}
+.peel-intro-guides .g1{top:calc(50% + 94px);animation-delay:.04s}
+.peel-intro-guides .g2,.peel-intro-guides .g3{top:calc(50% - 184px);height:368px;transform-origin:50% 50%;animation:guide-x-v .95s var(--ease-out) both}
+.peel-intro-guides .g2{left:calc(50% - 216px);animation-delay:.08s}
+.peel-intro-guides .g3{left:calc(50% + 216px);animation-delay:.12s}
+@keyframes guide-x-v{0%{transform:scaleY(0);opacity:0}38%{transform:scaleY(1);opacity:1}64%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.6);opacity:0}}
+.peel-intro-layer.is-phone .peel-intro-guides{display:none}
+.peel-intro-layer.is-leaving .peel-intro-guides{display:none}
+
+@media(prefers-reduced-motion:reduce){
+ .scalpel-tag,.scalpel-tag.is-on,.peel-count,.vbtn.scalpel-btn{transition-duration:.01s}
+ .peel-row,.peel-intro-in>*,.peel-intro-in>div>*,.panel.peel-intro,.panel.peel-intro::before{animation:none}
+ .guide{display:none}
+}

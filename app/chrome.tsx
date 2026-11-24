@@ -38,14 +38,16 @@ export function ThemeButton({dark,onToggle}:{dark:boolean,onToggle:()=>void}){
 
 const VIEWS:[View,string,string][]=[['three-quarter','¾','Three-quarter view'],['front','F','Front view'],['side','S','Side view'],['back','B','Back view']];
 
-/** Camera views, then rotate, light and reset. Vertical on phones (views only, plus rotate). */
-export function ViewPill({view,explode,rotate,lighting,vertical,onView,onRotate,onLight,onReset}:{view:View,explode:number,rotate:boolean,lighting:boolean,vertical?:boolean,onView:(v:View)=>void,onRotate:()=>void,onLight?:()=>void,onReset?:()=>void}){
+/** Camera views, then rotate, light and reset, then anything passed in (the scalpel on desktop). Vertical on phones
+ * (views only, plus rotate). */
+export function ViewPill({view,explode,rotate,lighting,vertical,onView,onRotate,onLight,onReset,children}:{view:View,explode:number,rotate:boolean,lighting:boolean,vertical?:boolean,onView:(v:View)=>void,onRotate:()=>void,onLight?:()=>void,onReset?:()=>void,children?:ReactNode}){
  return <nav className={`vpill ${vertical?'vpill-col':''}`} aria-label="Camera">
   {VIEWS.map(([v,short,name])=><button type="button" key={v} className={`vbtn ${view===v?'is-on':''}`} aria-pressed={view===v} disabled={explode>.8&&v!=='front'} onClick={()=>onView(v)} title={name} aria-label={name}>{short}</button>)}
   <span className="vsep" aria-hidden="true"/>
   <button type="button" className={`vbtn ${rotate?'is-on':''}`} disabled={explode>=.4} onClick={onRotate} aria-pressed={rotate} aria-label={rotate?'Pause rotation':'Rotate the body'} title="Auto-rotate">{rotate?<Pause size={17}/>:<RotateCw size={17}/>}</button>
   {onLight&&<button type="button" className={`vbtn ${lighting?'is-on':''}`} onClick={onLight} aria-pressed={lighting} aria-label={lighting?'Finish moving the light':'Move the light'} title="Light"><Lightbulb size={17}/></button>}
   {onReset&&<button type="button" className="vbtn" onClick={onReset} aria-label="Reset the view and systems" title="Reset"><RotateCcw size={17}/></button>}
+  {children}
  </nav>;
 }
 

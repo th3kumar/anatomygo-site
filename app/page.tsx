@@ -48,6 +48,8 @@ import {LANDSCAPE,PHONE,useMedia} from './media';
 import {spring,tween} from './motion';
 import {arrival,keepPlace,keptPlace,type Place,type Pose} from './place';
 import {loadNewVersion,useNewVersion} from './update';
+import {introDue,markIntro,markUsed,peelMemory,visitorKind} from './peel';
+import {PeelIntro,PeelList,PeelSheet,PhoneScalpelRow,ScalpelTools} from './peel-ui';
 // Touch screens pinch and tap; mice scroll and click.
 const coarse=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 // Atlas names are lower case ("vascular tree"); the interface raises the first letter.
@@ -72,6 +74,12 @@ export default function Home(){
  const detailTitle=useRef<HTMLHeadingElement>(null),ready=useRef(false),usable=useRef(false),exploded=useRef(false),preExplodeView=useRef<View|null>(null);
  const {choice,dark}=useAppearance();
  const [stats,setStats]=useState(statsEnabled),[light,setLight]=useState<Light>(DEFAULT_LIGHT),[lighting,setLighting]=useState(false);
+ // The scalpel (app/peel.ts): the parts peeled, in the order they were peeled; whether the scalpel is up; the Peeled list;
+ // and the New card. peelMem is this device's memory of the scalpel, read once.
+ const [peeled,setPeeled]=useState<string[]>([]),[scalpel,setScalpel]=useState(false),[peelList,setPeelList]=useState(false),[intro,setIntro]=useState(false);
+ const peelMem=useMemo(()=>peelMemory(),[]),[scalpelFresh,setScalpelFresh]=useState(()=>!peelMem.used);
+ // This time the scalpel is up: when it was picked up, peels, and single clicks on a part (people expecting one click to peel).
+ const scalpelRun=useRef({at:0,peels:0,singles:0}),peelsSent=useRef(0);
  const [atlas,setAtlas]=useState<Atlas|null>(null),[state,setState]=useState(initial),[progress,setProgress]=useState(0),[error,setError]=useState(''),[panel,setPanel]=useState<'layers'|'search'|null>(null),[details,setDetails]=useState(false),[about,setAbout]=useState(false),[query,setQuery]=useState(''),[chosen,setChosen]=useState<Concept|null>(null);
  useEffect(()=>{const abort=new AbortController();setProgress(0);setError('');setAtlas(null);setChosen(null);setDetails(false);setState({...initial,visible:DEFAULT_VISIBLE});preloadStream();fetch('/models/atlas.json',{signal:abort.signal}).then(r=>{if(!r.ok)throw new Error('The anatomy catalogue could not be loaded.');return r.json();}).then(data=>setAtlas(data as Atlas)).catch(e=>{if(e.name!=='AbortError'){setError(e.message);track('atlas_download_failed',{stage:'catalogue'});}});return()=>abort.abort();},[]);
  // Loading, measured: time while the page is visible, a load interrupted by leaving the page, and a restart after a load that never finished.
@@ -80,7 +88,7 @@ export default function Home(){
  const loadingTaps=useRef(0);
  const loadMs=()=>{const l=load.current,now=performance.now();return Math.round(now-l.start-l.hidden-(l.hiddenAt?now-l.hiddenAt:0));};
  // One summary of each visit, sent when the page is hidden and only when something new happened since the last one.
- const visit=useRef({structures:new Set<string>(),systems:new Set<string>(),explode:0,isolated:false,searches:0,visible:0,visibleSince:performance.now(),last:''});
+ const visit=useRef({structures:new Set<string>(),systems:new Set<string>(),explode:0,isolated:false,searches:0,peels:0,scalpel:false,visible:0,visibleSince:performance.now(),last:''});
  useEffect(()=>{
   try{const before=sessionStorage.getItem(LOADING);if(before!==null)track('atlas_load_restarted',{progress:before,...deviceHints()});sessionStorage.setItem(LOADING,'0');}catch{}
   const changed=()=>{
@@ -89,7 +97,7 @@ export default function Home(){
    l.hiddenAt=now;v.visible+=now-v.visibleSince;
    // Interrupted means the visit ended before the body was usable (outer body in); after that it's a visit, summarised below.
    if(!usable.current){if(!l.interrupted){l.interrupted=true;track('atlas_load_interrupted',{progress:progressBucket(l.progress),seconds:secondsBucket(loadMs()/1000),...deviceHints()},{beacon:true});}return;}
-   const activity={depth:bucket(v.structures.size),systems:bucket(v.systems.size),explode_max:v.explode<=0?'0':v.explode<.5?'1_49':v.explode<1?'50_99':'100',isolated:v.isolated?1:0,searches:bucket(v.searches)},key=JSON.stringify(activity);
+   const activity={depth:bucket(v.structures.size),systems:bucket(v.systems.size),explode_max:v.explode<=0?'0':v.explode<.5?'1_49':v.explode<1?'50_99':'100',isolated:v.isolated?1:0,searches:bucket(v.searches),peels:bucket(v.peels),scalpel:v.scalpel?1:0},key=JSON.stringify(activity);
    if(key===v.last)return;v.last=key;track('visit_summary',{...activity,seconds:secondsBucket(v.visible/1000),stage:ready.current?'all':'outer'},{beacon:true});
   };
   document.addEventListener('visibilitychange',changed);return()=>document.removeEventListener('visibilitychange',changed);
@@ -249,15 +257,15 @@ export default function Home(){
    if(!usable.current||!acted||!calm.current||visibleMs()<180000||performance.now()-lastInput.current<4000)return;
    clearInterval(t);if(!markFeedback('shown'))return;setFeedbackPrompt(true);track('feedback_prompt_shown',{seconds:secondsBucket(visibleMs()/1000)});},5000);
   return()=>clearInterval(t);},[atlas]);
- calm.current=!panel&&!about&&!lighting&&!details&&!entryTip&&!featureTip;
+ calm.current=!panel&&!about&&!lighting&&!details&&!entryTip&&!featureTip&&!scalpel&&!peelList&&!intro;
  // Picked from search: the rest of the body turns to glass so the structure shows wherever it sits (until Learn more,
  // another pick, or closing).
  const [seeThrough,setSeeThrough]=useState(false);
- const choose=(c:Concept,source:string,more:Params={})=>{setSeeThrough(source==='search');visit.current.structures.add(c.id);track('structure_selected',{...more,source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ const choose=(c:Concept,source:string,more:Params={})=>{if(scalpel)closeScalpel(source);setSeeThrough(source==='search');visit.current.structures.add(c.id);track('structure_selected',{...more,source,structure_id:c.id,system_id:parts.get(c.elements[0])?.system??'concept',count:bucket(c.elements.length)});setChosen(c);setState(s=>({...s,selected:c.elements,isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  useEffect(()=>{if(!atlas)return;return registerAtlasTools(atlas,c=>flushSync(()=>choose(c,'agent')));},[atlas]);
- const choosePart=(id:string,source:string,more:Params={})=>{const p=parts.get(id);if(!p)return;setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{...more,source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
+ const choosePart=(id:string,source:string,more:Params={})=>{const p=parts.get(id);if(!p)return;if(scalpel)closeScalpel(source);setSeeThrough(false);visit.current.structures.add(id);track('structure_selected',{...more,source,structure_id:id,system_id:p.system,count:1});setChosen({id:p.conceptId,name:p.name,elements:[id]});setState(s=>({...s,selected:[id],isolate:false,rotate:false}));setDetails(true);setPanel(null);};
  const toggle=(id:SystemId)=>{setSeeThrough(false);visit.current.systems.add(id);track('system_toggled',{system_id:id,visible:state.visible.includes(id)?0:1});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:s.visible.includes(id)?s.visible.filter(x=>x!==id):[...s.visible,id]}));};
- const reset=()=>{track('view_reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
+ const reset=()=>{track('view_reset');restoreAll('reset');closeScalpel('reset');setState(s=>({...initial,visible:DEFAULT_VISIBLE,reset:s.reset+1}));setChosen(null);setDetails(false);setPanel(null);};
  // Back where the tab was left (a reload, or the browser restoring the tab): the systems, the structure and how it was
  // open, then its feature and the card's tab once they can be shown. It replaces the address's own structure, which
  // is older. Nothing is counted as a pick: the visitor didn't choose again.
@@ -265,7 +273,7 @@ export default function Home(){
  useEffect(()=>{if(!atlas||placed.current)return;placed.current=true;if(!place)return;
   const ids=place.selected.filter(id=>parts.has(id)),visible=place.visible.filter(id=>SYSTEMS.some(s=>s.id===id)),first=parts.get(ids[0]);
   const c=first?atlas.concepts.find(x=>x.id===place.chosen)??{id:first.conceptId,name:first.name,elements:[first.id]}:null;
-  setState(s=>({...s,visible,view:place.view,selected:c?ids:[],isolate:!!c&&place.isolate}));
+  setState(s=>({...s,visible,view:place.view,selected:c?ids:[],isolate:!!c&&place.isolate}));setPeeled(place.peeled.filter(id=>parts.has(id)));
   setFocusOptions(o=>({...o,...Object.fromEntries(Object.entries(place.focus).filter(([k,v])=>k in o&&typeof v==='boolean'))}));
   if(c){setChosen(c);setDetails(true);setSeeThrough(place.glass&&!place.isolate);visit.current.structures.add(c.id);if(place.isolate){restoreTab.current=place.tab==='parts'?'parts':null;setRestorePin(place.pin);}}
   track('place_restored',{arrival:arrival(),mode:!c?'body':!place.isolate?'peek':place.pin?'feature':'focus',structure_id:c?.id??''});},[atlas]);
@@ -292,9 +300,9 @@ export default function Home(){
  useEffect(()=>{setTab('about');setHoverPin(null);},[state.selected]);
  useEffect(()=>{if(restoreTab.current&&state.selected.length){setTab(restoreTab.current);restoreTab.current=null;}},[state.selected]);
  // The place is kept as it changes, and once more with the camera when the page is hidden (a reload hides it first).
- const keep=()=>{if(!placed.current)return;const p:Place={visible:state.visible,view:state.view,chosen:chosen?.id??null,selected:details||state.isolate?state.selected:[],isolate:state.isolate,glass:seeThrough,pin:selectedPin,tab,focus:focusOptions,pose:poseRef.current?.()??null};keepPlace(p);};
+ const keep=()=>{if(!placed.current)return;const p:Place={visible:state.visible,view:state.view,chosen:chosen?.id??null,selected:details||state.isolate?state.selected:[],isolate:state.isolate,glass:seeThrough,pin:selectedPin,tab,focus:focusOptions,pose:poseRef.current?.()??null,peeled};keepPlace(p);};
  const keepRef=useRef(keep);keepRef.current=keep;
- useEffect(keep,[atlas,state.visible,state.view,state.selected,state.isolate,details,chosen,seeThrough,selectedPin,tab,focusOptions]);
+ useEffect(keep,[atlas,state.visible,state.view,state.selected,state.isolate,details,chosen,seeThrough,selectedPin,tab,focusOptions,peeled]);
  useEffect(()=>{const hidden=()=>{if(document.visibilityState==='hidden')keepRef.current();},leave=()=>keepRef.current();document.addEventListener('visibilitychange',hidden);addEventListener('pagehide',leave);return()=>{document.removeEventListener('visibilitychange',hidden);removeEventListener('pagehide',leave);};},[]);
  const clearing=useRef(0);
  const mid=useMedia('(min-width: 768px) and (max-width: 1099px)');
@@ -315,6 +323,30 @@ export default function Home(){
  const closeAbout=(method:string)=>{setAbout(false);track('about_closed',{method});};
  const learnMore=(method='button')=>{track('structure_isolated',{isolated:1,system_id:selected?.system??'concept',source:'learn_more',method,xray:seeThrough?1:0});setState(s=>({...s,isolate:true,explode:0,rotate:false}));};
  const toggleFocus=(k:FocusToggle)=>{setFocusOptions(o=>{track('display_toggled',{setting:k,on:o[k]?0:1});return {...o,[k]:!o[k]};});};
+ // The scalpel. Picking it up closes a peeked structure and brings an exploded body back together (it peels the body as
+ // it stands); choosing a structure, exploding, Reset, Esc, Done or the button put it down. Peeled parts stay peeled.
+ const openScalpel=(method:string)=>{if(scalpel)return;
+  if(details&&selectedParts.length)track('structure_closed',{mode:mode??'peek',method:'scalpel'});
+  setSeeThrough(false);setDetails(false);setPanel(null);setState(s=>({...s,selected:[],isolate:false,explode:0,rotate:false}));
+  setScalpel(true);setScalpelFresh(false);markUsed();visit.current.scalpel=true;scalpelRun.current={at:performance.now(),peels:0,singles:0};
+  track('scalpel_opened',{method,count:bucket(peeled.length)});};
+ const closeScalpel=(method:string)=>{if(!scalpel)return;setScalpel(false);setPeelList(false);const r=scalpelRun.current;
+  track('scalpel_closed',{method,peels:bucket(r.peels),misses:bucket(r.singles),seconds:secondsBucket((performance.now()-r.at)/1000),count:bucket(peeled.length)});};
+ // `index`: this peel's place in the visit (1 for the first); events stop after 200 peels a visit.
+ const peelPart=(id:string,method:string)=>{const p=parts.get(id);if(!p||peeled.includes(id))return;setPeeled(l=>l.includes(id)?l:[...l,id]);
+  scalpelRun.current.peels++;visit.current.peels++;if(++peelsSent.current<=200)track('part_peeled',{method,structure_id:id,system_id:p.system,count:bucket(peeled.length+1),index:peelsSent.current});};
+ const restorePart=(id:string,method:string)=>{if(!peeled.includes(id))return;const n=peeled.length-1;setPeeled(l=>l.filter(x=>x!==id));if(!n)setPeelList(false);
+  track('part_restored',{method,structure_id:id,system_id:parts.get(id)?.system??'',count:bucket(n)});};
+ const restoreAll=(method:string)=>{if(!peeled.length)return;track('peel_all_restored',{method,count:bucket(peeled.length)});setPeeled([]);setPeelList(false);};
+ const undoPeel=(method:string)=>{const last=peeled[peeled.length-1];if(last)restorePart(last,method);};
+ const togglePeelList=(source:string)=>{if(peelList){setPeelList(false);return;}if(!peeled.length)return;track('peel_list_opened',{source,count:bucket(peeled.length)});setPeelList(true);};
+ const peeledItems=peeled.map(id=>({id,name:parts.get(id)?.name??id}));
+ // Esc closes the Peeled list, else puts the scalpel down (before any other Esc). Ctrl/Cmd+Z puts back the last part.
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{
+  const typing=e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement;
+  if(e.key==='Escape'){if(peelList){e.stopImmediatePropagation();setPeelList(false);return;}if(scalpel&&!panel&&!lighting&&!about){e.stopImmediatePropagation();closeScalpel('escape');}return;}
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!typing&&(scalpel||peelList)&&peeled.length){e.preventDefault();undoPeel('undo_key');}};
+  addEventListener('keydown',key,{capture:true});return()=>removeEventListener('keydown',key,{capture:true});});
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key!=='Escape'||panel||lighting)return;if(about){closeAbout('escape');return;}if(mode==='place'){cancelDraft();}else if(mode==='feature'){closeFeature('escape');}else if(mode==='contribute'){closeContribute('escape');}else if(focused)backToBody('escape');else if(mode==='peek')closeCard('escape');};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);});
  const KIND:Record<string,string>={skeletal:'Bone',muscular:'Muscle',arterial:'Artery',venous:'Vein'};
  const side=chosen?/\bleft\b/i.test(chosen.name)?'Left':/\bright\b/i.test(chosen.name)?'Right':null:null;
@@ -328,10 +360,10 @@ export default function Home(){
  // is in, the systems are the default ones.
  const layers=(()=>{const v=state.visible,all=systemIds.length?systemIds:DEFAULT_VISIBLE,preset=presetOf(v,all);if(preset)return preset;if(!v.length)return 'none';if(v.length===1)return `only_${v[0]}`;
   const rest=all.filter(id=>id!=='muscular');return rest.length===v.length&&rest.every(id=>v.includes(id))?'no_muscles':'custom';})();
- setContext({layers});
+ setContext({layers,peeled:bucket(peeled.length)});
  const applyPreset=(p:Preset)=>{setSeeThrough(false);track('preset_applied',{preset:p});setDetails(false);setState(s=>({...s,selected:[],isolate:false,visible:presetSystems(p,systemIds)}));};
  const showOnly=(id:SystemId)=>{track('preset_applied',{preset:'only',system_id:id});setDetails(false);setState(v=>({...v,visible:[id],isolate:false,selected:[]}));};
- const explodeTo=(value:number)=>{if(!exploded.current){exploded.current=true;track('explode_used');}setState(s=>{if(s.explode<=.8&&value>.8)preExplodeView.current=s.view;const view=s.explode>.8&&value<=.8?preExplodeView.current??s.view:value>.8?'front':s.view;return {...s,explode:value,view,rotate:false};});};
+ const explodeTo=(value:number)=>{if(scalpel&&value>0)closeScalpel('explode');if(!exploded.current){exploded.current=true;track('explode_used');}setState(s=>{if(s.explode<=.8&&value>.8)preExplodeView.current=s.view;const view=s.explode>.8&&value<=.8?preExplodeView.current??s.view:value>.8?'front':s.view;return {...s,explode:value,view,rotate:false};});};
  const setView=(v:View)=>{track('camera_view',{view:v});setState(s=>({...s,view:v,reset:s.reset+1,rotate:false}));};
  // The theme button: the whole page eases to the other theme in one cross-fade (a View Transition where the browser has one).
  const toggleTheme=()=>{const next=dark?'light':'dark';track('appearance_changed',{mode:next});const apply=()=>flushSync(()=>setAppearance(next));const doc=document as Document&{startViewTransition?:(cb:()=>void)=>unknown};if(doc.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches)doc.startViewTransition(apply);else apply();};
@@ -362,8 +394,9 @@ export default function Home(){
  // Body chrome waits for the camera to land after Back; focus chrome arrives as the Learn more move lands.
  const bodyDelay=returning?.75:0,focusDelay=phone?.7:.8;
  const sceneState={...state,seeThrough:seeThrough&&state.selected.length>0&&state.explode<.05,inspectorOpen:inspecting,neighbours:focusOptions.neighbours,behind:focusOptions.behind,labels:(!focusOptions.labels?'off':mode==='focus'&&tab==='about'?'soft':'full') as 'off'|'soft'|'full',hoverPin,frame:`${mode}:${tab}:${focused?1:0}:${phone?sheetRest:0}:${cardMini?1:0}`};
- const hintId=state.explode>.8?'pan':inspecting?'switch':'learn';
- const systemsBody=<SystemsBody systems={activeSystems} allSet={systemIds} counts={counts} visible={state.visible} shown={visibleCount} explode={state.explode} onPreset={applyPreset} onToggle={toggle} onOnly={showOnly} onExplode={explodeTo}/>;
+ const hintId=scalpel?'scalpel':state.explode>.8?'pan':inspecting?'switch':'learn';
+ const peeledShown=state.isolate?0:peeled.filter(id=>{const p=parts.get(id);return !!p&&state.visible.includes(p.system)&&!state.selected.includes(id);}).length;
+ const systemsBody=<SystemsBody systems={activeSystems} allSet={systemIds} counts={counts} visible={state.visible} shown={visibleCount-peeledShown} peeled={peeled.length} explode={state.explode} onPreset={applyPreset} onToggle={toggle} onOnly={showOnly} onExplode={explodeTo}/>;
  const aboutPages={
   about:<div className="about-copy">
    <p className="t-body">A free 3D atlas of the adult male body: 2,234 parts to explore, isolate and pin.</p>
@@ -388,8 +421,24 @@ export default function Home(){
  const newBuild=useNewVersion(import.meta.env.DEV&&new URLSearchParams(location.search).has('update_preview')),[updateLater,setUpdateLater]=useState<string|null>(null);
  const updateOffer=newBuild&&newBuild!==updateLater&&!phone&&mode!=='place'&&!ask&&!act&&!review&&!feedbackPrompt?newBuild:null;
  useEffect(()=>{if(updateOffer)track('update_offered',{seconds:secondsBucket(performance.now()/1000)});},[updateOffer]);
- return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'}`}>
-  {atlas&&<AnatomyScene startPose={place?.pose} poseRef={poseRef} pins={scenePins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;if(id.startsWith('draft:')){const k=keptHere.find(x=>`draft:${x.request}`===id);if(k)resume(k);return;}selectPin(id,'model');setDetails(true);}}
+ // The New card (app/peel.ts introDue): once per device, new or returning, when the body has settled and nothing is
+ // open or being done (no input for 3 s, 8 s of visible time). Local dev: ?peel_intro shows it at once.
+ const introReady=useRef(false);introReady.current=settled&&!scalpel&&!feedbackPrompt&&!updateOffer&&!ask&&!act&&!review&&!error&&calm.current;
+ useEffect(()=>{if(!atlas)return;
+  if(import.meta.env.DEV&&new URLSearchParams(location.search).has('peel_intro')){const t=setInterval(()=>{if(introReady.current){clearInterval(t);setIntro(true);}},500);return()=>clearInterval(t);}
+  if(!introDue(peelMem))return;
+  const t=setInterval(()=>{if(!introReady.current||!usable.current||visibleMs()<8000||performance.now()-lastInput.current<3000)return;clearInterval(t);
+   // Read again now: another tab may have shown it (or the scalpel been used) since this page loaded.
+   if(!introDue(peelMemory())||!markIntro('shown'))return;introAt.current=performance.now();setIntro(true);
+   track('peel_intro_shown',{visitor:visitorKind(peelMem),seconds:secondsBucket(visibleMs()/1000)});},2000);
+  return()=>clearInterval(t);},[atlas]);
+ // `visitor`: first or returning; `seconds`: on shown, the visible time before it came; on a choice, how long it was read.
+ const introAt=useRef(0),introSeconds=()=>secondsBucket((performance.now()-introAt.current)/1000);
+ const tryIntro=()=>{markIntro('tried');track('peel_intro_accepted',{visitor:visitorKind(peelMem),seconds:introSeconds()});openScalpel('intro');};
+ const laterIntro=(method:string)=>{setIntro(false);markIntro('later');track('peel_intro_dismissed',{method,visitor:visitorKind(peelMem),seconds:introSeconds()});};
+ const scalpelTools=<ScalpelTools on={scalpel} count={peeled.length} fresh={scalpelFresh} listOpen={peelList} onToggle={()=>scalpel?closeScalpel('button'):openScalpel('button')} onCount={()=>togglePeelList('dock')} onUndo={()=>undoPeel('undo')}/>;
+ return <LazyMotion features={domMax} strict><MotionConfig reducedMotion="user"><main className={`studio ${phone?'is-phone':'is-desk'} ${scalpel?'is-scalpel':''} ${peeled.length&&!focused?'has-peels':''}`}>
+  {atlas&&<AnatomyScene startPose={place?.pose} poseRef={poseRef} peeled={peeled} scalpel={scalpel} onPeel={peelPart} onScalpelTap={t=>{if(t.kind==='single')scalpelRun.current.singles++;}} pins={scenePins} selectedPin={mode==='place'?null:selectedPin} onPinSelect={id=>{if(draft)return;if(id.startsWith('draft:')){const k=keptHere.find(x=>`draft:${x.request}`===id);if(k)resume(k);return;}selectPin(id,'model');setDetails(true);}}
    placing={mode==='place'&&draft?{anchor:draft.anchor,invalid:invalidTris}:null}
    onPlace={r=>{if('refused' in r){setRefused(r.refused);track('pin_refused',{reason:r.refused,practice:0});return;}setRefused(null);if(!r.moved)track('pin_placed',{kind:draft?.anchor?'moved':'placed',practice:0});setDraft(d=>d&&{...d,anchor:r.anchor});}} atlas={atlas} light={light} dark={dark} state={sceneState} onSelect={tapPart} onProgress={n=>{setProgress(n);load.current.progress=n;try{sessionStorage.setItem(LOADING,progressBucket(n));}catch{}if(n===100){setError('');if(!ready.current){ready.current=true;usable.current=true;try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_ready',{duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}}} priority={linked} onLoadingTap={t=>{if(loadingTaps.current++<30)track('loading_tap',{result:t.result,progress:progressBucket(load.current.progress),...(t.waitMs===undefined?{}:{seconds:secondsBucket(t.waitMs/1000)}),...(t.reason?{reason:t.reason}:{})});}} onMilestone={m=>{if(m==='priority')setLinkedReady(true);else if(m==='view')setViewReady(true);else{usable.current=true;setOuterIn(true);try{sessionStorage.removeItem(LOADING);}catch{}track('atlas_outer_ready',{arrival:arrival(),duration_ms:Math.round(performance.now()),load_ms:loadMs(),...modelTransfer(storedChunks()),...deviceHints()});}}} onPerf={p=>track('render_perf',{fps:fpsBucket(1000/p.frameMs),frame_ms:Math.round(p.frameMs*10)/10,render_ms:Math.round(p.renderMs*10)/10,...deviceHints()})} onError={failed}/>}
   <AnimatePresence>{lighting&&<LightPad key="light" light={light} onMove={setLight} onReset={()=>{track('lighting_reset');setLight(DEFAULT_LIGHT);}} onDone={closeLighting}/>}</AnimatePresence>
@@ -414,19 +463,24 @@ export default function Home(){
     <span className="grab" aria-hidden="true"/><button type="button" className="sheet-close" onClick={()=>closeSystems('button')} aria-label="Close systems"><X size={18}/></button>{systemsBody}
    </m.section>
   </>}</AnimatePresence>
+  <AnimatePresence>{phone&&peelList&&<PeelSheet key="peel-sheet" items={peeledItems} onRestore={id=>restorePart(id,'list')} onAll={()=>restoreAll('list')} onClose={()=>setPeelList(false)}/>}</AnimatePresence>
+  <AnimatePresence>{intro&&<m.div key="peel-intro" exit={{opacity:0,transition:tween('in',.16)}}><PeelIntro phone={phone} onTry={tryIntro} onDone={()=>setIntro(false)} onLater={laterIntro}/></m.div>}</AnimatePresence>
   <AnimatePresence>{panel==='search'&&<SearchPanel key="search" phone={phone} query={query} setQuery={setQuery} panel={search.panel} words={searchWords} asked={search.asked} onPick={chooseRow} onLiteral={search.searchLiteral} onAsk={search.ask} onClose={()=>setPanel(null)}/>}</AnimatePresence>
   {phone
    ?<>
     <Arrive ready={chromeReady&&!error&&!inspecting&&!about} delay={bodyDelay} edge={sideways?'left':'right'} order={1} className="view-dock is-phone" data-inset={inspecting?undefined:sideways?'left':'right'}><ViewPill vertical view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting}/></Arrive>
-    {<Arrive ready={chromeReady&&!error&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
-     {!lighting&&<Hint id={hintId} className="hint-phone">{state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
-     <div className="bottom-row">{panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>}<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/></div>
+    {<Arrive ready={chromeReady&&!error&&!panel&&!inspecting&&!about&&!lighting&&!(phone&&feedbackPrompt)&&!peelList} delay={inspecting||returning?bodyDelay||.1:0} edge="bottom" order={3} className="bottom-bar" data-inset={!inspecting&&!panel?'bottom':undefined}>
+     {/* With the scalpel up the line fades out (the bar says what to do), rather than vanishing. */}
+     {!lighting&&<Hint id={hintId} className="hint-phone">{scalpel?'':state.explode>.8?'Drag to pan · Pinch to zoom':`${tap} any part to learn about it`}</Hint>}
+     <PhoneScalpelRow on={scalpel} count={peeled.length} fresh={scalpelFresh} onToggle={()=>scalpel?closeScalpel('button'):openScalpel('button')} onDone={()=>closeScalpel('done')} onCount={()=>togglePeelList('bar')} onUndo={()=>undoPeel('undo')}
+      search={panel!=='search'?<SearchPill phone onOpen={()=>openPanel('search')}/>:<span className="search-pill-gap"/>} systems={<GlassButton className="systems-button" icon={<Layers3 size={18}/>} label="Systems" onClick={()=>openPanel('layers')} aria-expanded={panel==='layers'}/>}/>
     </Arrive>}
    </>
    :<>
     <AnimatePresence initial={false}>{focused?<Arrive key="focus-dock" ready delay={focusDelay} edge="bottom" order={1} className="view-dock is-focus" data-inset="bottom"><FocusPill view={state.view} options={focusOptions} onView={setView} onToggle={toggleFocus}/></Arrive>
-    :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting} onReset={reset}/></Arrive>}</AnimatePresence>
-    {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
+    :<Arrive key="body-dock" ready={chromeReady&&!error} delay={bodyDelay} edge="bottom" order={3} className="view-dock" data-inset="bottom"><ViewPill view={state.view} explode={state.explode} rotate={state.rotate} lighting={lighting} onView={setView} onRotate={()=>{track('display_toggled',{setting:'rotate',on:state.rotate?0:1});setState(s=>({...s,rotate:!s.rotate}));}} onLight={toggleLighting} onReset={reset}>{scalpelTools}</ViewPill></Arrive>}</AnimatePresence>
+    <AnimatePresence>{peelList&&!focused&&<PeelList key="peel-list" items={peeledItems} onRestore={id=>restorePart(id,'list')} onAll={()=>restoreAll('list')} onClose={()=>setPeelList(false)}/>}</AnimatePresence>
+    {<Arrive ready={chromeReady&&!error&&!focused&&!lighting} delay={bodyDelay} edge="bottom" order={4} className="hint-dock"><Hint id={hintId}>{scalpel?<>Drag to turn · <b>Double-click a part to peel it</b> · Esc puts the scalpel down</>:state.explode>.8?<>Drag to pan · Scroll to zoom</>:<>Drag to turn · Scroll to zoom · <b>{inspecting?`${tap} another part to switch`:`${tap} any part to learn about it`}</b></>}</Hint></Arrive>}
    </>}
   {/* Loading (about 30 s on a typical phone connection): one card in the middle, naming what is arriving as the model
      streams in from the outside, with the percentage. It stays until the organs and vessels are in, while the controls
