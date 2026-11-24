@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     env:
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
@@ -54,8 +54,19 @@ jobs:
             sleep 2
           done
           echo "Artifact still not found by name after 120 s; trying the deploy anyway"
+      # Even after that, GitHub's answer can still differ from one request to the next: on 24 Nov 2026 the check above found
+      # the artifact and deploy-pages, 0.4 s later, did not. So a failed first try waits 30 s and tries once more, in the
+      # same run (re-running a failed job instead finds two artifacts and fails again).
       - name: Deploy
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait before trying the deploy again
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - name: Deploy (second try)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
       # Tells Bing (which ChatGPT search and Copilot draw on) and the other IndexNow engines that these pages changed,
       # so they are crawled again within hours instead of weeks. The key is public by design: IndexNow checks that
