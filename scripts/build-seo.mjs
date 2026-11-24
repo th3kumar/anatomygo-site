@@ -87,8 +87,9 @@ function llms({list,stats}){
 1. **Search a structure by name.** Picked from search, it shows through the rest of the body as glass, so deep structures such as the trachea or the heart are visible in place.
 2. **Learn more** shows it on its own, with its pinned landmarks on the model and its neighbouring structures as faint glass for orientation.
 3. **About and Parts.** About gives a short description; Parts lists every pinned landmark with its description. Open one to see it on the model, then step to the next with the arrows or a swipe.
-4. **On any device.** It works on phones, tablets and laptops, with swipeable tabs on phones.
-5. **Share and contribute.** Copy a link that opens the same structure or landmark. Signed in with Google, pin a missing landmark in your name, vote on others or comment; pins are reviewed before they are published.
+4. **Dissect with the scalpel.** Pick up the scalpel and double-click a part (double-tap on a phone) to peel it away and see what lies beneath, layer by layer: muscles, then bones, organs and vessels. Peeled parts can be put back one at a time or all at once.
+5. **On any device.** It works on phones, tablets and laptops, with swipeable tabs on phones.
+6. **Share and contribute.** Copy a link that opens the same structure or landmark. Signed in with Google, pin a missing landmark in your name, vote on others or comment; pins are reviewed before they are published.
 
 ## How to link to a structure
 
@@ -107,7 +108,7 @@ ${others.map(g=>`- ${entry(g)} (${g.features.size} ${g.features.size===1?'featur
 ## More
 
 - [Every pinned feature with its description](${SITE}/llms-full.txt)
-- [What's new](${SITE}/whats-new/): every muscle's origin and insertion, and dated updates
+- [What's new](${SITE}/whats-new/): the scalpel for dissecting the body, every muscle's origin and insertion, and dated updates
 - To contribute: open a structure, then Parts › Contribute to pin a feature, or open a pin to vote on it or suggest a better spot
 - [Android app](https://play.google.com/store/apps/details?id=com.anatomygo)
 
