@@ -3,6 +3,7 @@ name: Deploy AnatomyGo website
 on: workflow_dispatch
 permissions:
   contents: read
+  actions: read  # the wait below lists this run's uploads
   pages: write
   id-token: write
 concurrency:
@@ -40,6 +41,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # GitHub can take a few seconds to list an artifact just uploaded, and deploy-pages gives up at once when it can't
+      # see it ("Found 0 artifact(s)": three runs in a row on 24 Nov 2026). Wait until it is listed, up to a minute.
+      - name: Wait for the Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" -q '[.artifacts[] | select(.name == "github-pages")] | length')
+            if [ "${n:-0}" -ge 1 ]; then echo "Artifact listed after $(( (i - 1) * 2 )) s"; exit 0; fi
+            sleep 2
+          done
+          echo "Artifact still not listed after 60 s; trying the deploy anyway"
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
