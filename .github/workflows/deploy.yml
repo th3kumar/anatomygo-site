@@ -41,18 +41,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-      # GitHub can take a few seconds to list an artifact just uploaded, and deploy-pages gives up at once when it can't
-      # see it ("Found 0 artifact(s)": three runs in a row on 24 Nov 2026). Wait until it is listed, up to a minute.
+      # GitHub can take a while to find an artifact just uploaded when asked for it by name, which is how deploy-pages
+      # asks, and deploy-pages gives up at once ("Found 0 artifact(s)": four runs in a row on 24 Nov 2026, while the
+      # unfiltered list already showed it). Ask the same question until it answers, up to two minutes.
       - name: Wait for the Pages artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for i in $(seq 1 30); do
-            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" -q '[.artifacts[] | select(.name == "github-pages")] | length')
-            if [ "${n:-0}" -ge 1 ]; then echo "Artifact listed after $(( (i - 1) * 2 )) s"; exit 0; fi
+          for i in $(seq 1 60); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=github-pages" -q '.total_count')
+            if [ "${n:-0}" -ge 1 ]; then echo "Artifact found by name after $(( (i - 1) * 2 )) s"; exit 0; fi
             sleep 2
           done
-          echo "Artifact still not listed after 60 s; trying the deploy anyway"
+          echo "Artifact still not found by name after 120 s; trying the deploy anyway"
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
